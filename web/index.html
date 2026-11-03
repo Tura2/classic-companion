@@ -1,0 +1,1302 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Companion</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23C8620A'/%3E%3Ctext x='16' y='23' font-family='Segoe UI' font-weight='700' font-size='19' text-anchor='middle' fill='white'%3ELV%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Nunito:wght@600;700;800;900&family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* Companion looks like a window from the game: Maple's sky, its window frames with a title strip,
+   CHARACTER STAT's colored label cells, the inventory's tabs and slots, and the HUD's orange level.
+   Colors keep the game's meanings: pink is you, blue is stats, orange is level and progress, green is
+   a deal, red is overpriced; each always comes with words. */
+:root{
+  --sky:#C9DEF4; --win:#FBFAF6; --strip:#FFFFFF; --cell:#ECE8DE; --rim:#7E97B7; --rim-soft:#C6D3E3;
+  --ink:#1D2433; --muted:#525C6F; --pink:#C2306A; --blue:#3364AD; --olive:#B5C742; --olive-ink:#283006;
+  --tile:#C8620A; --amber:#F2A541; --gold-ink:#4A2600; --slot:#FFFFFF; --slot2:#E8EEF5; --inv:#DCE5EF;
+  --good:#1D7543; --goodbg:#DCF1E3; --bad:#B03826; --badbg:#FBE2DD; --warn:#865500; --warnbg:#FFEFD0;
+  --hud:#252E3F; --hud2:#1A2130; --hud-ink:#EEF3FA; --hud-muted:#AEB9CB; --hud-rim:#46536C;
+  --tab:#C3CFDD; --tab2:#AEBCCE; --tab-ink:#384458; --tab-on:#C2306A;
+  /* one color per price source, so a number is never mistaken for the other site's */
+  --src-msc:#2B6FD0; --src-cozy:#7A3FD0;
+  --bar:#2F3747; --shadow:rgba(38,58,90,.14);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --sky:#111A27; --win:#18222F; --strip:#1F2B3B; --cell:#243245; --rim:#3B5272; --rim-soft:#2C3D55;
+    --ink:#E7EDF6; --muted:#9FADC2; --pink:#E25C90; --blue:#7FA9E8; --olive:#9DB33A; --olive-ink:#141A02;
+    --tile:#D06D10; --amber:#F2A541; --gold-ink:#3A1F00; --slot:#24344A; --slot2:#1C2A3C; --inv:#152131;
+    --good:#63D295; --goodbg:#12301F; --bad:#FF8A76; --badbg:#3A1913; --warn:#FFC14D; --warnbg:#33260C;
+    --hud:#0D131C; --hud2:#151D2A; --hud-ink:#EEF3FA; --hud-muted:#9AA7BC; --hud-rim:#33415A;
+    --tab:#22303F; --tab2:#1B2734; --tab-ink:#B4C1D3; --tab-on:#C2306A;
+    --src-msc:#7FB2F0; --src-cozy:#C79BFF;
+    --bar:#0C121B; --shadow:rgba(0,0,0,.35);
+    color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--sky);color:var(--ink);font:600 16px/1.5 "Nunito",ui-rounded,system-ui,"Segoe UI",sans-serif;font-variant-numeric:tabular-nums}
+.wrap{max-width:1120px;margin:0 auto;padding:calc(env(safe-area-inset-top,0px) + 12px) 16px calc(env(safe-area-inset-bottom,0px) + 12px)}
+button,input,select{font:inherit}
+:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+.px{font-family:"DotGothic16","Nunito",sans-serif}
+
+/* the HUD: your character, like the game's status bar. One row on a wide screen, two when the
+   dashboard sits in a narrow window beside the game */
+.hud{display:grid;grid-template-columns:auto minmax(130px,1.1fr) minmax(150px,1.5fr) minmax(120px,1fr) 72px auto auto;
+  grid-template-areas:"lv who map money acc brand help";gap:4px 16px;align-items:center;
+  background:var(--hud);color:var(--hud-ink);border:1px solid #11161F;border-radius:10px;padding:8px 10px 8px 12px;box-shadow:0 2px 0 var(--shadow)}
+.hud .lv{grid-area:lv} .hud .who{grid-area:who} .hud .where{grid-area:map} .hud .money{grid-area:money} .hud .accb{grid-area:acc}
+.hud label,.hud .lbl{display:block;font-size:.74rem;font-weight:800;color:var(--hud-muted);margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hud input,.hud select{width:100%;min-width:0;color:var(--hud-ink);background:rgba(0,0,0,.28);border:1px solid var(--hud-rim);border-radius:6px;padding:4px 8px;font-weight:800}
+.hud select option{color:#1D2433}
+.lv{display:flex;align-items:center;gap:8px}
+.lv b{font:400 1.5rem/1 "DotGothic16",sans-serif;letter-spacing:.02em}
+.lv input{width:3.1em;text-align:center;font:400 1.5rem/1 "DotGothic16",sans-serif;color:#fff;background:var(--tile);border:1px solid #F7B062;border-radius:5px;padding:3px 4px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.18)}
+.where .map{font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.9}
+.coin{display:flex;align-items:center;gap:6px}
+.coin::before{content:"";width:13px;height:13px;flex:none;border-radius:50%;background:#E9A923;box-shadow:inset -2px -2px 0 #B37812,0 0 0 1px #8A5A0A}
+.brand{grid-area:brand;font:400 1.05rem "DotGothic16",sans-serif;color:var(--hud-muted);white-space:nowrap}
+.help{grid-area:help;width:38px;height:38px;border-radius:50%;border:1px solid var(--hud-rim);background:transparent;color:var(--hud-ink);
+  font:400 1.2rem/1 "DotGothic16",sans-serif;cursor:pointer}
+.help:hover{background:rgba(255,255,255,.1)}
+@media (max-width:1060px){.brand{display:none}.hud{grid-template-columns:auto minmax(120px,1.1fr) minmax(140px,1.5fr) minmax(110px,1fr) 64px auto;grid-template-areas:"lv who map money acc help"}}
+@media (max-width:760px){.hud{grid-template-columns:auto minmax(0,1fr) minmax(0,.8fr) auto;grid-template-areas:"lv who money help" "lv map acc help";gap:4px 10px}}
+
+/* tabs, like the inventory's Equip / Use / Etc tabs on their red rule; all of them fit beside the game */
+.tabs{position:sticky;top:0;z-index:5;display:flex;gap:3px;padding:10px 4px 0;margin:0 -4px 12px;overflow-x:auto;scrollbar-width:none;background:var(--sky);border-bottom:3px solid var(--tab-on)}
+.tabs button{flex:0 1 auto;white-space:nowrap;font-weight:800;font-size:.93rem;color:var(--tab-ink);background:var(--tab);border:1px solid var(--rim);border-bottom:0;border-radius:7px 7px 0 0;padding:7px 15px 5px;cursor:pointer;min-height:36px}
+.tabs button:hover{color:var(--ink);background:var(--tab2)}
+.tabs button[aria-selected="true"]{color:#fff;background:var(--tab-on);border-color:var(--tab-on)}
+@media (max-width:640px){.tabs{gap:2px}.tabs button{flex:1 1 auto;padding:6px 5px 4px;font-size:.84rem}}
+
+/* windows */
+.card{background:var(--win);border:1px solid var(--rim);border-radius:8px;padding:12px 14px;box-shadow:inset 0 0 0 1px var(--strip),0 2px 0 var(--shadow)}
+.card h3{margin:0;font-size:1.04rem;font-weight:900;line-height:1.3}
+.win{padding:0;overflow:hidden}
+.win > .title{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 12px;background:var(--strip);border-bottom:1px solid var(--rim-soft);font:400 .98rem "DotGothic16",sans-serif}
+.win > .title small{font:800 .8rem "Nunito",sans-serif;color:var(--muted)}
+.win > .body{padding:12px 14px}
+.win > .body > p,.risk{max-width:78ch}
+h2{font:400 1.12rem "DotGothic16",sans-serif;margin:22px 2px 8px}
+.list{display:grid;gap:10px}
+.row{display:flex;align-items:center;gap:10px}
+.row .grow{flex:1;min-width:0}
+.note{color:var(--muted);font-size:.93rem;margin:0 2px 14px;max-width:72ch}
+.sub{color:var(--muted);font-size:.87rem;font-weight:700}
+.empty{background:var(--win);border:1px dashed var(--rim);border-radius:8px;padding:16px 18px;color:var(--muted);font-weight:800}
+.soon{opacity:.82;border-style:dashed}
+
+/* CHARACTER STAT's label cells */
+.stat{display:grid;grid-template-columns:minmax(64px,auto) 1fr;gap:4px 5px;margin:0}
+.stat dt{display:flex;align-items:center;font:400 .84rem "DotGothic16",sans-serif;color:#fff;background:var(--pink);border-radius:4px;padding:3px 9px}
+.stat dt.b{background:var(--blue)} .stat dt.o{background:var(--olive);color:var(--olive-ink)}
+.stat dd{margin:0;background:var(--cell);border-radius:4px;padding:3px 10px;font-weight:800;min-width:0;overflow-wrap:anywhere}
+.stat .gap{grid-column:1/-1;height:6px}
+@media (prefers-color-scheme: dark){.stat dt{color:#22040F}.stat dt.b{color:#0E1A2C}.stat dt.o{color:var(--olive-ink)}}
+
+.chips{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:5px}
+.chips li{background:var(--cell);border-radius:5px;padding:2px 8px;font-size:.84rem;font-weight:800;color:var(--muted)}
+.chips .good{background:var(--goodbg);color:var(--good)} .chips .bad{background:var(--badbg);color:var(--bad)} .chips .warn{background:var(--warnbg);color:var(--warn)}
+img.icon{width:36px;height:36px;object-fit:contain;image-rendering:pixelated;flex:none}
+.mobs{display:grid;gap:4px;margin-top:8px}
+.mob{display:flex;align-items:center;gap:8px;background:var(--cell);border-radius:6px;padding:2px 8px;min-height:36px;font-size:.94rem}
+.mob img{width:28px;height:28px;object-fit:contain;image-rendering:pixelated}
+
+/* buttons: the game's orange action button, plain ones for the rest */
+.btns{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.btn{font-weight:800;font-size:.93rem;color:var(--blue);background:var(--strip);border:1px solid var(--rim);border-radius:6px;padding:8px 14px;min-height:40px;cursor:pointer;box-shadow:0 1px 0 var(--rim-soft)}
+.btn:hover{border-color:var(--blue)}
+.btn:active{transform:translateY(1px);box-shadow:none}
+.btn.primary{color:var(--gold-ink);background:var(--amber);border-color:#C77A1C;box-shadow:inset 0 -2px 0 rgba(0,0,0,.12)}
+.btn.primary:hover{background:#F7B65E}
+.btn.on{color:var(--good);background:var(--goodbg);border-color:var(--good)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.small{min-height:32px;padding:3px 10px}
+
+.verdict{font-weight:900;padding:2px 8px;border-radius:5px;font-size:.84rem;white-space:nowrap}
+.v-snipe,.v-npc{background:var(--goodbg);color:var(--good)} .v-fair,.v-info{background:var(--cell);color:var(--muted)}
+.v-pricey,.v-check,.v-split{background:var(--warnbg);color:var(--warn)} .v-over{background:var(--badbg);color:var(--bad)} .v-sold{background:var(--cell);color:var(--muted)}
+/* a price source's own color: the label is the source, the number stays bright */
+.src{display:inline-flex;align-items:baseline;gap:4px;font-weight:900}
+.src i{font-style:normal;font-weight:800;font-size:.86em;opacity:.95}
+.src-msc,.foot a.src-msc{color:var(--src-msc)} .src-cozy,.foot a.src-cozy{color:var(--src-cozy)}
+.tag{display:grid;grid-template-columns:1fr 1fr;margin-top:8px;border:1px solid var(--rim);border-radius:6px;overflow:hidden}
+.tag div{padding:6px 10px} .tag span{display:block;font-size:.76rem;font-weight:800}
+.tag b{font-size:1.25rem;font-weight:900}
+.tag .srcpair{display:flex;flex-wrap:wrap;gap:2px 12px;font-size:1.05rem}
+.tag .srcpair .src{display:inline-flex;font-size:inherit}
+.tag .buy{background:var(--goodbg);color:var(--good)} .tag .sell{background:var(--warnbg);color:var(--warn);border-left:1px solid var(--rim)}
+
+/* progress, like the HUD's EXP bar */
+.prog{margin-top:7px} .prog .lbl{display:flex;justify-content:space-between;gap:8px;font-size:.88rem;font-weight:800}
+.bar{height:9px;border-radius:3px;background:var(--bar);border:1px solid #0F141C;overflow:hidden;margin-top:3px}
+.bar i{display:block;height:100%;background:var(--amber)} .bar i.full{background:#2E9F59}
+
+/* Now: the status line and the open shop's rows */
+.status{display:flex;align-items:center;gap:8px;margin:0 2px 12px;font-weight:800;color:var(--muted);font-size:.92rem}
+.status span:last-child{flex:1;min-width:0}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--good);flex:none;box-shadow:0 0 0 3px var(--goodbg)}
+.dot.off{background:var(--bad);box-shadow:0 0 0 3px var(--badbg)}
+@media (prefers-reduced-motion:no-preference){.dot.on{animation:blink 1.8s ease-in-out infinite}@keyframes blink{50%{opacity:.4}}}
+.live{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(0,1fr);gap:14px;align-items:start}
+.live > div{display:grid;gap:14px;min-width:0}
+@media (max-width:820px){.live{grid-template-columns:1fr}}
+.shot{display:block;width:100%;aspect-ratio:16/10;object-fit:contain;background:#000;border-bottom:1px solid var(--rim-soft)}
+.seen{padding:8px 12px 10px}
+.shop{display:grid;gap:4px}
+.srow{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:10px;align-items:center;background:var(--cell);border-radius:6px;padding:5px 10px 5px 5px}
+.srow.sold{opacity:.55}
+.slot{--s:44px;width:var(--s);height:var(--s);flex:none;border-radius:5px;background:var(--slot);border:1px solid var(--rim-soft);display:grid;place-items:center}
+.slot img{width:78%;height:78%;object-fit:contain;image-rendering:pixelated}
+.srow .price{text-align:right;font-weight:900}
+.srow .price .sub{display:block}
+.srow .price .srcline{display:flex;gap:10px;justify-content:flex-end;margin-top:3px;font-weight:800}
+
+/* list and details side by side, like the game's Quest and Skill windows: each side scrolls on
+   its own (fitted to the screen by fitPanes), so a tab never needs the page to scroll */
+.md{display:grid;grid-template-columns:minmax(260px,350px) minmax(0,1fr);gap:14px;align-items:start}
+.md .master{display:grid;gap:3px;align-content:start;overflow:auto;background:var(--win);border:1px solid var(--rim);border-radius:8px;padding:6px;box-shadow:inset 0 0 0 1px var(--strip),0 2px 0 var(--shadow)}
+.md .detail{overflow:auto;border-radius:8px;min-width:0}
+.md .master > *{min-width:0}
+.md .master{overflow-x:hidden}
+.mob .grow{flex:1;min-width:0}
+/* stacked beside the game: the list keeps to its own scroll, so the chosen one shows under it */
+@media (max-width:820px){.md{grid-template-columns:1fr}.md .master{max-height:38vh}}
+.vtab{display:flex;align-items:center;gap:10px;width:100%;text-align:left;color:var(--ink);background:transparent;border:1px solid transparent;border-radius:6px;padding:5px 8px;cursor:pointer;font-weight:700;min-height:44px}
+.vtab:hover{background:var(--cell)}
+.vtab[aria-selected="true"]{background:var(--cell);border-color:var(--tab-on);box-shadow:inset 4px 0 0 var(--tab-on)}
+.vtab .grow{flex:1;min-width:0}
+.vtab b{display:block;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vtab small{display:block;font-size:.8rem;color:var(--muted);font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vtab .rank{font:400 1.05rem "DotGothic16",sans-serif;color:var(--muted);min-width:1.4em;text-align:center}
+.vtab .score{text-align:right;font-weight:900;color:var(--good);line-height:1.15;white-space:nowrap}
+.vtab .score small{color:var(--muted);font-size:.72rem}
+.vtab .lv{text-align:right;font-weight:900;white-space:nowrap}
+.vtab .lv small{display:inline;color:var(--muted)}
+.vgroup{font:400 .95rem "DotGothic16",sans-serif;color:var(--muted);padding:8px 8px 2px}
+.mapshot{display:block;width:100%;height:180px;object-fit:cover;background:#000;border-bottom:1px solid var(--rim-soft)}
+.mobtable{width:100%;border-collapse:separate;border-spacing:0 3px;margin-top:8px;font-size:.93rem}
+.mobtable th{font-size:.78rem;color:var(--muted);text-align:left;font-weight:800;padding:0 8px}
+.mobtable td{background:var(--cell);padding:3px 8px;font-weight:700}
+.mobtable td:first-child{border-radius:6px 0 0 6px;width:40px} .mobtable td:last-child{border-radius:0 6px 6px 0}
+.mobtable img{width:30px;height:30px;object-fit:contain;image-rendering:pixelated;display:block}
+.mobtable small{display:block;color:var(--muted);font-weight:700;font-size:.78rem}
+.equip{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
+.etile{display:grid;grid-template-columns:auto minmax(0,1fr);gap:0 10px;align-items:center;text-align:left;color:var(--ink);background:var(--strip);border:1px solid var(--rim-soft);border-radius:7px;padding:6px;cursor:pointer;min-height:58px}
+.etile:hover{border-color:var(--blue)}
+.etile[aria-selected="true"]{border-color:var(--tab-on);box-shadow:inset 0 0 0 1px var(--tab-on)}
+.etile .slot{grid-row:span 3}
+.etile .k{font:400 .9rem "DotGothic16",sans-serif;color:var(--muted)}
+.etile b{font-size:.88rem;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.etile small{font-size:.8rem;font-weight:900;color:var(--good)}
+.lvbar{height:5px;border-radius:3px;background:var(--bar);overflow:hidden;margin-top:3px}
+.lvbar i{display:block;height:100%;background:var(--amber)}
+.stepper{display:inline-flex;align-items:center;gap:6px}
+#view .stepper input{width:64px;text-align:center}
+.range{position:relative;height:10px;border-radius:5px;margin:8px 0 3px;border:1px solid var(--rim-soft);
+  background:linear-gradient(90deg,var(--goodbg) 0 25%,var(--cell) 25% 50%,var(--warnbg) 50% 75%,var(--badbg) 75%)}
+.range i{position:absolute;top:-5px;width:4px;height:18px;border-radius:2px;background:var(--ink);transform:translateX(-50%)}
+.ranges{display:flex;justify-content:space-between;font-size:.76rem;font-weight:800;color:var(--muted)}
+.okc{color:var(--good)}
+.qsteps{margin:0;padding-left:22px;display:grid;gap:3px;font-weight:700}
+.qsteps li::marker{font-family:"DotGothic16",sans-serif;color:var(--muted)}
+.btable td{vertical-align:middle} .btable tr.done td{opacity:.6}
+.btable tr.cur td{background:var(--warnbg)} .btable td:first-child{width:auto;white-space:nowrap;font:400 1rem "DotGothic16",sans-serif}
+.kv2{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:10px 0 0}
+.kv2 dt{color:var(--muted);font-weight:800;font-size:.88rem} .kv2 dd{margin:0;font-weight:700}
+
+/* two columns of windows on a wide screen, one on a narrow one */
+.cols{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,430px),1fr));gap:10px;align-items:start}
+
+/* Gear, like the equipment window: a slot per window, the best pick in full, the rest one line each */
+.gear{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:12px;align-items:start}
+.pick{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:4px 12px;align-items:start}
+.pick h3{font-size:1.02rem}
+.pr{text-align:right;line-height:1.25;white-space:nowrap}
+.pr b{display:block;font-size:1.12rem;font-weight:900;color:var(--good)}
+.pr small{display:block;font-size:.76rem;font-weight:800;color:var(--muted)}
+.pr .srcmini{display:flex;gap:8px;justify-content:flex-end}
+.alts{margin-top:10px;border-top:1px solid var(--rim-soft);padding-top:6px;display:grid;gap:2px}
+.alt summary{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:center;padding:3px 6px 3px 3px;border-radius:5px;cursor:pointer;list-style:none}
+.alt summary::-webkit-details-marker{display:none}
+.alt summary:hover,.alt[open] summary{background:var(--cell)}
+.alt .nm{min-width:0;line-height:1.25}
+.alt .nm b{display:block;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.alt .nm small{display:block;font-size:.8rem;font-weight:700;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.alt .pp{font-weight:900;color:var(--good);min-width:4.5em;text-align:right}
+.alt .more{padding:2px 6px 8px 44px}
+.alt .more .chips{margin-top:4px}
+.soonlbl{font-size:.8rem;font-weight:800;color:var(--warn);margin:8px 3px 2px}
+
+/* Shops: every item seen in player shops, like the inventory window */
+.inv{display:grid;grid-template-columns:repeat(auto-fill,minmax(62px,1fr));gap:5px;background:var(--inv);border:1px solid var(--rim);border-radius:8px;padding:8px}
+.islot{position:relative;aspect-ratio:1;border-radius:6px;background:var(--slot);border:1px solid #A7B7CB;box-shadow:inset 0 0 0 2px rgba(255,255,255,.55);cursor:pointer;padding:0;display:grid;place-items:center;color:var(--muted)}
+@media (prefers-color-scheme: dark){.islot{border-color:#3B5272;box-shadow:inset 0 0 0 2px rgba(255,255,255,.04)}}
+.islot:hover{border-color:var(--blue)}
+.islot img{width:68%;height:68%;object-fit:contain;image-rendering:pixelated}
+.islot .qty{position:absolute;left:4px;bottom:1px;font:400 .85rem "DotGothic16",sans-serif;color:#fff;text-shadow:0 0 2px #000,0 0 2px #000,0 0 2px #000}
+.islot .tagv{position:absolute;right:3px;top:3px;width:10px;height:10px;border-radius:2px;border:1px solid #fff}
+.islot[data-v=snipe],.islot[data-v=npc]{border:2px solid var(--good)} .islot[data-v=over]{border:2px solid var(--bad)} .islot[data-v=pricey]{border:2px solid var(--warn)}
+.tagv[data-v=snipe],.tagv[data-v=npc]{background:var(--good)} .tagv[data-v=over]{background:var(--bad)} .tagv[data-v=pricey],.tagv[data-v=split]{background:var(--warn)} .tagv[data-v=fair],.tagv[data-v=info]{background:var(--muted)}
+.islot[aria-pressed="true"]{outline:3px solid var(--pink);outline-offset:1px}
+/* an item with no picture (Cash Shop items): its whole name, small, instead of a cut-off word */
+.islot .noimg{font-size:.64rem;line-height:1.15;font-weight:800;padding:0 5px;text-align:center;overflow-wrap:anywhere;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.islot .noimg[hidden]{display:none}
+.filters .tagv{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:0;border:1px solid rgba(255,255,255,.85)}
+.asof{font-size:.8rem;font-weight:700;color:var(--muted)}
+.shop .asof{margin-top:8px;text-align:right}
+.filters{display:flex;gap:3px;flex-wrap:wrap;margin:0 0 -1px;padding-left:6px}
+.filters button{font-weight:800;font-size:.86rem;color:var(--tab-ink);background:var(--tab);border:1px solid var(--rim);border-bottom:0;border-radius:6px 6px 0 0;padding:4px 12px;cursor:pointer}
+.filters button[aria-pressed="true"]{color:#fff;background:var(--tab-on);border-color:var(--tab-on)}
+
+/* routes and search */
+.mapwrap{position:relative;overflow-x:auto;border:1px solid var(--rim);border-radius:6px;margin-top:10px;background:#000}
+.mapwrap .inner{position:relative;height:200px;width:max-content}
+.mapwrap img{height:200px;display:block}
+.mapwrap svg{position:absolute;inset:0;height:200px;width:100%}
+.ring{fill:none;stroke:#2EE59D;stroke-width:4px}
+@media (prefers-reduced-motion:no-preference){.ring{animation:pulse 1.2s ease-in-out infinite}@keyframes pulse{50%{stroke-width:9px;opacity:.6}}}
+.big{font:400 2.4rem/1 "DotGothic16",sans-serif;color:var(--good)}
+.results{display:grid;gap:5px;margin-top:6px}
+.results button,.steps button{font-weight:800;text-align:left;color:var(--ink);background:var(--cell);border:1px solid transparent;border-radius:6px;padding:8px 10px;cursor:pointer}
+.results button:hover,.steps button:hover{border-color:var(--blue)}
+.steps{display:grid;gap:5px;margin-top:8px}
+.steps button.cur{border-color:var(--good);background:var(--goodbg)}
+.steps button.done{opacity:.55}
+.searchbox{display:grid;gap:4px;margin-bottom:6px}
+#view input:not([type=checkbox]),#view select{width:100%;min-width:0;font-weight:800;color:var(--ink);background:var(--strip);border:1px solid var(--rim);border-radius:6px;padding:7px 9px}
+.plan{width:76px;flex:none;text-align:center}
+.toggle{display:flex;gap:10px;align-items:flex-start;font-weight:800;cursor:pointer}
+.toggle input{width:22px;height:22px;flex:none;margin-top:2px;accent-color:var(--pink)}
+.risk{background:var(--warnbg);color:var(--warn);border-radius:6px;padding:10px 12px;font-weight:700;font-size:.92rem;margin:10px 0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+details.more summary{cursor:pointer;font-weight:800;color:var(--muted)}
+/* Now: what matters mid-game, on one screen. The route and the open shop on the left, what to do
+   next and the quest counts on the right */
+.now{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);gap:12px;align-items:start}
+.now > div{display:grid;gap:12px;min-width:0}
+.now.one{grid-template-columns:minmax(0,640px)}
+@media (max-width:860px){.now{grid-template-columns:1fr}}
+.nx{display:grid;grid-template-columns:56px minmax(0,1fr) auto;gap:10px;align-items:center;min-height:42px}
+.nx + .nx{margin-top:6px}
+.nx .k{font:400 .84rem "DotGothic16",sans-serif;color:#fff;background:var(--pink);border-radius:4px;padding:4px 0;text-align:center}
+.nx .k.b{background:var(--blue)} .nx .k.o{background:var(--olive);color:var(--olive-ink)}
+@media (prefers-color-scheme: dark){.nx .k{color:#22040F}.nx .k.b{color:#0E1A2C}.nx .k.o{color:var(--olive-ink)}}
+.nx .grow{min-width:0}
+.nx .grow b,.nx .grow small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nx .grow small{font-size:.82rem;color:var(--muted);font-weight:700}
+.way{display:flex;align-items:center;gap:12px}
+.way .big{min-width:1.1em;text-align:center}
+.hops{display:flex;gap:4px;margin-top:10px}
+.hops i{flex:1;height:6px;border-radius:3px;background:var(--cell)} .hops i.done{background:var(--good)} .hops i.cur{background:var(--amber)}
+.goal{margin-top:10px;padding:6px 10px;border-radius:6px;background:var(--warnbg);color:var(--warn)}
+.goal.ok{background:var(--goodbg);color:var(--good)} .goal b{display:block} .goal small{font-weight:700}
+.thumb{display:block;width:100%;max-width:460px;border-radius:6px;background:#000;margin-top:8px}
+.status .btn{margin-left:auto}
+
+/* first-run setup and the how-to, in Hebrew */
+dialog.setup{width:min(680px,calc(100vw - 24px));max-height:calc(100dvh - 24px);padding:0;border:1px solid var(--rim);border-radius:10px;
+  background:var(--win);color:var(--ink);box-shadow:0 18px 50px rgba(10,20,40,.35);font:500 16px/1.6 "Rubik","Nunito",system-ui,sans-serif}
+dialog.setup::backdrop{background:rgba(12,20,34,.6)}
+dialog.setup[open]{display:flex;flex-direction:column}
+.setup .stitle{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 20px;background:var(--hud);color:var(--hud-ink)}
+.setup .stitle b{font:400 1.08rem "DotGothic16",sans-serif}
+.setup .sbody{padding:14px 20px 16px;overflow:auto}
+.setup h2{font:700 1.2rem/1.3 "Rubik",sans-serif;margin:0 0 6px}
+.setup h3{font:700 1rem "Rubik",sans-serif;margin:12px 0 5px}
+.setup p{margin:0 0 8px}
+.setup ul{margin:4px 0 0;padding-inline-start:20px;display:grid;gap:4px}
+.setup li::marker{color:var(--tab-on)}
+.setup .grid2{margin-top:6px}
+.setup label.sub{display:block;margin-bottom:2px}
+.setup input:not([type=checkbox]),.setup select{width:100%;min-width:0;font:inherit;font-weight:700;color:var(--ink);background:var(--strip);border:1px solid var(--rim);border-radius:6px;padding:7px 9px}
+.setup .toggle{margin-top:8px;font-weight:600}
+.setup .risk{font-weight:500}
+.setup .sfoot{display:flex;gap:8px;align-items:center;padding:10px 20px;border-top:1px solid var(--rim-soft);background:var(--strip)}
+.setup .sfoot .grow{flex:1}
+.setup .btn{font-family:inherit;font-weight:700}
+.steps3{display:flex;gap:5px} .steps3 i{width:22px;height:5px;border-radius:3px;background:var(--hud-rim)} .steps3 i.on{background:var(--amber)}
+.checks{display:grid;gap:5px;margin-top:10px}
+.check{padding:6px 10px;border-radius:6px;background:var(--cell);font-weight:600}
+.check.ok{background:var(--goodbg);color:var(--good)} .check.warn{background:var(--warnbg);color:var(--warn)}
+bdi{unicode-bidi:isolate}
+.nw{white-space:nowrap}
+.setup .stitle b{display:flex;align-items:center;gap:8px}
+.setup .stitle img{image-rendering:pixelated}
+/* the how-to: each part beside an inventory slot holding a game item */
+.hslot{--s:40px;flex:none}
+.hslot img{width:28px;height:28px;object-fit:contain}
+.hows{display:grid;gap:6px}
+.how{display:flex;gap:12px;align-items:flex-start;background:var(--strip);border:1px solid var(--rim-soft);border-radius:8px;padding:7px 12px 7px 10px;line-height:1.5}
+.how b{display:block;font-size:1rem}
+.how p{margin:0}
+.how small{display:block;color:var(--muted);font-size:.86rem;line-height:1.5}
+.tags{display:flex;flex-wrap:wrap;gap:4px 12px;margin:4px 0 2px}
+.tagline{display:inline-flex;align-items:center;gap:6px;font-weight:600}
+.tagline .verdict{direction:ltr;font-family:"Nunito",sans-serif}
+.htiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.htile{display:flex;gap:10px;align-items:center;background:var(--strip);border:1px solid var(--rim-soft);border-radius:8px;padding:4px 10px 4px 5px}
+.htile > div{min-width:0}
+.htile .tabname{display:inline-block;font:800 .82rem "Nunito",sans-serif;color:#fff;background:var(--tab-on);border-radius:5px 5px 0 0;padding:1px 9px;margin-bottom:2px}
+.htile span{display:block;font-size:.9rem;line-height:1.35}
+@media (max-width:420px){.htiles{grid-template-columns:1fr}}
+.tips{list-style:none;padding:0;margin:4px 0 0;display:grid;gap:6px;line-height:1.45}
+.tips li{display:flex;gap:12px;align-items:center}
+.tips .keys{flex:none;display:flex;gap:4px;min-width:96px;justify-content:center}
+kbd{display:inline-grid;place-items:center;min-width:28px;height:28px;padding:0 6px;font:400 .95rem "DotGothic16",sans-serif;color:var(--ink);
+  background:var(--strip);border:1px solid var(--rim);border-bottom-width:3px;border-radius:5px}
+kbd.wide{font-size:.82rem}
+
+.foot{margin-top:26px;color:var(--muted);font-size:.85rem}
+.foot a{color:var(--blue);font-weight:800}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hud" aria-label="Your character">
+    <div class="lv"><b aria-hidden="true">LV.</b><input id="level" type="number" min="1" max="200" inputmode="numeric" aria-label="Level"></div>
+    <div class="who"><label for="job" id="cname">Job</label><select id="job" aria-label="Job"></select></div>
+    <div class="where"><span class="lbl">Map</span><div class="map" id="cmap" title="">not set</div></div>
+    <div class="money"><label for="mesos">Mesos</label><div class="coin"><input id="mesos" inputmode="numeric"></div></div>
+    <div class="accb"><label for="acc">ACC</label><input id="acc" type="number" min="0" inputmode="numeric" placeholder="?"></div>
+    <div class="brand">Companion</div>
+    <button class="help" id="help" type="button" aria-label="How to use Companion" title="How to use (Hebrew)">?</button>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Sections">
+    <button role="tab" data-tab="live" aria-selected="true">Now</button>
+    <button role="tab" data-tab="nav" aria-selected="false">Go to</button>
+    <button role="tab" data-tab="train" aria-selected="false">Train</button>
+    <button role="tab" data-tab="quests" aria-selected="false">Quests</button>
+    <button role="tab" data-tab="gear" aria-selected="false">Gear</button>
+    <button role="tab" data-tab="skills" aria-selected="false">Skills</button>
+    <button role="tab" data-tab="flips" aria-selected="false">Shops</button>
+    <button role="tab" data-tab="settings" aria-selected="false">Settings</button>
+  </nav>
+  <main id="view"></main>
+
+  <div class="foot">
+    Game data: <a href="https://github.com/ohmi69/osms_datamine_dashboard" target="_blank" rel="noopener">OSMS Data Explorer</a>.
+    Prices: <a class="src-msc" href="https://maplestory-classic.com/market" target="_blank" rel="noopener">maplestory-classic.com</a> (MSC), <span id="prices"></span><span id="cozy-prices"></span>.
+    Unofficial fan tool, not affiliated with Nexon. Builds from players: <a href="https://metaroad.gg" target="_blank" rel="noopener">Metaroad</a>.
+  </div>
+</div>
+
+<dialog class="setup" id="setup" dir="rtl" lang="he" aria-labelledby="setup-title">
+  <div class="stitle"><b id="setup-title" class="px" dir="ltr"><img id="setup-leaf" alt="" width="22" height="24">Companion</b><span class="steps3" id="setup-dots" aria-hidden="true"></span></div>
+  <div class="sbody" id="setup-body"></div>
+  <div class="sfoot" id="setup-foot"></div>
+</dialog>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmt = n => Math.round(n).toLocaleString("en-US");
+const pretty = s => esc(s).replace(/'/g, "’");
+const stamp = t => { const d = new Date(t); return isNaN(d) ? "unknown" : d.toLocaleString("en-US", {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"}); };
+/* when each site's prices are from, each site in its own color */
+function pricesAsOf(){
+  const cz = state.cozy || {};
+  return `Prices from <span class="src-msc">MSC</span> ${esc(stamp(state.prices))}${cz.items ? ` and <span class="src-cozy">Cozy</span> ${esc(stamp(cz.updated))}` : ""}`;
+}
+const STAT = {incPAD:"ATT",incMAD:"M.ATT",incSTR:"STR",incDEX:"DEX",incINT:"INT",incLUK:"LUK",incACC:"ACC",incEVA:"Avoid",
+  incPDD:"W.DEF",incMDD:"M.DEF",incMHP:"HP",incMMP:"MP",incSpeed:"Speed",incJump:"Jump",incCRT:"Crit %",incCRD:"Crit dmg",tuc:"Slots"};
+let tab = "live", state = null, timer = null, planSave = null, navKey = "", pendingTo = null, profRev = null;
+
+async function api(path, body){
+  const r = await fetch(path, body === undefined ? {} : {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
+  return r.json();
+}
+
+async function loadState(){
+  state = await api("/api/state");
+  $("#prices").textContent = "updated " + stamp(state.prices);
+  const cz = state.cozy || {};
+  $("#cozy-prices").innerHTML = cz.items
+    ? `, and <a class="src-cozy" href="https://cozy.markets/items" target="_blank" rel="noopener">Cozy Market</a>, updated ${esc(stamp(cz.updated))}`
+    : cz.stale ? `. Cozy Market’s prices are over two weeks old and left out` : "";
+  $("#cmap").textContent = $("#cmap").title = state.current ? state.current.name.replace(/'/g, "’") : "not set";
+  $("#cname").textContent = state.profile.name || "Job";
+  return state;
+}
+
+function fillProfile(p){
+  // the field you're typing in keeps what you typed
+  const busy = document.activeElement && document.activeElement.id;
+  if (busy !== "job") $("#job").innerHTML = state.jobs.map(j => `<option${j === p.job ? " selected" : ""}>${esc(j)}</option>`).join("");
+  if (busy !== "level") $("#level").value = p.level;
+  if (busy !== "mesos") $("#mesos").value = fmt(p.mesos);
+  if (busy !== "acc") $("#acc").value = p.acc ?? "";
+}
+
+let profTimer = null, profDirty = {};
+function saveProfile(id){
+  profDirty[id] = true;
+  clearTimeout(profTimer);
+  profTimer = setTimeout(async () => {
+    const body = {}, d = profDirty;
+    profDirty = {};
+    if (d.job) body.job = $("#job").value;
+    if (d.level) body.level = +$("#level").value || 1;
+    if (d.mesos) body.mesos = +($("#mesos").value.replace(/[^\d]/g, "")) || 0;
+    if (d.acc) body.acc = $("#acc").value;
+    await api("/api/profile", body);
+    await loadState(); render();
+  }, 400);
+}
+["job","level","mesos","acc"].forEach(id => $("#"+id).addEventListener(id === "job" ? "change" : "input", () => saveProfile(id)));
+$("#mesos").addEventListener("blur", () => { $("#mesos").value = fmt(+$("#mesos").value.replace(/[^\d]/g, "") || 0); });
+
+document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => {
+  tab = b.dataset.tab;
+  document.querySelectorAll(".tabs button").forEach(x => x.setAttribute("aria-selected", x === b));
+  render();
+}));
+
+const VLABEL = {snipe:"Snipe", npc:"NPC flip", fair:"Fair", pricey:"Pricey", over:"Overpriced", check:"Check price",
+                split:"Sources differ", info:"Cozy only"};
+const WINDOWS = {hud:"HUD", stat:"Character Stat", inventory:"Inventory", skills:"Skills", quest:"Quest log", helper:"Quest Helper", shop:"Shop"};
+let liveKey = "", shotUrl = "", shotTs = null, moreOpen = false;
+
+async function loadShot(ts){
+  // fetched as a blob, so swapping in the next picture never flashes an empty frame
+  if (ts === shotTs) return;
+  try{
+    const r = await fetch("/api/frame.jpg");
+    if (!r.ok) return;
+    const url = URL.createObjectURL(await r.blob());
+    if (shotUrl) URL.revokeObjectURL(shotUrl);
+    shotUrl = url; shotTs = ts;
+  }catch(e){}
+}
+
+function win(title, body, aside){
+  return `<section class="card win"><div class="title"><span>${title}</span>${aside ? `<small>${aside}</small>` : ""}</div>${body}</section>`;
+}
+function slot(img, size){
+  return `<div class="slot"${size ? ` style="--s:${size}px"` : ""}>${img ? `<img src="${esc(img)}" alt="" loading="lazy" onerror="this.remove()">` : ""}</div>`;
+}
+const money = n => n < 10 ? (+n.toFixed(2)).toString() : fmt(n);
+function shopWhy(i){
+  if (i.sold) return "Sold out";
+  const both = i.median && i.cozy ? " on both sites" : "";
+  if (i.verdict === "check") return "Far under every recent sale: look closely, it may be misread";
+  if (i.verdict === "npc") return `An NPC pays ${money(i.npc)}`;
+  if (i.verdict === "split") return "The two sites disagree, so no verdict: compare their prices and decide";
+  if (i.verdict === "info") return "Only Cozy Market has a price for it, so no verdict";
+  if (i.verdict === "snipe") return `In the cheapest quarter of recent sales${both}`;
+  if (i.verdict === "fair") return `At or under the middle price${both}`;
+  if (i.verdict === "pricey") return `Above the middle price${both}`;
+  if (i.verdict === "over") return `Above 3 in 4 recent sales${both}`;
+  return "No market price yet";
+}
+/* each source's price, in that source's own color, so the two are told apart at a glance */
+function srcPrice(label, num, cls){
+  return num ? `<span class="src ${cls}"><i>${label}</i>${money(num)}</span>` : "";
+}
+function srcLine(i){
+  return i.median || i.cozy ? `<span class="sub srcline">${srcPrice("MSC", i.median, "src-msc")}${srcPrice("Cozy", i.cozy, "src-cozy")}</span>` : "";
+}
+function shopItem(i){
+  const each = i.count > 1 ? `${money(i.unit)} each` : "";
+  const tip = i.p25
+    ? ` title="On maplestory-classic.com: a snipe is ${money(i.p25)} or less, the middle price ${money(i.median)}, over ${money(i.p75)} is overpriced"`
+    : "";
+  return `<div class="srow${i.sold ? " sold" : ""}"${tip}>${slot(i.img)}
+      <div><b>${pretty(i.name)}</b><div class="sub">${shopWhy(i)}</div></div>
+      <div class="price">${fmt(i.price)}${i.count > 1 ? ` for ${fmt(i.count)}` : ""}
+        ${i.sold ? `<span class="verdict v-sold">Sold</span>` : i.verdict ? `<span class="verdict v-${i.verdict}">${VLABEL[i.verdict]}</span>` : ""}
+        ${each ? `<span class="sub">${each}</span>` : ""}
+        ${srcLine(i)}</div></div>`;
+}
+function selectedRow(r){
+  return `<div class="srow">${slot(null)}
+      <div><b>${pretty(r.name)}</b><div class="sub">${esc(r.text.split(": ").slice(1).join(": "))}</div></div>
+      <div class="price">${fmt(r.unit)}<span class="verdict v-${r.verdict}">${VLABEL[r.verdict] || ""}</span></div></div>`;
+}
+function progress(n){
+  const pct = n.need ? Math.min(100, n.have / n.need * 100) : 0;
+  return `<div class="prog"><div class="lbl"><span>${pretty(n.what)}</span><span>${n.have}${n.need ? " / " + n.need : ""}</span></div>
+    ${n.need ? `<div class="bar" role="progressbar" aria-label="${esc(n.what)}" aria-valuemin="0" aria-valuemax="${n.need}" aria-valuenow="${Math.min(n.have, n.need)}"><i class="${n.have >= n.need ? "full" : ""}" style="width:${pct}%"></i></div>` : ""}</div>`;
+}
+function helperQuest(q){
+  return `<div style="margin-top:12px"><b>${pretty(q.quest)}</b>${q.needs.map(progress).join("")
+    || `<div class="sub">${q.asks ? "Counts not read yet: the map behind the Quest Helper can hide them." : "Talk to the NPC to finish it."}</div>`}</div>`;
+}
+
+// What to do next: the best map to train on, where the next SP and AP go. Asked again when the
+// character changes, and once a minute at most otherwise
+let nextUp = null, nextKey = "";
+async function loadNextUp(){
+  const p = state.profile, key = [p.rev, p.level, p.job, p.acc].join("|");
+  if (nextUp && key === nextKey && Date.now() - nextUp.at < 60000) return nextUp;
+  const [sk, maps] = await Promise.all([api("/api/skills"), api("/api/train")]);
+  const nx = sk.next || {};
+  nextKey = key;
+  nextUp = {at: Date.now(), map: maps[0] || null, sp: (nx.sp || [])[0] || null, spLeft: sk.sp, ap: nx.ap || {}};
+  return nextUp;
+}
+function nextUpCard(n){
+  if (!n) return "";
+  const lvl = state.profile.level, rows = [];
+  if (n.map) rows.push(`<div class="nx"><span class="k o">Train</span>
+      <span class="grow"><b>${pretty(n.map.name)}</b><small>${pretty(n.map.mobs.slice(0, 3).map(m => m.name).join(", "))}</small></span>
+      <button class="btn small" data-go="${n.map.id}" data-name="${esc(n.map.name)}">Go</button></div>`);
+  if (n.sp) rows.push(`<div class="nx"><span class="k b">SP</span>
+      <span class="grow"><b>${pretty(n.sp.skill)} ${n.sp.from} → ${n.sp.to}</b><small>${n.sp.level > lvl ? `around level ${n.sp.level}` : "from the class guide"}</small></span>
+      ${n.spLeft ? `<span class="verdict v-snipe">${n.spLeft} to spend</span>` : ""}</div>`);
+  if (n.ap.stat) rows.push(`<div class="nx"><span class="k">AP</span>
+      <span class="grow"><b>${esc(n.ap.stat)}${n.ap.until ? ` until ${n.ap.until}` : ""}</b><small title="${esc(n.ap.why || "")}">${esc(n.ap.why || "")}</small></span></div>`);
+  return win("Next up", `<div class="body">${rows.join("") || `<div class="sub">Set your job and level at the top.</div>`}</div>`);
+}
+// the route and the quest guide, the way the strip under the mini map shows them
+function routeCard(){
+  const nav = state.nav, gd = state.guide;
+  if (!nav && !gd) return "";
+  let body = "", title = "Quest guide", aside = "";
+  if (nav){
+    const st = nav.steps[nav.i], last = nav.steps.length - 1;
+    title = st.arrived ? "Arrived" : `Step ${nav.i + 1} of ${last}`;
+    aside = `to ${pretty(nav.to.name)}`;
+    body = st.arrived
+      ? `<div class="way"><div class="big" aria-hidden="true">✓</div><div class="grow"><b>You’re there: ${pretty(st.name)}</b>${st.npc ? `<div class="sub">Find ${pretty(st.npc.name)}</div>` : ""}</div></div>`
+      : `<div class="way"><div class="big" aria-hidden="true">${esc(st.hint.arrow)}</div><div class="grow"><b>Portal on the ${esc(st.hint.text)}</b>
+          <div class="sub">in ${pretty(st.name)}, leads to ${pretty(st.to.name)}</div></div></div>
+         <div class="hops" aria-hidden="true">${nav.steps.slice(0, -1).map((s, i) => `<i class="${i < nav.i ? "done" : i === nav.i ? "cur" : ""}"></i>`).join("")}</div>`;
+  }
+  if (gd) body += `<div class="goal${gd.done ? " ok" : ""}"><b>${pretty(gd.goal)}</b><small>${pretty(gd.name)}</small></div>`;
+  const went = nav && !nav.steps[nav.i].arrived && !state.screen.reading
+    ? `<button class="btn primary small" data-step="${nav.i + 1}">I went through</button>` : "";
+  return win(title, `<div class="body">${body}<div class="btns" style="margin:10px 0 0">${went}
+      <button class="btn small" id="now-route">${nav ? "Whole route" : "Open the guide"}</button>
+      <button class="btn small" id="now-stop">Stop</button></div></div>`, aside);
+}
+
+async function renderLive(){
+  await loadState();
+  const g = state.game || {}, l = state.live, on = state.screen.reading, p = state.profile;
+  const next = await loadNextUp().catch(() => null);
+  if (tab !== "live") return;
+  const ago = g.ts ? Math.max(0, Math.round(Date.now() / 1000 - g.ts)) : null;
+  const shopAge = g.shop ? Math.round(Date.now() / 1000 - g.shop.ts) : null;
+  const shopOpen = g.shop && shopAge < 10;
+  if (on && state.has_frame) await loadShot(g.ts);
+  const sees = Object.keys(g.windows || {}).map(k => WINDOWS[k] || k).join(", ");
+  const status = !on ? `<span class="dot off"></span><span>Screen reading is off. Everything here works without it.</span>`
+    : g.error ? `<span class="dot off"></span><span>${esc(g.error)}</span>`
+    : `<span class="dot ${ago > 8 ? "off" : "on"}"></span><span>${ago === null ? "Starting to watch the game…"
+        : ago > 8 ? `No new look at the game for ${ago}s. Is it minimized?` : `Watching the game${sees ? `. Sees: ${esc(sees)}` : ""}`}</span>`;
+  const shopWhen = g.shop ? (shopOpen ? "open now" : `closed ${shopAge < 120 ? shopAge + "s" : Math.round(shopAge / 60) + " min"} ago`) : "";
+  // rebuild only when what's shown changes; the status, picture and shop age update in place,
+  // so nothing flickers and scrolling or a hovered item stay put
+  const key = JSON.stringify([on, g.helper, g.shop && g.shop.seller, g.shop && g.shop.items, g.level_hint, l.rows, l.note,
+    state.deals.length, p.rev, state.screen.drawing, !!shotUrl, state.nav && [state.nav.i, state.nav.to.id, state.nav.steps.length],
+    state.guide, next && next.at]);
+  if (key === liveKey && $("#live-status")){
+    $("#live-status").innerHTML = status;
+    const shot = $("#shot"); if (shot && shot.src !== shotUrl) shot.src = shotUrl;
+    const when = $("#shop-when"); if (when) when.textContent = shopWhen;
+    return;
+  }
+  liveKey = key;
+  const hint = g.level_hint ? `<p class="risk" style="margin:0 0 12px">The HUD seems to show level ${g.level_hint}, but those digits are new to Companion. Open Character Stat (S) once so it learns them.</p>` : "";
+  const helperList = (g.helper || []).filter(q => q.quest);
+  const helper = helperList.length ? win("Quest Helper", `<div class="body" style="padding-top:0">${helperList.map(helperQuest).join("")}</div>`) : "";
+  const shopItems = g.shop ? [...g.shop.items].sort((a, b) => a.sold - b.sold) : [];
+  const shop = !on ? ""
+    : g.shop ? win(`${pretty(g.shop.seller || "Player")}’s shop`, `<div class="body shop">${shopItems.map(shopItem).join("") || `<div class="sub">No items read.</div>`}
+        <div class="sub asof">${pricesAsOf()}</div></div>`, `<span id="shop-when">${shopWhen}</span>`)
+    : (l.rows || []).length ? win("Player shop", `<div class="body shop">${l.rows.map(selectedRow).join("")}</div>`)
+    : win("Player shop", `<div class="body sub">Open a player shop in the Free Market and its items show here with what they’re worth.</div>`);
+  const deals = (state.deals || []).map(d => `<li class="good">${esc(d.time)} ${pretty(d.name)} at ${fmt(d.unit)}</li>`).join("");
+  const off = on ? "" : win("On the game", `<div class="body"><p style="margin:0 0 10px">With screen reading on, Companion shows prices under items you hover and beside player shops, and which portal to take under the mini map.</p>
+      <button class="btn" id="now-setup">Set up screen reading</button></div>`);
+  // an open shop sits up front; the hint for when none is open goes last
+  const shopNow = on && (g.shop || (l.rows || []).length);
+  let left = [routeCard(), shopNow ? shop : ""].filter(Boolean), right = [nextUpCard(next), off, helper,
+    deals ? win("Deals this session", `<div class="body"><ul class="chips" style="margin:0">${deals}</ul></div>`) : "",
+    shopNow ? "" : shop].filter(Boolean);
+  if (!left.length){ left = right; right = []; }
+  const sight = on ? `<details class="more" id="more" style="margin-top:14px" ${moreOpen ? "open" : ""}><summary>What Companion sees, and help when a shop isn’t read</summary>
+      ${shotUrl ? `<img class="thumb" id="shot" alt="What Companion sees of the game" src="${shotUrl}">` : `<p class="sub">No picture yet. Is the game minimized?</p>`}
+      <p class="sub" style="margin:8px 0">Reads the HUD, mini map, Quest Helper, item tooltips, player shops, and the Character Stat (S), Inventory (I), Skills (K) and Quest (Q) windows, wherever they are. If a shop isn’t read: ${esc(l.note)}</p>
+      <div class="btns">
+        <button class="btn" data-cmd="scan">Scan now</button>
+        <button class="btn ${l.auto ? "on" : ""}" data-cmd="auto">${l.auto ? "Auto-scan on" : "Auto-scan off"}</button>
+        <button class="btn" data-cmd="select">${l.region ? "Change shop area" : "Select shop area"}</button>
+        ${state.screen.drawing ? `<button class="btn" data-cmd="toggle">Hide or show labels on the game</button>` : ""}
+      </div></details>` : "";
+  $("#view").innerHTML = `<div class="status" id="live-status" role="status">${status}</div>${hint}
+    <div class="now${right.length ? "" : " one"}"><div>${left.join("")}</div>${right.length ? `<div>${right.join("")}</div>` : ""}</div>${sight}`;
+  const more = $("#more"); if (more) more.addEventListener("toggle", e => { moreOpen = e.target.open; });
+  document.querySelectorAll("#view [data-cmd]").forEach(b => b.addEventListener("click", async () => {
+    await api("/api/" + b.dataset.cmd, {}); liveKey = ""; setTimeout(renderLive, 300);
+  }));
+  document.querySelectorAll("#view [data-go]").forEach(b => b.addEventListener("click", () => goTo(+b.dataset.go, b.dataset.name)));
+  document.querySelectorAll("#view [data-step]").forEach(b => b.addEventListener("click", async () => {
+    await api("/api/nav/step", {i:+b.dataset.step}); liveKey = ""; renderLive();
+  }));
+  const rt = $("#now-route"); if (rt) rt.addEventListener("click", () => switchTab("nav"));
+  const sp = $("#now-stop"); if (sp) sp.addEventListener("click", async () => {
+    await api(state.nav ? "/api/nav/stop" : "/api/guide", state.nav ? {} : {stop:true}); liveKey = ""; renderLive();
+  });
+  const su = $("#now-setup"); if (su) su.addEventListener("click", () => openSetup(1));
+}
+
+// Train: a tab per map, best first, the chosen map in full beside them
+let trainPick = 0;
+async function renderTrain(){
+  const p = state.profile, maps = await api("/api/train");
+  const note = `<p class="note">Best maps for level ${p.level}: the most EXP for the HP you chew through, and more monsters count extra.${state.on_island ? " Maple Island only, since you’re still there." : ""}</p>`;
+  if (!maps.length){ $("#view").innerHTML = note + `<div class="empty">No spawn data for this level yet.</div>`; return; }
+  trainPick = Math.min(trainPick, maps.length - 1);
+  const m = maps[trainPick];
+  const list = maps.map((x, i) => `<button class="vtab" role="tab" aria-selected="${i === trainPick}" data-i="${i}">
+      <span class="rank">${i + 1}</span><span class="grow"><b>${pretty(x.name)}</b><small>${pretty(x.mobs.map(y => y.name).join(", "))}</small></span>
+      <span class="score">${(x.eff * 100).toFixed(1)}<small>per 100 HP, ${fmt(x.count)} mobs</small></span></button>`).join("");
+  const mobs = m.mobs.map(x => `<tr><td>${x.img ? `<img src="${esc(x.img)}" alt="" loading="lazy">` : ""}</td>
+      <td><b>${pretty(x.name)}</b>${x.weak.length ? `<small>weak to ${esc(x.weak.join(", "))}</small>` : ""}</td>
+      <td>${x.level}</td><td>${fmt(x.hp)}</td><td>${fmt(x.exp)}</td><td>${x.need_acc}</td><td><b>×${x.count}</b></td></tr>`).join("");
+  const short = p.acc && !m.hittable;
+  const detail = win(pretty(m.name), `${m.render ? `<img class="mapshot" src="${esc(m.render)}" alt="Map of ${esc(m.name)}" loading="lazy" onerror="this.remove()">` : ""}
+    <div class="body">
+      <ul class="chips" style="margin:0"><li>${fmt(m.count)} monsters</li><li>${fmt(m.exp)} EXP per full clear</li>
+        <li class="good">${(m.eff * 100).toFixed(1)} EXP per 100 HP</li>
+        <li class="${short ? "bad" : ""}">~${m.need_acc} ACC to always hit${short ? `, you have ${p.acc}` : ""}</li></ul>
+      <table class="mobtable"><thead><tr><th></th><th>Monster</th><th>Level</th><th>HP</th><th>EXP</th><th>ACC</th><th>Spawns</th></tr></thead><tbody>${mobs}</tbody></table>
+      <div class="btns" style="margin:12px 0 0"><button class="btn primary" id="go">Take me there</button></div>
+    </div>`, esc(m.street || ""));
+  $("#view").innerHTML = note + `<div class="md"><div class="master" role="tablist" aria-label="Training maps">${list}</div><div class="detail">${detail}</div></div>`;
+  document.querySelectorAll(".vtab[data-i]").forEach(b => b.addEventListener("click", () => { trainPick = +b.dataset.i; renderTrain(); }));
+  $("#go").addEventListener("click", () => goTo(m.id, m.name));
+  fitPanes();
+}
+
+async function goTo(id, name, npc){
+  if (!state.current){ pendingTo = {id, name, npc}; switchTab("nav"); return; }
+  const r = await api("/api/nav", {to:id, npc_id: npc ? npc.id : undefined, npc_name: npc ? npc.name : undefined});
+  if (r.error) alert(r.error);
+  switchTab("nav");
+}
+function switchTab(t){
+  tab = t;
+  document.querySelectorAll(".tabs button").forEach(x => x.setAttribute("aria-selected", x.dataset.tab === t));
+  render();
+}
+
+function searchBox(id, label){
+  return `<div class="searchbox"><label class="sub" for="${id}">${label}</label>
+    <input id="${id}" type="search" placeholder="Type a map name" autocomplete="off"><div class="results" id="${id}-r"></div></div>`;
+}
+function wireSearch(id, onPick){
+  let t = null;
+  $("#" + id).addEventListener("input", e => {
+    clearTimeout(t);
+    t = setTimeout(async () => {
+      const res = await api("/api/maps?q=" + encodeURIComponent(e.target.value));
+      $("#" + id + "-r").innerHTML = res.map(m => `<button data-id="${m.id}">${pretty(m.name)} <span class="sub">${esc(m.street)}</span></button>`).join("");
+      $("#" + id + "-r").querySelectorAll("button").forEach(b => b.addEventListener("click", () => onPick(+b.dataset.id, b.textContent)));
+    }, 250);
+  });
+}
+
+function mapPicture(step){
+  if (!step.render) return "";
+  const p = step.portal || step.npc;
+  return `<div class="mapwrap" id="mapwrap"><div class="inner"><img src="${esc(step.render)}" alt="Map of ${esc(step.name)}" id="mapimg">
+    <svg id="mapsvg" preserveAspectRatio="none">${p ? `<circle class="ring" vector-effect="non-scaling-stroke" cx="${p.x}" cy="${p.y}" r="70"/>` : ""}</svg></div></div>`;
+}
+function wirePicture(step){
+  const img = $("#mapimg"); if (!img) return;
+  const fit = () => {
+    const svg = $("#mapsvg");
+    svg.setAttribute("viewBox", `0 0 ${img.naturalWidth} ${img.naturalHeight}`);
+    const ring = svg.querySelector(".ring"); if (ring) ring.setAttribute("r", Math.max(60, img.naturalHeight * 0.09));
+    svg.style.width = img.clientWidth + "px";
+    const t = step.portal || step.npc;
+    if (t){ const wrap = $("#mapwrap"); wrap.scrollLeft = t.x / img.naturalWidth * img.clientWidth - wrap.clientWidth / 2; }
+  };
+  img.complete ? fit() : img.addEventListener("load", fit);
+}
+
+function guideBox(gd){
+  const needs = gd.needs.map(n => n.have != null ? progress({what: n.what, have: n.have, need: n.need})
+    : `<div class="prog"><div class="lbl"><span>${pretty(n.what)}</span><span class="sub">? / ${n.need}</span></div></div>`).join("");
+  return win("Quest guide", `<div class="body">
+      <div class="sub">${pretty(gd.name)}</div>
+      <h3 style="color:${gd.done ? "var(--good)" : "var(--warn)"};margin:2px 0 4px">${pretty(gd.goal)}</h3>
+      ${needs}
+      ${gd.tracked ? "" : `<p class="sub" style="margin:8px 0 0">Track this quest in the game’s Quest Helper so Companion can follow your counts.</p>`}
+      <div class="btns" style="margin:10px 0 0"><button class="btn" id="stopguide">Stop the guide</button></div></div>`,
+    gd.where ? `to ${pretty(gd.where.name)}` : "");
+}
+
+async function renderNav(force){
+  await loadState();
+  if (tab !== "nav") return;
+  const nav = state.nav, gd = state.guide;
+  const key = JSON.stringify([nav && nav.i, nav && nav.steps.length, nav && nav.to.id, state.current && state.current.id, gd]);
+  if (!force && key === navKey) return;
+  navKey = key;
+  const cur = state.current ? `<b>${pretty(state.current.name)}</b>` : "not set";
+  let left = win("Where you are", `<div class="body"><p style="margin:0 0 10px">You’re on: ${cur}</p>${searchBox("here", "Change where you are")}</div>`,
+    state.screen.reading ? "follows the mini map" : "");
+  let right = "";
+  if (gd) left += `<div style="height:12px"></div>` + guideBox(gd);
+  if (!nav){
+    left += `<div style="height:12px"></div>` + win("Where to", `<div class="body">${pendingTo ? `<p style="margin:0 0 10px">Going to <b>${pretty(pendingTo.name)}</b>. Set where you are first.</p>` : ""}${searchBox("dest", "Where do you want to go?")}
+      <p class="sub" style="margin:4px 0 0">Or tap Go on a map in Train or Now, or Guide me in game on a quest.</p></div>`);
+  } else {
+    const st = nav.steps[nav.i], last = nav.steps.length - 1;
+    const head = st.arrived
+      ? `<h3 style="color:var(--good)">You’re there: ${pretty(st.name)}</h3>${st.npc ? `<div class="sub">Find ${pretty(st.npc.name)}, circled on the map.</div>` : ""}`
+      : `<div class="row"><div class="big" aria-hidden="true">${esc(st.hint.arrow)}</div><div class="grow"><h3>Portal on the ${esc(st.hint.text)}</h3>
+         <div class="sub">in ${pretty(st.name)}, leads to ${pretty(st.to.name)}</div></div></div>`;
+    right = win(st.arrived ? "Arrived" : `Step ${nav.i + 1} of ${last}`, `<div class="body">${head}${mapPicture(st)}
+      <div class="btns" style="margin:12px 0 0">
+        ${st.arrived ? "" : `<button class="btn primary" data-step="${nav.i + 1}">I went through</button>`}
+        <button class="btn" id="stop">Stop route</button>
+        ${state.screen.drawing ? `<button class="btn" data-cmd="nav_corner">Move the card on the game</button>` : ""}
+      </div></div>`, `to ${pretty(nav.to.name)}`)
+      + `<div class="steps">${nav.steps.map((s, i) => `<button data-step="${i}" class="${i === nav.i ? "cur" : i < nav.i ? "done" : ""}"${i === nav.i ? ' aria-current="step"' : ""}>${i + 1}. ${pretty(s.name)}${s.hint ? ` <span class="sub">${esc(s.hint.arrow)} ${esc(s.hint.text)}</span>` : ""}</button>`).join("")}</div>
+      <p class="note" style="margin-top:10px">${state.screen.reading ? "The route moves on by itself as the mini map changes." : "Tap I went through after each portal."} Tap a step if it gets out of sync.</p>`;
+  }
+  $("#view").innerHTML = `<div class="md"><div class="master" style="background:none;border:0;box-shadow:none;padding:0">${left}</div><div class="detail">${right}</div></div>`;
+  wireSearch("here", async id => { await api("/api/here", {id}); if (pendingTo){ const t = pendingTo; pendingTo = null; await goTo(t.id, t.name, t.npc); } else renderNav(true); });
+  const sg = $("#stopguide"); if (sg) sg.addEventListener("click", async () => { await api("/api/guide", {stop:true}); renderNav(true); });
+  if (!nav) wireSearch("dest", async (id, name) => { pendingTo = null; const r = await api("/api/nav", {to:id, from: state.current && state.current.id}); if (r.error){ alert(r.error); } renderNav(true); });
+  else {
+    wirePicture(nav.steps[nav.i]);
+    document.querySelectorAll("[data-step]").forEach(b => b.addEventListener("click", async () => { await api("/api/nav/step", {i:+b.dataset.step}); renderNav(true); }));
+    $("#stop").addEventListener("click", async () => { await api("/api/nav/stop", {}); renderNav(true); });
+    document.querySelectorAll("[data-cmd]").forEach(b => b.addEventListener("click", () => api("/api/" + b.dataset.cmd, {})));
+  }
+  fitPanes();
+}
+
+// Quests: In progress / Can take / Locked (needs an earlier quest) / Done, the chosen quest in full
+let qTab = null, qPick = null;
+const QTABS = {active: "In progress", ready: "Can take", locked: "Locked", done: "Done"};
+const QHELP = {locked: "Need an earlier quest finished first"};
+function questDetail(q, h, kind){
+  const have = h ? Object.fromEntries(h.needs.map(n => [n.what, n.have])) : {};
+  const todo = q.todo.map(t => {
+    const got = have[t.name], full = got != null && got >= t.count;
+    const drops = (t.drops || []).map(x => `${pretty(x.monster)} (${x.rate < 10 ? x.rate.toFixed(1) : Math.round(x.rate)}%)`).join(", ");
+    const hint = t.kind === "mob" ? (t.where ? `Most at ${pretty(t.where.name)}` : "")
+      : [drops ? `Drops from ${drops}${t.where ? `, most at ${pretty(t.where.name)}` : ""}` : "", t.buy ? `or buy all ${t.count} for about ${fmt(t.buy_total)}` : ""].filter(Boolean).join("; ");
+    return `<div class="mob">${t.img ? `<img src="${esc(t.img)}" alt="" loading="lazy" onerror="this.remove()">` : ""}
+      <div class="grow"><b>${t.kind === "mob" ? "Defeat" : "Collect"} ${pretty(t.name)}</b>
+        <span class="sub" style="display:block">${hint.charAt(0).toUpperCase() + hint.slice(1)}</span></div>
+      <b class="${full ? "okc" : ""}">${got != null ? `${got} / ${t.count}` : `×${t.count}`}</b>
+      ${t.where ? `<button class="btn small" data-hunt="${t.where.map}" data-name="${esc(t.where.name)}">Go</button>` : ""}</div>`;
+  }).join("");
+  const steps = (q.steps || []).map((st, i) => `<li>${st.kind === "monster" ? `Defeat ${pretty(st.name)}`
+      : st.kind === "npc" ? `${i === 0 ? "Talk to" : i === q.steps.length - 1 ? "Bring it to" : "See"} <b>${pretty(st.name)}</b>${st.map ? ` in ${pretty(st.map)}` : ""}`
+      : `Go to ${pretty(st.map)}`}</li>`).join("");
+  const back = q.turn_in && q.turn_in.npc !== q.npc ? q.turn_in : null;
+  const rewards = [q.exp ? `<li class="good">${fmt(q.exp)} EXP</li>` : "", q.money ? `<li>${fmt(q.money)} mesos</li>` : ""]
+    .concat(q.items.map(i => `<li title="${esc(i.name)}${i.value ? `, worth about ${fmt(i.value)}` : ""}">${pretty(i.name)}${i.count > 1 ? " ×" + i.count : ""}${i.chance ? `, ${i.chance}%` : ""}${i.only ? `, ${esc(i.only)} only` : ""}${i.value ? `, ~${fmt(i.value)}` : ""}</li>`)).join("");
+  const tags = [q.job_quest ? `<li class="warn">Job quest</li>` : "", q.daily ? `<li>Daily</li>` : "", q.weekly ? `<li>Weekly</li>` : "",
+    `<li>Level ${q.level}+</li>`, `<li>${esc(q.region)}</li>`].join("");
+  const guiding = state.guide && state.guide.id === q.id;
+  const actions = kind === "done"
+    ? `<button class="btn" data-undone="${esc(q.id)}">Not done</button>`
+    : `${q.todo.length || q.where ? `<button class="btn primary" data-guide="${esc(q.id)}">${guiding ? "Guiding it now" : "Guide me in game"}</button>` : ""}
+       ${q.where ? `<button class="btn" data-npc="${q.npc_id}" data-npcname="${esc(q.npc)}" data-map="${q.where.id}" data-mapname="${esc(q.where.name)}">Take me to ${pretty(q.npc)}</button>` : ""}
+       ${back && back.where ? `<button class="btn" data-hunt="${back.where.id}" data-name="${esc(back.where.name)}">Take me to ${pretty(back.npc)}</button>` : ""}
+       <button class="btn" data-done="${esc(q.id)}">Done</button>`;
+  return win(pretty(q.name), `<div class="body">
+      <div class="row">${slot(q.npc_img, 48)}<div class="grow"><div class="sub">From</div><b>${pretty(q.npc)}</b>${q.where ? `<div class="sub">${pretty(q.where.name)}</div>` : ""}</div></div>
+      <ul class="chips">${tags}</ul>
+      ${kind === "locked" ? `<p class="risk" style="margin:10px 0 0">Do first: ${q.needs.map(pretty).join(", ")}</p>` : ""}
+      ${steps ? `<h2 style="margin:14px 0 4px">Steps</h2><ol class="qsteps">${steps}</ol>` : ""}
+      ${back ? `<p class="risk" style="margin:8px 0 0">Bring it back to <b>${pretty(back.npc)}</b>${back.where ? ` in ${pretty(back.where.name)}` : ""}, not to ${pretty(q.npc)}.</p>` : ""}
+      ${todo ? `<h2 style="margin:14px 0 4px">What to do</h2><div class="mobs" style="margin:0">${todo}</div>` : ""}
+      ${rewards ? `<h2 style="margin:14px 0 4px">Rewards</h2><ul class="chips" style="margin:0">${rewards}</ul>` : ""}
+      ${q.next ? `<p class="sub" style="margin:8px 0 0">Leads to: ${pretty(q.next)}</p>` : ""}
+      ${q.desc ? `<p class="sub" style="margin:10px 0 0">${pretty(q.desc)}</p>` : ""}
+      ${q.wiki ? `<p class="sub" style="margin:10px 0 0;font-size:.78rem">Steps and drops: <a href="https://classicmaple.wiki" target="_blank" rel="noopener">Classic Maple Wiki</a> contributors, from <a href="${esc(q.wiki)}" target="_blank" rel="noopener">MapleClassic Wiki</a>, CC BY-NC-SA 4.0, reformatted.</p>` : ""}
+      <div class="btns" style="margin:14px 0 0">${actions}</div></div>`, kind === "active" ? "in progress" : "");
+}
+async function renderQuests(){
+  const d = await api("/api/quests"), p = state.profile;
+  const prog = Object.fromEntries(((state.game || {}).helper || []).filter(h => h.id).map(h => [h.id, h]));
+  const lists = {active: d.active, ready: d.ready, locked: d.locked, done: d.done};
+  if (!qTab) qTab = d.active.length ? "active" : "ready";
+  const list = lists[qTab];
+  const q = list.find(x => x.id === qPick) || list[0];
+  qPick = q && q.id;
+  const unknown = qTab === "active" ? (p.quests_active || []).filter(a => !a.id).map(a => a.name) : [];
+  const empty = {active: "Nothing in progress that Companion knows of. Open the game’s Quest window (Q) on its In Progress tab, or track quests in the Quest Helper.",
+    ready: "Nothing open at this level. Check back after leveling.", locked: "Nothing waiting on an earlier step.",
+    done: "Nothing marked done yet. Open the game’s Quest window (Q) on its Completed tab and Companion marks them for you, or tap Done on a quest."}[qTab];
+  const rows = list.map(x => `<button class="vtab" role="tab" aria-selected="${q && x.id === q.id}" data-id="${esc(x.id)}">
+      ${slot(x.npc_img, 36)}<span class="grow"><b>${pretty(x.name)}</b><small>${prog[x.id] ? "Counting in the Quest Helper" : `Level ${x.level}+, ${esc(x.region)}${x.job_quest ? ", job quest" : ""}`}</small></span>
+      <span class="score">${x.exp ? `${fmt(x.exp)}<small>EXP</small>` : ""}</span></button>`).join("");
+  const island = p.level < 16 || state.on_island ? `<label class="toggle" style="margin:0 2px 10px"><input type="checkbox" id="island" ${state.on_island ? "checked" : ""}>
+      I’m still on Maple Island <span class="sub">(the boat to Victoria Island is one-way)</span></label>` : "";
+  $("#view").innerHTML = `${island}<div class="filters" role="tablist" aria-label="Quests">${Object.entries(QTABS).map(([k, t]) =>
+      `<button role="tab" data-q="${k}" aria-pressed="${k === qTab}"${QHELP[k] ? ` title="${QHELP[k]}"` : ""}>${t} ${lists[k].length}</button>`).join("")}</div>
+    <div class="md" style="margin-top:8px"><div class="master" role="tablist">${rows || `<p class="sub" style="padding:10px;margin:0">${empty}</p>`}
+      ${unknown.length ? `<p class="sub" style="padding:8px;margin:0">Also in your quest log: ${unknown.map(pretty).join(", ")}</p>` : ""}</div>
+      <div class="detail">${q ? questDetail(q, prog[q.id], qTab) : ""}</div></div>`;
+  document.querySelectorAll("[data-q]").forEach(b => b.addEventListener("click", () => { qTab = b.dataset.q; qPick = null; renderQuests(); }));
+  document.querySelectorAll(".vtab[data-id]").forEach(b => b.addEventListener("click", () => { qPick = b.dataset.id; renderQuests(); }));
+  const isl = $("#island");
+  if (isl) isl.addEventListener("change", async () => { await api("/api/profile", {island:isl.checked}); await loadState(); renderQuests(); });
+  document.querySelectorAll("[data-done]").forEach(b => b.addEventListener("click", async () => { await api("/api/quest_done", {id:b.dataset.done, done:true}); qPick = null; renderQuests(); }));
+  document.querySelectorAll("[data-undone]").forEach(b => b.addEventListener("click", async () => { await api("/api/quest_done", {id:b.dataset.undone, done:false}); qPick = null; renderQuests(); }));
+  document.querySelectorAll("[data-guide]").forEach(b => b.addEventListener("click", async () => {
+    const r = await api("/api/guide", {id:b.dataset.guide});
+    if (r.error){ alert(r.error); return; }
+    switchTab("nav");
+  }));
+  document.querySelectorAll("[data-npc]").forEach(b => b.addEventListener("click", () =>
+    goTo(+b.dataset.map, b.dataset.mapname, {id:+b.dataset.npc, name:b.dataset.npcname})));
+  document.querySelectorAll("[data-hunt]").forEach(b => b.addEventListener("click", () => goTo(+b.dataset.hunt, b.dataset.name)));
+  fitPanes();
+}
+
+// Gear: the equipment window's slots on the left, the chosen slot's picks on the right
+function statChips(e){
+  return Object.entries(e.stats).filter(([k, v]) => v && STAT[k])
+    .map(([k, v]) => `<li>${STAT[k]} ${v > 0 && k !== "tuc" ? "+" : ""}${v}</li>`).join("");
+}
+function reqChips(e){
+  // stat requirements, in red when Character Stat showed you're short of one
+  const mine = (state.game || {}).stat || {};
+  return Object.entries(e.reqs).map(([k, v]) => {
+    const have = mine[k.toLowerCase()], short = have != null && have < v;
+    return `<li class="${short ? "bad" : ""}">Needs ${esc(k)} ${v}${short ? `, you have ${have}` : ""}</li>`;
+  }).join("");
+}
+function keyStats(e, main){
+  const order = ["incPAD", "incMAD", "inc" + main, "incACC", "incEVA", "incPDD", "incSpeed", "incMHP"];
+  return order.filter(k => e.stats[k] > 0).slice(0, 2).map(k => `${STAT[k]} +${e.stats[k]}`).join(", ");
+}
+function gearLine(e){
+  return `Level ${e.req}${e.weapon_type ? `, ${esc(e.weapon_type)}` : ""}${e.speed ? `, ${esc(e.speed.toLowerCase())} speed` : ""}`;
+}
+/* the buy-at price in green (from maplestory-classic.com's cheapest quarter of sales), then the usual
+   price on each site in that site's color */
+function gearPrice(fm, label){
+  if (!fm) return `<small>not traded</small>`;
+  return `${fm.snipe ? `<b>${fmt(fm.snipe)}</b>${label ? `<small>${label}</small>` : ""}` : ""}
+    <small class="srcmini">${srcPrice("MSC", fm.median, "src-msc")}${srcPrice("Cozy", fm.cozy, "src-cozy")}</small>`;
+}
+function gearRow(e, main){
+  return `<div class="mob" style="min-height:48px">${slot(e.img, 36)}
+      <div class="grow"><b>${pretty(e.name)}</b><span class="sub" style="display:block">Lv ${e.req}${keyStats(e, main) ? ", " + keyStats(e, main) : ""}${Object.entries(e.reqs).length ? `; needs ${Object.entries(e.reqs).map(([k, v]) => `${esc(k)} ${v}`).join(", ")}` : ""}</span></div>
+      <div class="pr">${gearPrice(e.fm)}</div></div>`;
+}
+let gearPick = null;
+async function renderGear(){
+  const g = await api("/api/gear");
+  if (!g.slots.length){ $("#view").innerHTML = `<div class="empty">No gear found for this job and level.</div>`; return; }
+  const s = g.slots.find(x => x.slot === gearPick) || g.slots[0];
+  gearPick = s.slot;
+  const tiles = g.slots.map(x => { const b = x.now[0] || x.soon[0];
+    return `<button class="etile" role="tab" aria-selected="${x.slot === s.slot}" data-slot="${esc(x.slot)}">${slot(b.img, 44)}
+      <span class="k">${esc(x.slot)}</span><b title="${esc(b.name)}">${pretty(b.name)}</b><small>${!b.fm ? "not traded" : b.fm.snipe ? fmt(b.fm.snipe) : `<span class="src-cozy">${fmt(b.fm.cozy)}</span>`}</small></button>`; }).join("");
+  const best = s.now[0] || s.soon[0];
+  const others = s.now.slice(s.now.length ? 1 : 0), soon = s.now.length ? s.soon : s.soon.slice(1);
+  const detail = win(esc(s.slot), `<div class="body">
+      <div class="pick">${slot(best.img, 56)}
+        <div><h3>${pretty(best.name)}</h3><div class="sub">${gearLine(best)}</div></div>
+        <div class="pr">${gearPrice(best.fm, "snipe at or under")}</div>
+        <ul class="chips" style="grid-column:1/-1;margin-top:4px">${statChips(best)}${reqChips(best)}</ul></div>
+      ${others.length ? `<h2 style="margin:16px 0 6px">Also good</h2><div class="mobs" style="margin:0">${others.map(e => gearRow(e, g.main)).join("")}</div>` : ""}
+      ${soon.length ? `<h2 style="margin:16px 0 6px">Coming up</h2><div class="mobs" style="margin:0">${soon.map(e => gearRow(e, g.main)).join("")}</div>` : ""}
+    </div>`, best.soon ? `at level ${best.req}` : "best now");
+  $("#view").innerHTML = `<p class="note">Best ${esc(state.profile.job)} gear for level ${state.profile.level}. Green: a good price to buy at. Under it: the usual price on each site.</p>
+    <div class="md"><div class="master"><div class="equip" role="tablist" aria-label="Equipment slots">${tiles}</div></div><div class="detail">${detail}</div></div>`;
+  document.querySelectorAll("[data-slot]").forEach(b => b.addEventListener("click", () => { gearPick = b.dataset.slot; renderGear(); }));
+  fitPanes();
+}
+
+// The class guide's SP table, level by level, with what your skills in the game already reach
+function buildTable(t, now, level){
+  const short = n => n.replace(/^The /, "");
+  const rows = t.rows.map(r => {
+    const done = t.yours && r.spend.every(([k]) => (now[k] || 0) >= r.after[k]);
+    const cur = t.yours && level >= r.lo && level <= r.hi;
+    return `<tr class="${done ? "done" : cur ? "cur" : ""}"><td>${r.lo === r.hi ? r.lo : `${r.lo}–${r.hi}`}</td>
+      <td><b>${r.spend.map(([k, n]) => `${pretty(short(k))} +${n}`).join(", ")}</b></td>
+      <td class="sub">${Object.entries(r.after).map(([k, v]) => `${pretty(short(k))} ${v}`).join(", ")}</td>
+      <td>${done ? `<span class="verdict v-snipe">Done</span>` : cur ? `<span class="verdict v-pricey">Now</span>` : ""}</td></tr>`;
+  }).join("");
+  return win(`${esc(t.job)} SP, level by level`, `<div class="body">
+      <table class="mobtable btable"><thead><tr><th>Level</th><th>Spend</th><th>Skills after it</th><th></th></tr></thead><tbody>${rows}</tbody></table>
+      <p class="sub" style="margin:10px 0 0">From NiaDB’s <a href="https://${esc(t.source)}" target="_blank" rel="noopener">${esc(t.source.split("/").pop().replace(/-class-guide$/, "").replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase()).replace("Fp", "F/P").replace("Il", "I/L"))} class guide</a>.${t.yours ? " Done means your skills in the game already reach that row; Now is your level." : ` You pick ${esc(t.job)} or another second job at level 30.`}</p></div>`);
+}
+
+// Skills, like the Skill Inventory window: each skill's level in game, your plan, and what it does
+let skillPick = null, skView = "skills";
+async function renderSkills(){
+  const d = await api("/api/skills"), plan = d.plan || {};
+  const total = () => Object.values(plan).reduce((a, b) => a + (+b || 0), 0);
+  const tables = (d.next || {}).tables || [];
+  const views = `<div class="filters" role="tablist" aria-label="Skills" style="margin-bottom:8px">
+      <button role="tab" data-v="skills" aria-pressed="${skView === "skills"}">Your skills</button>
+      ${tables.map(t => `<button role="tab" data-v="${esc(t.job)}" aria-pressed="${skView === t.job}">${esc(t.job)} build${t.yours ? "" : ", at 30"}</button>`).join("")}</div>`;
+  const wireViews = () => document.querySelectorAll("[data-v]").forEach(b => b.addEventListener("click", () => { skView = b.dataset.v; renderSkills(); }));
+  const table = tables.find(t => t.job === skView);
+  if (table){
+    $("#view").innerHTML = views + buildTable(table, d.now, state.profile.level);
+    wireViews();
+    return;
+  }
+  skView = "skills";
+  if (!d.skills.length){ $("#view").innerHTML = views + `<div class="empty">No skills listed for ${esc(state.profile.job)} yet.</div>`; wireViews(); return; }
+  const s = d.skills.find(x => x.id === skillPick) || d.skills[0];
+  skillPick = s.id;
+  let group = "", rows = "";
+  d.skills.forEach(x => {
+    const g = x.tier + ": " + x.job;
+    if (g !== group){ group = g; rows += `<div class="vgroup">${esc(g)}</div>`; }
+    const now = d.now[x.name];
+    rows += `<button class="vtab" role="tab" aria-selected="${x.id === s.id}" data-skill="${esc(x.id)}">${slot(x.img, 36)}
+      <span class="grow"><b>${pretty(x.name)}</b><small>${esc(x.kind)}${plan[x.id] ? `, plan ${plan[x.id]}` : ""}</small>
+        <div class="lvbar"><i style="width:${now != null ? Math.round(now / x.max * 100) : 0}%"></i></div></span>
+      <span class="lv">${now ?? "–"}<small> / ${x.max}</small></span></button>`;
+  });
+  const now = d.now[s.name], nx = d.next || {};
+  const spNext = nx.sp && nx.sp.length
+    ? nx.sp.map((x, i) => `<div class="mob"${i ? ' style="opacity:.75"' : ""}><div class="grow"><b>${pretty(x.skill)}</b>
+        <span class="sub" style="display:block">${x.from} → ${x.to}${x.level > state.profile.level ? `, around level ${x.level}` : ""}</span></div>
+        ${i === 0 ? `<span class="verdict v-snipe">Next</span>` : ""}</div>`).join("")
+    : `<p class="sub" style="margin:0">${!(nx.sources || []).length ? "No guide plan for this job yet." : nx.known ? "You’ve reached the guide’s plan for your job. Spare points go into what you use most." : "Open Skills (K) in the game so Companion knows your skill levels."}</p>`;
+  const ap = nx.ap || {};
+  const nextBox = win("Where your next points go", `<div class="body">
+      <div class="grid2" style="margin-top:0">
+        <div><div class="sub" style="font-weight:800;margin-bottom:4px">SP${d.sp != null ? `, ${d.sp} to spend now` : ""}</div><div class="mobs" style="margin:0">${spNext}</div></div>
+        <div><div class="sub" style="font-weight:800;margin-bottom:4px">AP</div>
+          ${ap.stat ? `<div class="mob"><div class="grow"><b>${esc(ap.stat)}${ap.until ? ` until ${ap.until}` : ""}</b></div><span class="verdict v-snipe">Next</span></div>` : ""}
+          <p class="sub" style="margin:6px 0 0">${esc(ap.why || "")}</p></div>
+      </div>
+      ${(nx.sources || []).length ? `<p class="sub" style="margin:10px 0 0">SP order from NiaDB’s ${nx.sources.map(u => `<a href="https://${esc(u)}" target="_blank" rel="noopener">${esc(u.split("/").pop().replace(/-class-guide$/, "").replace(/-/g, " "))} class guide</a>`).join(" and ")}.</p>` : ""}
+    </div>`);
+  const detail = nextBox + `<div style="height:12px"></div>` + win(pretty(s.name), `<div class="body">
+      <div class="row">${slot(s.img, 52)}<div class="grow"><h3>${pretty(s.name)}</h3><div class="sub">${esc(s.kind)}, max level ${s.max}${s.mobs ? `, hits up to ${s.mobs} ${s.mobs > 1 ? "monsters" : "monster"}` : ""}</div></div>
+        <div class="pr"><b style="color:var(--ink)">${now ?? "?"}<span class="sub"> / ${s.max}</span></b><small>${now != null ? "level in the game" : "open Skills (K) in the game"}</small></div></div>
+      <p style="margin:12px 0 0">${pretty(s.desc)}</p>
+      <dl class="kv2"><dt>At level 1</dt><dd>${esc(s.first) || "?"}</dd><dt>At max</dt><dd>${esc(s.maxed) || "?"}</dd></dl>
+      <div class="row" style="margin-top:14px"><label for="plan" style="font-weight:800">Plan to take it to level</label>
+        <span class="stepper"><button class="btn small" data-step="-1" aria-label="One less">−</button>
+        <input id="plan" type="number" min="0" max="${s.max}" value="${plan[s.id] || 0}">
+        <button class="btn small" data-step="1" aria-label="One more">+</button></span>
+        <span class="sub">Your plan: <b id="sp">${total()}</b> SP in all</span></div>
+    </div>`, now != null && now >= s.max ? "maxed" : "");
+  $("#view").innerHTML = `${views}
+    <div class="md"><div class="master" role="tablist" aria-label="Skills">${rows}</div><div class="detail">${detail}</div></div>`;
+  wireViews();
+  document.querySelectorAll(".vtab[data-skill]").forEach(b => b.addEventListener("click", () => { skillPick = b.dataset.skill; renderSkills(); }));
+  const inp = $("#plan");
+  const setPlan = v => {
+    v = Math.max(0, Math.min(s.max, v || 0)); inp.value = v; plan[s.id] = v; $("#sp").textContent = total();
+    clearTimeout(planSave); planSave = setTimeout(() => api("/api/profile", {skill_plan: plan}), 400);
+  };
+  inp.addEventListener("input", () => setPlan(+inp.value));
+  document.querySelectorAll("[data-step]").forEach(b => b.addEventListener("click", () => setPlan(+inp.value + +b.dataset.step)));
+  fitPanes();
+}
+
+const VRANK = {snipe:0, npc:0, fair:1, pricey:2, over:3, split:4, check:4, info:5};
+let seenFilter = "all", seenPick = null;
+
+function priceRange(low, p25, median, p75){
+  // where a price sits among recent sales: green quarter = snipe, then fair, pricey, overpriced
+  if (!median || !p25 || !p75) return "";
+  const lo = p25 * 0.6, hi = p75 * 1.4, at = Math.max(0, Math.min(100, (low - lo) / (hi - lo) * 100));
+  return `<div class="range" role="img" aria-label="Where ${fmt(low)} sits among recent sales"><i style="left:${at}%"></i></div>
+    <div class="ranges"><span><b class="src-msc">MSC</b> snipe up to ${money(p25)}</span><span>Middle ${money(median)}</span><span>Overpriced over ${money(p75)}</span></div>`;
+}
+function seenDetail(e){
+  if (!e) return `<p class="sub" style="margin:10px 4px 0">Tap an item to see what it was listed at and what it’s worth.</p>`;
+  const when = new Date(e.last_ts).toLocaleString("en-US", {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"});
+  return `<article class="card" style="margin-top:12px"><div class="row">
+      ${slot(e.img, 44)}
+      <div class="grow"><h3>${pretty(e.name)}</h3><div class="sub">Seen ${e.seen} ${e.seen === 1 ? "time" : "times"}, last on ${esc(when)}${e.low_seller ? `. Cheapest at ${pretty(e.low_seller)}’s shop` : ""}</div></div>
+      ${e.verdict ? `<span class="verdict v-${e.verdict}">${VLABEL[e.verdict]}</span>` : ""}</div>
+    ${e.median || e.cozy ? `<div class="tag"><div class="buy"><span>Cheapest you saw</span><b>${money(e.low)}</b></div><div class="sell"><span>Recent sales</span><b class="srcpair">${srcPrice("MSC", e.median, "src-msc")}${srcPrice("Cozy", e.cozy, "src-cozy")}</b></div></div>
+      ${priceRange(e.low, e.snipe, e.median, e.p75)}` : ""}
+    <ul class="chips">
+      ${e.npc ? `<li class="good">An NPC pays ${money(e.npc)}</li>` : ""}
+      <li>Latest listing ${money(e.last)}</li>
+      ${e.median || e.cozy ? "" : `<li class="warn">No market price for it yet</li>`}
+    </ul></article>`;
+}
+
+async function renderFlips(){
+  const all = await api("/api/seen");
+  const verdicts = ["snipe", "npc", "fair", "pricey", "over", "split"];
+  const pass = {all: () => true, deals: e => e.verdict === "snipe" || e.verdict === "npc",
+                fair: e => e.verdict === "fair", over: e => e.verdict === "pricey" || e.verdict === "over",
+                differ: e => e.verdict === "split", other: e => !verdicts.includes(e.verdict)};
+  const items = all.filter(pass[seenFilter]).sort((a, b) => (VRANK[a.verdict] ?? 5) - (VRANK[b.verdict] ?? 5) || (a.last_ts < b.last_ts ? 1 : -1));
+  // the first item opens by itself, so the detail is never an empty box
+  const pick = all.find(e => e.name === seenPick) || items[0] || null;
+  if (pick) seenPick = pick.name;
+  const count = k => all.filter(pass[k]).length;
+  const tiles = items.map(e => `<button class="islot" data-v="${e.verdict || ""}" data-name="${esc(e.name)}" aria-pressed="${e.name === seenPick}"
+      title="${esc(e.name)}: cheapest ${money(e.low)}${e.median ? `, MSC ${money(e.median)}` : ""}${e.cozy ? `, Cozy ${money(e.cozy)}` : ""}" aria-label="${esc(e.name)}${e.verdict ? ", " + VLABEL[e.verdict] : ""}">
+      ${e.img ? `<img src="${esc(e.img)}" alt="" loading="lazy" onerror="this.nextElementSibling.hidden=false;this.remove()">` : ""}
+      <span class="noimg" ${e.img ? "hidden" : ""}>${pretty(e.name)}</span>
+      <span class="qty">${e.seen}</span>${e.verdict ? `<span class="tagv" data-v="${e.verdict}"></span>` : ""}</button>`).join("");
+  $("#view").innerHTML = `<p class="note">Items you passed in player shops, cheapest price against <span class="src-msc">MSC</span> and <span class="src-cozy">Cozy</span>. A verdict shows only when both agree. <span class="asof">${pricesAsOf()}</span></p>
+    ${all.length ? `<div class="md"><div class="master" style="padding:0;background:none;border:0;box-shadow:none">
+        <div class="filters" role="group" aria-label="Show">${[["all","All",""],["deals","Deals","snipe"],["fair","Fair","fair"],["over","Too pricey","over"],["differ","Differ","split"],["other","Other","info"]].map(([k, t, v]) =>
+        `<button data-f="${k}" aria-pressed="${seenFilter === k}">${v ? `<span class="tagv" data-v="${v}"></span>` : ""}${t} ${count(k)}</button>`).join("")}</div>
+      <div class="inv">${tiles || `<span class="sub" style="grid-column:1/-1;padding:8px">Nothing in this group.</span>`}</div></div>
+      <div class="detail">${seenDetail(pick)}</div></div>`
+    : `<div class="empty">Nothing yet. With screen reading on, open player shops in the Free Market: every item Companion reads lands here with its picture and what it’s worth.</div>`}`;
+  document.querySelectorAll("[data-f]").forEach(b => b.addEventListener("click", () => { seenFilter = b.dataset.f; renderFlips(); }));
+  document.querySelectorAll(".islot").forEach(b => b.addEventListener("click", () => { seenPick = b.dataset.name; renderFlips(); }));
+  fitPanes();
+}
+
+async function renderSettings(){
+  const c = await api("/api/settings");
+  const area = (k, label, cmd, help) => `<div class="mob"><div class="grow"><b>${label}</b> <span class="sub">${c.areas[k] ? "set" : "not set"}. ${help}</span></div>
+      <button class="btn small" data-area="${cmd}" ${c.screen_reading ? "" : "disabled"}>${c.areas[k] ? "Change" : "Select"}</button></div>`;
+  $("#view").innerHTML = `<div class="cols">
+    ${win("Screen reading", `<div class="body">
+      <p class="sub" style="margin-top:0">Off by default. Without it you still get training spots, quests, gear, skills and routes, and nothing touches the game.</p>
+      <p class="sub">With it on, Companion captures the game window up to 7 times a second, the way Discord or OBS window sharing does. It reads what’s open every 1.5 seconds, an open shop’s list about 3 times a second, and looks for item tooltips in between. It never touches game memory, never presses keys or clicks, and installs no keyboard hooks.</p>
+      <div class="risk">This is an unofficial tool, not authorized by Nexon. Nexon’s terms ban unauthorized third-party software, and Nexon has named screen recognition in its enforcement policy for another game. There’s no guarantee. A ban applies to both Classic World and Global MapleStory. Only turn this on if you accept that risk.</div>
+      ${c.screen_available ? `
+        <label class="toggle"><input type="checkbox" id="consent" ${c.consent ? "checked" : ""}> I understand the risk and use this at my own responsibility</label>
+        <label class="toggle" style="margin-top:8px"><input type="checkbox" id="reading" ${c.screen_reading ? "checked" : ""} ${c.consent ? "" : "disabled"}> Turn on screen reading</label>
+        <label class="toggle" style="margin-top:8px"><input type="checkbox" id="drawing" ${c.draw_overlay ? "checked" : ""} ${c.screen_reading ? "" : "disabled"}> Also draw on the game: prices under items and beside shops, and the route under the mini map</label>`
+      : `<p class="sub">Screen reading needs the Windows app.</p>`}</div>`)}
+    <div class="list">
+    ${win("Setup and help", `<div class="body"><div class="btns" style="margin:0">
+        <button class="btn" id="s-howto">How to use (Hebrew)</button><button class="btn" id="s-setup">Run the setup again</button></div></div>`)}
+    ${c.screen_available ? win("Fine-tuning", `<div class="body">
+      <div class="grid2" style="margin-top:0">
+        <div><label class="sub" for="s-side">Labels on the game</label><select id="s-side">${["right","left","inside"].map(x => `<option${x === c.label_side ? " selected" : ""}>${x}</option>`).join("")}</select></div>
+        <div><label class="sub" for="s-title">Game window title contains</label><input id="s-title" value="${esc(c.game_title)}"></div>
+      </div>
+      <p class="sub" style="margin:8px 0 0">${c.game_found ? "Game window found. On-game drawing shows only while the game is in front." : "No game window found with this in its title, so nothing is read or drawn."}
+        Capture: ${c.capture === "window" ? "running on the game window only." : "off."}</p>
+      ${c.capture_error ? `<p class="sub" style="margin:4px 0 0;color:var(--bad)">${esc(c.capture_error)}</p>` : ""}
+      <label class="toggle" style="margin-top:10px"><input type="checkbox" id="s-sound" ${c.sound ? "checked" : ""}> Beep on the PC when a deal shows up</label></div>`)
+    + win("Selected shop area", `<div class="body">
+      <p class="sub" style="margin-top:0">Not needed: shops are found on their own. Only if a shop isn’t read, select its item list once.</p>
+      <div class="mobs">${area("region", "Player shop list", "select", "Open any player shop first.")}</div>
+      <div class="grid2">
+        <div><label class="sub" for="s-match">Name match (0–100)</label><input id="s-match" type="number" min="50" max="100" value="${c.name_match_min}"></div>
+        <div><label class="sub" for="s-tol">Row height (px)</label><input id="s-tol" type="number" min="4" max="60" value="${c.row_tolerance}"></div>
+        <div><label class="sub" for="s-int">Auto-scan every (s)</label><input id="s-int" type="number" min="2" max="10" step="0.5" value="${c.auto_interval}"></div>
+        <div style="align-self:end"><label class="toggle"><input type="checkbox" id="s-bundle" ${c.price_is_per_bundle ? "checked" : ""}> Prices are per stack</label></div>
+      </div></div>`, "fallback") : ""}
+    </div></div>`;
+
+  const save = async body => {
+    const r = await api("/api/settings", body);
+    if (r.error) alert(r.error);
+    await loadState(); renderSettings();
+  };
+  const on = (id, fn) => { const el = $("#" + id); if (el) el.addEventListener("change", fn); };
+  on("consent", e => save({consent:e.target.checked, ...(e.target.checked ? {} : {screen_reading:false, draw_overlay:false})}));
+  on("reading", e => save({screen_reading:e.target.checked}));
+  on("drawing", e => save({draw_overlay:e.target.checked}));
+  on("s-tol", e => save({row_tolerance:+e.target.value}));
+  on("s-match", e => save({name_match_min:+e.target.value}));
+  on("s-side", e => save({label_side:e.target.value}));
+  on("s-int", e => save({auto_interval:+e.target.value}));
+  on("s-title", e => save({game_title:e.target.value}));
+  on("s-bundle", e => save({price_is_per_bundle:e.target.checked}));
+  on("s-sound", e => save({sound:e.target.checked}));
+  document.querySelectorAll("[data-area]").forEach(b => b.addEventListener("click", () => api("/api/" + b.dataset.area, {})));
+  $("#s-howto").addEventListener("click", () => openSetup(2));
+  $("#s-setup").addEventListener("click", () => openSetup(0));
+}
+
+// Fit the list and details panes to the window, so the page itself doesn't scroll
+function fitPanes(){
+  document.querySelectorAll(".md .master, .md .detail").forEach(el => {
+    el.style.maxHeight = innerWidth > 820 ? Math.max(260, innerHeight - el.getBoundingClientRect().top - scrollY - 16) + "px" : "";
+  });
+}
+addEventListener("resize", fitPanes);
+
+let renderSeq = 0;
+async function render(){
+  clearInterval(timer);
+  const seq = ++renderSeq;
+  document.querySelector(".foot").hidden = tab !== "settings";
+  try{
+    if (tab === "live"){ liveKey = ""; await renderLive(); if (seq === renderSeq) timer = setInterval(renderLive, 1000); }
+    else if (tab === "nav"){ navKey = ""; await renderNav(true); if (seq === renderSeq) timer = setInterval(() => renderNav(false), 2000); }
+    else if (tab === "train") await renderTrain();
+    else if (tab === "quests") await renderQuests();
+    else if (tab === "settings") await renderSettings();
+    else if (tab === "gear") await renderGear();
+    else if (tab === "skills") await renderSkills();
+    else await renderFlips();
+  }catch(e){
+    $("#view").innerHTML = `<div class="empty">Can’t reach Companion. Check that it’s still running.</div>`;
+  }
+}
+
+// Follow the character: when the game shows a new level, job, mesos or map, refresh.
+setInterval(async () => {
+  try{
+    const prev = profRev;
+    await loadState();
+    profRev = state.profile.rev;
+    if (prev !== null && prev !== profRev){
+      fillProfile(state.profile);
+      if (!["live","nav","skills"].includes(tab)) render();
+    }
+  }catch(e){}
+}, 4000);
+
+// First-run setup and the how-to, in Hebrew. Game names stay in English, as in the game
+// Item pictures from the game (OSMS Data Explorer, MIT), in the page so they never wait on the network
+const ICON = {
+  leaf: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAeCAYAAAA/xX6fAAADmUlEQVR4AWKgAfiPz0wmfJIMDPg1E9CLFRCyEKsmPIJ4fQfSh8/C//+NQUoIGwJWxcAAVr9bEMzDaTE+CxkYjAUZiLT0//80iE1KEApsKzaCgIVK2PSgi8Etu/eegUHwfTm6PAofl4VwQ1BUY3L+/59pzMBgTJTDwACXhSiG4AhWiGVgYxgYGM6+h/iOjCAFRz7YHNwRArFMUJCBAYTP3gMrJ4bA7kNjQQaCsQ+yCGbD2fcM7+9B4k7oXidIlBFEYMPYLcSmEiEG8R2Mv+csjMVwL5RwXJJjIdwCMAPJd2A+AQCyEDOTnn2P0AYKXgQPwXr/noGhcw+cD/Kdyax0EB9bcILsAGOQhSBFIA6IBmFGRlAogTIViAfFkBhiQGQXaEIBxR0Wy0DmwTG09AGZxMgCIkECru/BikBciAvBBqLGySqQLAifvcdwbw8iGyD5DGQJA6zUASnds/o9JP1BAw3sQ1DqB2Xg/7tdQGpAmhgZZ0FVgESgOBRUtp59zwAzBBQI6fc6GUIh8mDfg8yBFQQwdcqQXAP2CMRCF0EGhlmgcGRgQLKUgQHsSwYGkMEgu0Dm7rkHyTFnz5YzrGaAWLYqTRBhEUjPrLNwRzEwpIG0wTHYVlC9hxwMDCCvrD7LUDHrPUNHmiBcM8hiUFoBlWQgc0G0EsixMONAvof4BhKMDGkMyvdmgWRh9jDAGJDSBZoiQfEDUgUK6tVnIYUJiA+yDESDMNgyaDEG8jVIDIRBeiC+Mma4ZyzI4Lo6DCQMswduIUgQFHew6ogBZAjIAlCBAqJBCtAxSA4khrAEBCAWgVjoloHE4DaDOFAMthjEBqVedMtQLQGpgsURhkUggGE+hgBIFRL+D88KDAwMStD0eI9hNQMoiYGiazWSYiQmTnNxSkA1gy0ExQLMYkGGUAZYigVZ6soAtpKQOXCATyE4X0HzI0gd2HKYTpBvYcWCEAmWggyCmYFMo1sGkgOlyXcwn4IEQBhkMYg2gVgqBGIjYYzSA5uF4CwCLk8ZGJShmkGWgZggejeIgW4xKKihwesKkmdgYIBZBqJhGMWHIMPegZoToLwHijcGBgZw8c/AgNJwAKkDmQktz0FMDFwBFYFZBEpfIPwe5kOQISB8F6oQRIE0gcRAbBgNYmPDIIPRxQEDicEwyDIQRrEQlAZABsMwyAAQG0TjwyBDYfLobBAfGWMEKbIFyGyYgSAxkAEwPoxGF0PmI7MZANIgD+8NWbIGAAAAAElFTkSuQmCC",
+  mesos: "data:image/png;base64,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",
+  scroll: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAeCAYAAABNChwpAAAF0UlEQVR4AWLAAv5jEaOZEBOayf93nzkDEiLXESB9yBhkFl7MgiQLtlxJEEmEeCbIUoaOjpkMDIIMDO/fvwfjWZ2dIHFGfMbAHPB/1e7dDEpKDAz3zr7Hpx6bHFjvvbP3GJSU3jMoKRkzMDBAHPD+fRrD6lmz8DoCHgX3zp6FGi7IQEI0/F+1ajeDsZIgQ2ioMcPqPfcYzt57z3D2HgPDnrPvGUJdlKBm4qZADvgPCjq470FRgAgEkOux6QaJ/5+5ahWDsbEgw7177xnu3WNgcHFxgasVZBCEOCI0DSQGUg+iMTDIAQyCgoJgfO/9e1AEguMRFApp5eUgDSDNKNjYxYUBhF2MBRnOIkWZMcgXDAxgs2BmIvwCMgoTg9OAIMjXgoIM7++9B+mGqHoP8pESA8P7crCDQIIgQ0E0xOJ7YB+CfAoSA5mxZ88ecCiAPAJSC5ID0SB5XBiWQv93zJwJSjsMSsZKYB+ANYAD5CzYASA3gsUEBRnO7gHF81kGY2NjBiVBiPo9Z/cwgCwEqTF2MQZ75j3De4azZ88y3Lt3j2HP6tUgKZh9IDYYg0MAzAIRIFtA0QBmgzkMe0ApCsSHGg/yKSirgSwHZTcGJQaG1XtWQx0NCnCoM8DZkYFBSUkJnCXBRmAhkF0EDgWIj0AqBcE+X716Ndg3IEtBoiAMClaQr0A0jB8aGgpXsmfPWQZwKIDKA3CuAIXCe4Y9q2eBlCPbCUmEIFEwBgc5yBdgHpgAGQxigCyEY1iWRVYK1gtJw6DcAAo/EAa5CuEpkEmoGJwLoEKMFRXpoCKEARQLoPgDi4MsAZsE5oEJQSUlcNCCEw1IBKQBRDOAFMMKIRAbHIjg6IGFFlgZEoHsALgwyHK4nYIMDGmhoeDEBlIA8g0ou4FokENAdkKsgpAgNWCHgXIViANKNKDYFBRkcMFSJqA7gLEiPR2caMDGwXwGNQRkHgiD5RggCUwQWnmsXr0HVAKApCH0+/dgn0MFwEkYWyigOwCmHuwJMAcUt/cghoF8DUrVYHGQ1yEMsFpQqIFyAyTQoRIwD4CLF0EGJXCRjVoyYnMAJBTAqQGUqEDF7D2wiWDfQuMGFgqg6ACLg1S8h2RJsItAfCgGZ1dQuKCFJEgatRwAiSBjqC0gXxuDazkGBlBph6wEzgaFlOB7BsH3ggyzQIUOqCQNdYGkHUEGBmNQJckgyAAy5/37UFDBBCreGVHyJNwwCANc2SiBXQ3z9nuGPbAsCFEDjmdQVXzv/T0wG5QFQVIgHaA4BwU7KEQ6Z+0BWw5SZ6zEwBAWVgFSxog/BMA1OwODIDQulYwFGdKMXRhmzQIlOJB+iAJQ/IN4IMeCLAVZDlILSiagmhIUkKCQ2/N+DwMout4buzC4hEJCAb8DQDpBJguCUrwgtLEiyOBi7MJw9uweBlClAytoQI5QAoXzewYGUGyBakmQQ8LS08FlBshhILUg40B6QUU5iI0vCkDy/1fB63yQce/B8QsyDFTigywFKYJhUPy6uEDaAelhYTBhkB3/QT4GC4DSCjREQQ7BlgvA6mAEKA5BvgFZ1tk5CxSd0HICFDyCYDZILajWAzUH9ux5zwC1HGQxCIOkUTHIL1ARgg4A2QiyatasWeAsDnIISC8ka4FkGBhA7YNQF2OGzlmrGdLTwT5Ht5gRXB1DlIO0g80CMQg5gNHEJAzkBpBaBIYa5GKsBG73zZp1FtwyAlvCwCAEyvJYMMRSULHMAGpTgBMy3mwIshAUWO9AjRVBBkhhBBIEmQTKnav3QFyyelYnRJiBwRXGQKMhChkYzoDSAtSh4FACE2iKQVyQxch4N0gjSAKMoUXrakj9DhKCuwCSMUFCGBjkiJlQUVAogfhYHQCzGNSmBrFBNEhfB4hAw+AWBpoY2GAsYiBxEAYFJQiD2IDhdADIUpDlMAwyD8QG0fgw2FCoAnQ2iI+MwcoIRQFYETRBwdgwGuQgkIEwPoxGF0PmI7PB6gErBfjf4mXM5gAAAABJRU5ErkJggg==",
+  shell: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABoAAAAbCAYAAABiFp9rAAADZElEQVR4AWJkIA78J6CMoDmEFIAtSNu9iuHevXsM79+/R7UPyj/bOQsmjtM8XBJwC0AmnD17FkQxgAyGWwW1BCQBc8D71XtAXBDGMBdDgIGB4f+7d+8YVr+/x3D23j0GsCVQQ2EGgkxCZjPcg1sPkmJ4D3EYitlMYBkEgdMShBKQx5AMRrMEpE7Q2BhEgUMFxABhdItQfILsaojZggifgARAGGQKERjZov8z756BBxemJSCf3IMYSYQF6L5igehEkKA4wWsJQikKQNYjKCiIIgfiwCyC+wauASkaQArhGItvwHrg4u8Z3jMoMaBbBg86eAoDmYhiCQoHJIuCkS0RdDFmEFQCJwSwGuTgg1sEypBgWQwClACgcYMhhwDG5WkQjpIg2DdgB0BEwCQs6MAcOAEKYvweAYP3oKT9/j0DyJJ7oLwD4oNlMAm4RatC0zCS9vv3hH0CAu/vIdSBfCJorMTAcBbVpSCLwJm04uwehj2IIgSkn0FQUIkBbBkoomEpCUSD+GAVEAJkOKh0ANNgxylBJJQEGRigpRfIIgaYJe/vQUVBykAGMjBALGO4B8pEIFGQAIRGBmhBpmSsxHD2LMKXIKVgi8B5595ZhvdokqBUBFIE9hnMMjTfgADIJ+DkjEUOJA/C8FQH4qDg9+8ZQKUxOOigPmMQFGQAJwCcAJIwsKnBbRHUMJBlgqCwhvJBbGwGwQBIDuRDGB9GgyxiPFvRyaDk4sIATi0wGWgcwbjE0IIuLpAMDI0zcHBCNYIsgjKxUFDLQA4B+QQUV6DgA7FBLgfRID4oFYJ9AbLg3nuwZUouxgz3Zq0GGQqul2AWgX0FKj5QfAVSBrUMxCSEwZaB41OQ4d4epBTMwIDRqPivlAYpSkBJHZ4KoanJuKOcAZQ5wQaCEgvIBzDbQWrQHQXJyGAfgQmYWpBjGBgY3oH4IAtBloHYYAtBBjEwMIAsA4mBixyoGCgYQWIgyxkYoCUChFJmgAi8h1kEKt3Q8SqwZgRRAXVIOUgIZCGy70BiYAshvgBx06GWgHLuPZBFMAtA5QaIDaJBCkFsZBrERsaAQcIYWQTC7oRaAPITCKNYBDIcZDAMg7SA2CAaHwYZBJNHZ4P4cAzyEUghyFAQBrFBGJkN4oMwSAykEcRGxuhiyHw4GwAnGI+iP3KzIwAAAABJRU5ErkJggg==",
+  mush: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAAAcCAYAAAB2+A+pAAAD1ElEQVR4AWJkIAz+41FCjH6s2vFpBFt4Jg1T33tBiJhrJ4RmYMBrDlwRMsBl8f935cjKGBjeg7jvUWmwGAMDQ9hqkCQc4zITBWBT9P9/B5IakO8EGRjeg2y5B7EYzIY5AqoUJA1iojkCJATCGPZgCDAwMCAsFhRkYDAG6YPYArbwLJLlICkQhtkKYsMwyMFQtsksKAMpStAt/v+/Q5CBAaYJbClIE9RkkP1nGcA2g0XABEgeE2NIGTMwmKSD1YHtBBNgLoT4/38m1FaYb8HeBElCjHoPsvgeiI8fg1WDCbA7wZ4BJUrXCrA+RiYwhUFALQeJgxwAoqEYSQYqgp0CqYNpBbHBqfMeA8OqULD6/8gWQ4IZLA4JTgaYz8A6BRnA/PcMDGADwWIQxSA+DENEECRIHM6DhgCIzwIicGKQQlDQgiIdFOSgsILqBtsLJlB1C4LSBSj1g/RC3Y+qAgKQfQwRQSFB+QimG5rowF7AYiNIH0hYiYGBQQkaKpCoBclgAOwWgwyAKUVmg3wOEgeJwR0A4oAEoQ4EhRBKFEFsR1IFVozbYnSVYOUgAiQBxVAKEukgOajlICY0gKBMOIAWMIywOIYkLJBBICUgF8PYID5ODFMEjVCYOlA8w9wAzftoKhiw+xhmAIZyuARuBiiOYe6BWg5Kk+C0iaQL5mMkIVgYgXQjuRPNQLCbQCED1wlSD+cwvAcpAGkHYSiABTOIC7IYUVqBRNAxSCPITJDF6HJgPkgBJAHBufcgYiASjEHBDZZEECCLIRUB2PUgG0AYoQDMwmYpSBkIg8IR5DuQQpAtIL+C8jEoJ4IwyNJ78KoTXkRDLAZpUgKVTCCTQBwYBgU72DSYACYN0gK3/D0kLkGWgTAojt9jWgoCSIkLZAEIg4SRMchBIBPQxMCWIYmBLIJhkHIoGzlekQHUxyBV0HAB+QAju0MtB8uBTAUZAXUkiHoP8ikIQ+oCWJzishQEYGEOqfxhpRHMAgwHgLSAbEJY/h5sKYQPSlNQWVhzCGY+BoD6GCoOcirIUrBuKANKQVWAbQApA0cmiAcKLCQa6kuQciG0tI4CkF30/x2srQW2GKoNZDFMC0gcahE8IUP5rogGnytMOZQG6QIBEA3DGI0wcJMWpOouqFkLKvqQLQZJgCqB9wwMyoh2FEgUhEGNXZDBIDY6BomDMCjTgvB7ZB+DFIOsAWFQzt0NEsCDMa2GpC10LSALAYNhkKUgjNVikKUgy2EYZBCIDaLxYZDhMHl0NoiPjDGCGqQRZAkIg9ggjMwG8UEYJAYyCMRGxuhiyHxkNgMA4iIMHhvvJ5wAAAAASUVORK5CYII=",
+  gloves: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAADl0lEQVR4AWJkoBz8RzMCr5lMaIpJ5f6/e/cuw6rQUIb///8zdLi4gPSDHADCIDYGJtdCkIEgzJCeHsawmoGBISwsjEFJUJDh3bt3eC1mwXACbgGwBSBpkG9A9Pv370EUGN+7d5ahs3MWw/vVq+EWzwoLY6jYswekDx7McAZYF3YCpAEcZDBpmEWCgoJgIRgfZCkI3Lt3jwHkFpDloTNnMigrK4OEwXbh8yHRFsEsVlIyBhkMxiBLQeJ79uwBBzHMp7gs/A8LNpBumA9ABuDjg+RgQElJieFeqAvDntV7GBDOYMCahFEsgxkAo0GWwywGiSHzQWwYQA7esLB0mDAjeioFWwbTCKNhqkF8UixDA+A4RLYQbhnIdatXz0JTz8CAzzJkOXSwatVMkBA4TcAsRLEMFOGrV++BWwDyGUgHDIP4yBaA2CAxkDzIsSAahkFxCWODaJiFDCANIMUwy1atWgUWO3t2D0gdCgZZgCwA0gvig/QTAiAL/4NKB5BikGWzZs1igFkGE8NnCDbLQObA9CCzQWIgC8HBAJIAWbZ79xmwz2CWIQctSAPIAhAGsWEYpBbEBpkBwiA9ID4Mg8RgbHA+BAngsgzkW5BikCUwg42NwYU03GEgeZAZIBpkWWgoRB7EB+GKik4QBU+ljEj5BMW36JaBDAWVlyDdyA4AiYPEQI6GWYZc6oDkYBgcpCDOqlW7oS6+xwDSCApakDjMYJChINfDHAHzLUgcpA7k6D17zoKYDOgpEywIJeAWgvgwQ0BsEEa2DOQImGUgcZA8smUMkFILJbRAvgRZjpwPwXEI0rxnD6hWY0DxHUgcZCgIg9gIi86CEwdIDOQzqGUgLhjA1IMsBAsgETAforgMJA8yHOZjUIkPCnKQOEgMZiA2y0CWg8RBamBqQWyQBAjDfQhVCM6TIAlCGNkQLGpBHvgPDUoG5FQKTqpIGuAWwlwHiruOjg4GUPDAxEDqQb4AORLExoPB5SeyOmQfgvQxCgkJwV0G8gUs5YEsAykAYZA4iGZgYIBU+VAOFkqIgYEB0Q5BthlNMcxlIGFQ++AuLHhAlkGDyBUkSQDDLAPRYIwepCAXY8Mgc8F1DIjBwMAALjqgbBgFMhAbAImD8D0GBoZ7yEEKs0gJGlQgGmQASBxEI1eQMDGQOD4MGMgiFHlkC0ESyAahK0bng9TDMLIcOhvEh2NcQQozCNkByGIgA2B8GI0uhsyHswE33Bg1v9GiJwAAAABJRU5ErkJggg==",
+  rock: "data:image/png;base64,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"
+};
+const setupDlg = $("#setup");
+let setupStep = 0, setupTimer = null;
+const he = s => `<bdi>${s}</bdi>`;
+function setupChar(c, p){
+  const cz = state.cozy || {};
+  return `<h2>ברוכים הבאים ל-${he("Companion")}</h2>
+    <p>עוזר חינמי ל-${he("MapleStory Classic")} שרץ רק על המחשב שלכם: איפה לגריינד, קווסטים, ציוד, סקילים, מסלולים בין מפות, ומחירי שוק מ-${he("MSC")} ומ-${he("Cozy Market")}.</p>
+    <h3>הדמות שלכם</h3>
+    <div class="grid2"><div><label class="sub" for="su-job">ג'וב</label><select id="su-job" dir="ltr">${state.jobs.map(j => `<option${j === p.job ? " selected" : ""}>${esc(j)}</option>`).join("")}</select></div>
+      <div><label class="sub" for="su-level">רמה</label><input id="su-level" type="number" min="1" max="200" dir="ltr" value="${p.level}"></div></div>
+    <p class="sub" style="margin-top:8px">כשקריאת המסך פועלת, ${he("Companion")} מעדכן לבד את הרמה, הג'וב, ה-mesos והמפה מתוך המשחק.</p>
+    <div class="checks">
+      <div class="check ${state.prices && state.prices !== "?" ? "ok" : "warn"}">מחירי ${he("MSC")}: ${state.prices && state.prices !== "?" ? "נטענו" : "עוד לא נטענו, בדקו את החיבור לאינטרנט"}</div>
+      <div class="check ${cz.items ? "ok" : "warn"}">מחירי ${he("Cozy Market")}: ${cz.items ? `${he(fmt(cz.items))} אייטמים, מתעדכנים לבד כל שעתיים` : "נטענים ברקע: הראשונים תוך דקה, כולם תוך כחצי שעה"}</div>
+    </div>`;
+}
+function setupChecks(c){
+  if (!c.screen_reading) return "";
+  const size = c.game_size, rows = [];
+  rows.push(c.game_found ? `<div class="check ok">חלון המשחק נמצא${size ? `: ${he(size[0] + "×" + size[1])}` : ""}</div>`
+    : `<div class="check warn">לא נמצא חלון עם ${he(esc(c.game_title))} בכותרת. פתחו את המשחק, הבדיקה מתעדכנת לבד.</div>`);
+  if (c.game_found && size) rows.push(size[1] >= 1000 ? `<div class="check ok">רזולוציה טובה לקריאה</div>`
+    : size[1] >= 700 ? `<div class="check warn">זה עובד, אבל ב-${he("1920×1080")} ומעלה הקריאה מדויקת יותר</div>`
+    : `<div class="check warn">החלון קטן מדי לקריאה טובה. הגדילו אותו ל-${he("1920×1080")} אם אפשר</div>`);
+  return rows.join("");
+}
+function setupScreen(c){
+  if (!c.screen_available) return `<h2>קריאת מסך</h2><p>קריאת מסך עובדת רק בגרסה ל-${he("Windows")}. כל השאר עובד גם בלעדיה.</p>`;
+  return `<h2>קריאת מסך (לא חובה)</h2>
+    <p>בלי קריאת מסך כל הדשבורד עובד, ושום דבר לא נוגע במשחק. עם קריאת מסך ${he("Companion")} מסתכל על חלון המשחק, כמו שיתוף חלון ב-${he("Discord")} או ב-${he("OBS")}. הוא לא נוגע בזיכרון המשחק, לא לוחץ על מקשים ולא שולח את המסך לשום מקום. ככה הוא:</p>
+    <ul><li>מראה מחיר מתחת לכל אייטם שעוברים עליו עם העכבר, ותוויות מחיר ליד חנויות של שחקנים</li>
+      <li>מראה מתחת למיני-מפה לאיזה פורטל ללכת</li>
+      <li>מעדכן לבד רמה, מפה, סקילים וקווסטים</li></ul>
+    <p class="risk">זה כלי לא רשמי ש-${he("Nexon")} לא אישרה. התנאים של ${he("Nexon")} אוסרים תוכנות צד שלישי לא מורשות, ואין שום הבטחה שלא תהיה חסימה. חסימה חלה גם על ${he("Classic World")} וגם על ${he("MapleStory")} הרגיל. שחקנים דיווחו על ${he("Lie Detector")} בזמן שימוש בכלים שקוראים את המסך, ולא ידוע אם יש קשר. הפעילו רק אם אתם מקבלים את הסיכון.</p>
+    <label class="toggle"><input type="checkbox" id="su-consent" ${c.consent ? "checked" : ""}> הבנתי את הסיכון, והשימוש על אחריותי</label>
+    <label class="toggle"><input type="checkbox" id="su-reading" ${c.screen_reading ? "checked" : ""} ${c.consent ? "" : "disabled"}> להפעיל קריאת מסך</label>
+    <label class="toggle"><input type="checkbox" id="su-drawing" ${c.draw_overlay ? "checked" : ""} ${c.screen_reading ? "" : "disabled"}> להציג גם על המשחק: מחירים, ומסלול מתחת למיני-מפה</label>
+    <div class="checks" id="su-checks" role="status">${setupChecks(c)}</div>`;
+}
+function setupHowTo(){
+  const slotI = k => `<span class="slot hslot" aria-hidden="true"><img src="${ICON[k]}" alt=""></span>`;
+  const tag = (v, t, he) => `<span class="tagline"><span class="verdict v-${v}">${t}</span>${he}</span>`;
+  const tile = (k, name, text) => `<div class="htile">${slotI(k)}<div><b class="tabname" dir="ltr">${name}</b><span>${text}</span></div></div>`;
+  return `<h2>איך משתמשים</h2>
+    <h3>על המשחק</h3>
+    <div class="hows">
+      <div class="how">${slotI("mesos")}<div><b>מחירים</b>
+        <p>עברו עם העכבר על אייטם ותראו מתחתיו את המחיר ב-<bdi class="src src-msc">MSC</bdi> וב-<bdi class="src src-cozy">Cozy</bdi>.</p>
+        <div class="tags"><span>בחנויות:</span>${tag("snipe", "SNIPE", "זול")}${tag("fair", "FAIR", "הוגן")}${tag("pricey", "PRICEY", "יקר")}${tag("over", "OVERPRICED", "יקר מדי")}</div>
+        <small>רק כששני האתרים מסכימים. אחרת ${he("SOURCES DIFFER")}, ותחליטו לבד.</small></div></div>
+      <div class="how">${slotI("scroll")}<div><b>מסלול</b>
+        <p>בחרו יעד ב-${he("Go to")} או ${he("Take me there")} ב-${he("Train")}. מתחת למיני-מפה: החץ מראה לאיזה פורטל, הקווים כמה מעברים נשארו. מתקדם לבד.</p></div></div>
+      <div class="how">${slotI("shell")}<div><b>קווסט</b>
+        <p>${he("Guide me in game")} ב-${he("Quests")} מוסיף לפס מה עושים עכשיו, עד המפלצות ובחזרה <span class="nw">ל-NPC</span>. הספירה ב-${he("Quest Helper")} של המשחק.</p></div></div>
+    </div>
+    <h3>בדשבורד</h3>
+    <div class="htiles">
+      ${tile("leaf", "Now", "מה עכשיו: מסלול, חנות, SP ו-AP")}
+      ${tile("mush", "Train", "המפות הכי טובות לרמה שלכם")}
+      ${tile("shell", "Quests", "מה אפשר לקחת ומה בתהליך")}
+      ${tile("gloves", "Gear", "הציוד הכי טוב ומחיר טוב לקנייה")}
+      ${tile("rock", "Skills", "לאן הולכות הנקודות")}
+      ${tile("mesos", "Shops", "כל אייטם שראיתם בחנויות")}
+    </div>
+    <h3>כדי שהקריאה תעבוד טוב</h3>
+    <ul class="tips">
+      <li><span class="keys" dir="ltr"><kbd>S</kbd><kbd>K</kbd><kbd>Q</kbd></span><span>פתחו פעם אחת ${he("Character Stat")}, ${he("Skills")} ו-${he("Quest")}. ככה ${he("Companion")} לומד את הרמה, הסקילים והקווסטים שסיימתם.</span></li>
+      <li><span class="keys" dir="ltr"><kbd class="wide">1920×1080</kbd></span><span>רזולוציה מומלצת, ומעלה. קטנה יותר עובדת, אבל פחות מדויק.</span></li>
+      <li><span class="keys" dir="ltr"><kbd>?</kbd></span><span>פותח את ההסבר הזה שוב, מכל לשונית.</span></li>
+    </ul>`;
+}
+const SETUP = [setupChar, setupScreen, setupHowTo];
+
+async function openSetup(step){
+  setupStep = step || 0;
+  if (!setupDlg.open) setupDlg.showModal();
+  await drawSetup();
+}
+async function drawSetup(){
+  clearInterval(setupTimer);
+  const c = await api("/api/settings"), p = state.profile, last = setupStep === SETUP.length - 1;
+  $("#setup-dots").innerHTML = SETUP.map((_, i) => `<i class="${i <= setupStep ? "on" : ""}"></i>`).join("");
+  $("#setup-body").innerHTML = SETUP[setupStep](c, p);
+  $("#setup-body").scrollTop = 0;
+  $("#setup-foot").innerHTML = `${setupStep ? `<button class="btn" id="su-back">הקודם</button>` : `<button class="btn" id="su-skip">דלגו</button>`}
+    <span class="grow sub">שלב ${setupStep + 1} מתוך ${SETUP.length}</span>
+    <button class="btn primary" id="su-next">${last ? "יאללה, למשחק" : "הבא"}</button>`;
+  const back = $("#su-back"); if (back) back.addEventListener("click", () => { setupStep--; drawSetup(); });
+  const skip = $("#su-skip"); if (skip) skip.addEventListener("click", () => setupDlg.close());
+  $("#su-next").addEventListener("click", () => { if (last) setupDlg.close(); else { setupStep++; drawSetup(); } });
+  const saveChar = async () => {
+    await api("/api/profile", {job:$("#su-job").value, level:+$("#su-level").value || 1});
+    await loadState(); fillProfile(state.profile);
+  };
+  const job = $("#su-job"); if (job){ job.addEventListener("change", saveChar); $("#su-level").addEventListener("change", saveChar); }
+  const set = async body => { const r = await api("/api/settings", body); if (r.error) alert(r.error); await loadState(); drawSetup(); };
+  const con = $("#su-consent");
+  if (con){
+    con.addEventListener("change", e => set(e.target.checked ? {consent:true} : {consent:false, screen_reading:false, draw_overlay:false}));
+    // drawing on the game is what most of it is for, so it comes on with reading; untick it to keep it off
+    $("#su-reading").addEventListener("change", e => set(e.target.checked ? {screen_reading:true, draw_overlay:true} : {screen_reading:false}));
+    $("#su-drawing").addEventListener("change", e => set({draw_overlay:e.target.checked}));
+    if (c.screen_reading) setupTimer = setInterval(async () => {
+      const box = $("#su-checks"); if (!box) return;
+      box.innerHTML = setupChecks(await api("/api/settings"));
+    }, 1500);
+  }
+}
+// closing it any way (finish, skip, Esc) counts as done; the ? button brings the how-to back
+setupDlg.addEventListener("close", async () => {
+  clearInterval(setupTimer);
+  try{ await api("/api/settings", {setup_done:true}); }catch(e){}
+  liveKey = ""; render();
+});
+$("#help").addEventListener("click", () => openSetup(2));
+$("#setup-leaf").src = ICON.leaf;
+
+loadState().then(async s => {
+  profRev = s.profile.rev; fillProfile(s.profile);
+  render();
+  const c = await api("/api/settings");
+  if (!c.setup_done) openSetup(0);
+}).catch(() => {
+  $("#view").innerHTML = `<div class="empty">Can’t reach Companion. Check that it’s still running, then reload this page.</div>`;
+});
+</script>
+</body>
+</html>

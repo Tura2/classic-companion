@@ -1,0 +1,5 @@
+pillow
+requests
+rapidfuzz>=3,<4
+winocr==0.0.15
+windows-capture==2.0.1

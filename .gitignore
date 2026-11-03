@@ -1,0 +1,16 @@
+# Your own data: stays on your PC
+config.json
+profile.json
+scans.sqlite
+cache/
+debug/
+*.tmp
+*.bad
+
+# Python / build output
+__pycache__/
+*.pyc
+build/
+dist/
+*.spec
+*.exe

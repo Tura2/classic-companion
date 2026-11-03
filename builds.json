@@ -1,0 +1,10801 @@
+{
+ "Warrior": {
+  "source": "meowdb.com/msclassic/guides/warrior-class-guide",
+  "steps": [
+   [
+    10,
+    "Power Strike",
+    1
+   ],
+   [
+    11,
+    "Power Strike",
+    2
+   ],
+   [
+    11,
+    "Power Strike",
+    3
+   ],
+   [
+    11,
+    "Slash Blast",
+    1
+   ],
+   [
+    12,
+    "Power Strike",
+    4
+   ],
+   [
+    12,
+    "Slash Blast",
+    2
+   ],
+   [
+    12,
+    "Slash Blast",
+    3
+   ],
+   [
+    13,
+    "Slash Blast",
+    4
+   ],
+   [
+    13,
+    "Precise Strikes",
+    1
+   ],
+   [
+    13,
+    "Precise Strikes",
+    2
+   ],
+   [
+    14,
+    "Precise Strikes",
+    3
+   ],
+   [
+    14,
+    "Precise Strikes",
+    4
+   ],
+   [
+    14,
+    "Precise Strikes",
+    5
+   ],
+   [
+    15,
+    "Power Strike",
+    5
+   ],
+   [
+    15,
+    "Power Strike",
+    6
+   ],
+   [
+    15,
+    "Power Strike",
+    7
+   ],
+   [
+    16,
+    "Power Strike",
+    8
+   ],
+   [
+    16,
+    "Power Strike",
+    9
+   ],
+   [
+    16,
+    "Power Strike",
+    10
+   ],
+   [
+    17,
+    "Power Strike",
+    11
+   ],
+   [
+    17,
+    "Power Strike",
+    12
+   ],
+   [
+    17,
+    "Power Strike",
+    13
+   ],
+   [
+    18,
+    "Power Strike",
+    14
+   ],
+   [
+    18,
+    "Power Strike",
+    15
+   ],
+   [
+    18,
+    "Power Strike",
+    16
+   ],
+   [
+    19,
+    "Power Strike",
+    17
+   ],
+   [
+    19,
+    "Power Strike",
+    18
+   ],
+   [
+    19,
+    "Power Strike",
+    19
+   ],
+   [
+    20,
+    "Power Strike",
+    20
+   ],
+   [
+    20,
+    "Slash Blast",
+    5
+   ],
+   [
+    20,
+    "Slash Blast",
+    6
+   ],
+   [
+    21,
+    "Slash Blast",
+    7
+   ],
+   [
+    21,
+    "Slash Blast",
+    8
+   ],
+   [
+    21,
+    "Slash Blast",
+    9
+   ],
+   [
+    22,
+    "Slash Blast",
+    10
+   ],
+   [
+    22,
+    "Slash Blast",
+    11
+   ],
+   [
+    22,
+    "Slash Blast",
+    12
+   ],
+   [
+    23,
+    "Slash Blast",
+    13
+   ],
+   [
+    23,
+    "Slash Blast",
+    14
+   ],
+   [
+    23,
+    "Slash Blast",
+    15
+   ],
+   [
+    24,
+    "Slash Blast",
+    16
+   ],
+   [
+    24,
+    "Slash Blast",
+    17
+   ],
+   [
+    24,
+    "Slash Blast",
+    18
+   ],
+   [
+    25,
+    "Slash Blast",
+    19
+   ],
+   [
+    25,
+    "Slash Blast",
+    20
+   ],
+   [
+    25,
+    "Precise Strikes",
+    6
+   ],
+   [
+    26,
+    "Precise Strikes",
+    7
+   ],
+   [
+    26,
+    "Precise Strikes",
+    8
+   ],
+   [
+    26,
+    "Precise Strikes",
+    9
+   ],
+   [
+    27,
+    "Precise Strikes",
+    10
+   ],
+   [
+    27,
+    "Precise Strikes",
+    11
+   ],
+   [
+    27,
+    "Precise Strikes",
+    12
+   ],
+   [
+    28,
+    "Precise Strikes",
+    13
+   ],
+   [
+    28,
+    "Precise Strikes",
+    14
+   ],
+   [
+    28,
+    "Precise Strikes",
+    15
+   ],
+   [
+    29,
+    "Improved HP Recovery",
+    1
+   ],
+   [
+    29,
+    "Improved HP Recovery",
+    2
+   ],
+   [
+    29,
+    "Improved HP Recovery",
+    3
+   ],
+   [
+    30,
+    "Max HP Increase",
+    1
+   ],
+   [
+    30,
+    "Max HP Increase",
+    2
+   ],
+   [
+    30,
+    "Max HP Increase",
+    3
+   ]
+  ],
+  "rows": [
+   {
+    "lo": 10,
+    "hi": 10,
+    "spend": [
+     [
+      "Power Strike",
+      1
+     ]
+    ],
+    "after": {
+     "Power Strike": 1
+    }
+   },
+   {
+    "lo": 11,
+    "hi": 11,
+    "spend": [
+     [
+      "Power Strike",
+      2
+     ],
+     [
+      "Slash Blast",
+      1
+     ]
+    ],
+    "after": {
+     "Power Strike": 3,
+     "Slash Blast": 1
+    }
+   },
+   {
+    "lo": 12,
+    "hi": 12,
+    "spend": [
+     [
+      "Power Strike",
+      1
+     ],
+     [
+      "Slash Blast",
+      2
+     ]
+    ],
+    "after": {
+     "Power Strike": 4,
+     "Slash Blast": 3
+    }
+   },
+   {
+    "lo": 13,
+    "hi": 13,
+    "spend": [
+     [
+      "Slash Blast",
+      1
+     ],
+     [
+      "Precise Strikes",
+      2
+     ]
+    ],
+    "after": {
+     "Power Strike": 4,
+     "Slash Blast": 4,
+     "Precise Strikes": 2
+    }
+   },
+   {
+    "lo": 14,
+    "hi": 14,
+    "spend": [
+     [
+      "Precise Strikes",
+      3
+     ]
+    ],
+    "after": {
+     "Power Strike": 4,
+     "Slash Blast": 4,
+     "Precise Strikes": 5
+    }
+   },
+   {
+    "lo": 15,
+    "hi": 19,
+    "spend": [
+     [
+      "Power Strike",
+      15
+     ]
+    ],
+    "after": {
+     "Power Strike": 19,
+     "Slash Blast": 4,
+     "Precise Strikes": 5
+    }
+   },
+   {
+    "lo": 20,
+    "hi": 20,
+    "spend": [
+     [
+      "Power Strike",
+      1
+     ],
+     [
+      "Slash Blast",
+      2
+     ]
+    ],
+    "after": {
+     "Power Strike": 20,
+     "Slash Blast": 6,
+     "Precise Strikes": 5
+    }
+   },
+   {
+    "lo": 21,
+    "hi": 24,
+    "spend": [
+     [
+      "Slash Blast",
+      12
+     ]
+    ],
+    "after": {
+     "Power Strike": 20,
+     "Slash Blast": 18,
+     "Precise Strikes": 5
+    }
+   },
+   {
+    "lo": 25,
+    "hi": 25,
+    "spend": [
+     [
+      "Slash Blast",
+      2
+     ],
+     [
+      "Precise Strikes",
+      1
+     ]
+    ],
+    "after": {
+     "Power Strike": 20,
+     "Slash Blast": 20,
+     "Precise Strikes": 6
+    }
+   },
+   {
+    "lo": 26,
+    "hi": 28,
+    "spend": [
+     [
+      "Precise Strikes",
+      9
+     ]
+    ],
+    "after": {
+     "Power Strike": 20,
+     "Slash Blast": 20,
+     "Precise Strikes": 15
+    }
+   },
+   {
+    "lo": 29,
+    "hi": 29,
+    "spend": [
+     [
+      "Improved HP Recovery",
+      3
+     ]
+    ],
+    "after": {
+     "Power Strike": 20,
+     "Slash Blast": 20,
+     "Precise Strikes": 15,
+     "Improved HP Recovery": 3
+    }
+   },
+   {
+    "lo": 30,
+    "hi": 30,
+    "spend": [
+     [
+      "Max HP Increase",
+      3
+     ]
+    ],
+    "after": {
+     "Power Strike": 20,
+     "Slash Blast": 20,
+     "Precise Strikes": 15,
+     "Improved HP Recovery": 3,
+     "Max HP Increase": 3
+    }
+   }
+  ],
+  "end": {
+   "Power Strike": 20,
+   "Slash Blast": 20,
+   "Precise Strikes": 15,
+   "Improved HP Recovery": 3,
+   "Max HP Increase": 3
+  },
+  "to_level": 30
+ },
+ "Fighter": {
+  "source": "meowdb.com/msclassic/guides/fighter-class-guide",
+  "steps": [
+   [
+    30,
+    "Rush",
+    1
+   ],
+   [
+    31,
+    "Rage",
+    1
+   ],
+   [
+    31,
+    "Axe Mastery",
+    1
+   ],
+   [
+    31,
+    "Axe Mastery",
+    2
+   ],
+   [
+    32,
+    "Axe Mastery",
+    3
+   ],
+   [
+    32,
+    "Axe Mastery",
+    4
+   ],
+   [
+    32,
+    "Axe Mastery",
+    5
+   ],
+   [
+    33,
+    "Axe Booster",
+    1
+   ],
+   [
+    33,
+    "Final Attack: Axe",
+    1
+   ],
+   [
+    33,
+    "Axe Mastery",
+    6
+   ],
+   [
+    34,
+    "Axe Mastery",
+    7
+   ],
+   [
+    34,
+    "Axe Mastery",
+    8
+   ],
+   [
+    34,
+    "Axe Mastery",
+    9
+   ],
+   [
+    35,
+    "Axe Mastery",
+    10
+   ],
+   [
+    35,
+    "Axe Mastery",
+    11
+   ],
+   [
+    35,
+    "Axe Mastery",
+    12
+   ],
+   [
+    36,
+    "Axe Mastery",
+    13
+   ],
+   [
+    36,
+    "Axe Mastery",
+    14
+   ],
+   [
+    36,
+    "Axe Mastery",
+    15
+   ],
+   [
+    37,
+    "Axe Mastery",
+    16
+   ],
+   [
+    37,
+    "Axe Mastery",
+    17
+   ],
+   [
+    37,
+    "Axe Mastery",
+    18
+   ],
+   [
+    38,
+    "Axe Mastery",
+    19
+   ],
+   [
+    38,
+    "Axe Mastery",
+    20
+   ],
+   [
+    38,
+    "Final Attack: Axe",
+    2
+   ],
+   [
+    39,
+    "Rage",
+    2
+   ],
+   [
+    39,
+    "Rage",
+    3
+   ],
+   [
+    39,
+    "Rage",
+    4
+   ],
+   [
+    40,
+    "Rage",
+    5
+   ],
+   [
+    40,
+    "Rage",
+    6
+   ],
+   [
+    40,
+    "Rage",
+    7
+   ],
+   [
+    41,
+    "Rage",
+    8
+   ],
+   [
+    41,
+    "Rage",
+    9
+   ],
+   [
+    41,
+    "Rage",
+    10
+   ],
+   [
+    42,
+    "Rage",
+    11
+   ],
+   [
+    42,
+    "Rage",
+    12
+   ],
+   [
+    42,
+    "Rage",
+    13
+   ],
+   [
+    43,
+    "Rage",
+    14
+   ],
+   [
+    43,
+    "Rage",
+    15
+   ],
+   [
+    43,
+    "Rage",
+    16
+   ],
+   [
+    44,
+    "Rage",
+    17
+   ],
+   [
+    44,
+    "Rage",
+    18
+   ],
+   [
+    44,
+    "Rage",
+    19
+   ],
+   [
+    45,
+    "Rage",
+    20
+   ],
+   [
+    45,
+    "Rage",
+    21
+   ],
+   [
+    45,
+    "Rage",
+    22
+   ],
+   [
+    46,
+    "Rage",
+    23
+   ],
+   [
+    46,
+    "Rage",
+    24
+   ],
+   [
+    46,
+    "Rage",
+    25
+   ],
+   [
+    47,
+    "Rage",
+    26
+   ],
+   [
+    47,
+    "Rage",
+    27
+   ],
+   [
+    47,
+    "Rage",
+    28
+   ],
+   [
+    48,
+    "Rage",
+    29
+   ],
+   [
+    48,
+    "Rage",
+    30
+   ],
+   [
+    48,
+    "Final Attack: Axe",
+    3
+   ],
+   [
+    49,
+    "Final Attack: Axe",
+    4
+   ],
+   [
+    49,
+    "Final Attack: Axe",
+    5
+   ],
+   [
+    49,
+    "Final Attack: Axe",
+    6
+   ],
+   [
+    50,
+    "Final Attack: Axe",
+    7
+   ],
+   [
+    50,
+    "Final Attack: Axe",
+    8
+   ],
+   [
+    50,
+    "Final Attack: Axe",
+    9
+   ],
+   [
+    51,
+    "Final Attack: Axe",
+    10
+   ],
+   [
+    51,
+    "Final Attack: Axe",
+    11
+   ],
+   [
+    51,
+    "Final Attack: Axe",
+    12
+   ],
+   [
+    52,
+    "Final Attack: Axe",
+    13
+   ],
+   [
+    52,
+    "Final Attack: Axe",
+    14
+   ],
+   [
+    52,
+    "Final Attack: Axe",
+    15
+   ],
+   [
+    53,
+    "Final Attack: Axe",
+    16
+   ],
+   [
+    53,
+    "Final Attack: Axe",
+    17
+   ],
+   [
+    53,
+    "Final Attack: Axe",
+    18
+   ],
+   [
+    54,
+    "Final Attack: Axe",
+    19
+   ],
+   [
+    54,
+    "Final Attack: Axe",
+    20
+   ],
+   [
+    54,
+    "Final Attack: Axe",
+    21
+   ],
+   [
+    55,
+    "Final Attack: Axe",
+    22
+   ],
+   [
+    55,
+    "Final Attack: Axe",
+    23
+   ],
+   [
+    55,
+    "Final Attack: Axe",
+    24
+   ],
+   [
+    56,
+    "Final Attack: Axe",
+    25
+   ],
+   [
+    56,
+    "Final Attack: Axe",
+    26
+   ],
+   [
+    56,
+    "Final Attack: Axe",
+    27
+   ],
+   [
+    57,
+    "Final Attack: Axe",
+    28
+   ],
+   [
+    57,
+    "Final Attack: Axe",
+    29
+   ],
+   [
+    57,
+    "Final Attack: Axe",
+    30
+   ],
+   [
+    58,
+    "Axe Booster",
+    2
+   ],
+   [
+    58,
+    "Axe Booster",
+    3
+   ],
+   [
+    58,
+    "Axe Booster",
+    4
+   ],
+   [
+    59,
+    "Axe Booster",
+    5
+   ],
+   [
+    59,
+    "Axe Booster",
+    6
+   ],
+   [
+    59,
+    "Axe Booster",
+    7
+   ],
+   [
+    60,
+    "Axe Booster",
+    8
+   ],
+   [
+    60,
+    "Axe Booster",
+    9
+   ],
+   [
+    60,
+    "Axe Booster",
+    10
+   ],
+   [
+    61,
+    "Axe Booster",
+    11
+   ],
+   [
+    61,
+    "Axe Booster",
+    12
+   ],
+   [
+    61,
+    "Axe Booster",
+    13
+   ],
+   [
+    62,
+    "Axe Booster",
+    14
+   ],
+   [
+    62,
+    "Axe Booster",
+    15
+   ],
+   [
+    62,
+    "Axe Booster",
+    16
+   ],
+   [
+    63,
+    "Axe Booster",
+    17
+   ],
+   [
+    63,
+    "Axe Booster",
+    18
+   ],
+   [
+    63,
+    "Axe Booster",
+    19
+   ],
+   [
+    64,
+    "Axe Booster",
+    20
+   ],
+   [
+    64,
+    "Rush",
+    2
+   ],
+   [
+    64,
+    "Rush",
+    3
+   ],
+   [
+    65,
+    "Rush",
+    4
+   ],
+   [
+    65,
+    "Rush",
+    5
+   ],
+   [
+    65,
+    "Rush",
+    6
+   ],
+   [
+    66,
+    "Rush",
+    7
+   ],
+   [
+    66,
+    "Rush",
+    8
+   ],
+   [
+    66,
+    "Rush",
+    9
+   ],
+   [
+    67,
+    "Rush",
+    10
+   ],
+   [
+    67,
+    "Rush",
+    11
+   ],
+   [
+    67,
+    "Rush",
+    12
+   ],
+   [
+    68,
+    "Rush",
+    13
+   ],
+   [
+    68,
+    "Rush",
+    14
+   ],
+   [
+    68,
+    "Rush",
+    15
+   ],
+   [
+    69,
+    "Rush",
+    16
+   ],
+   [
+    69,
+    "Rush",
+    17
+   ],
+   [
+    69,
+    "Rush",
+    18
+   ],
+   [
+    70,
+    "Rush",
+    19
+   ],
+   [
+    70,
+    "Rush",
+    20
+   ]
+  ],
+  "rows": [
+   {
+    "lo": 30,
+    "hi": 30,
+    "spend": [
+     [
+      "Rush",
+      1
+     ]
+    ],
+    "after": {
+     "Rush": 1
+    }
+   },
+   {
+    "lo": 31,
+    "hi": 31,
+    "spend": [
+     [
+      "Rage",
+      1
+     ],
+     [
+      "Axe Mastery",
+      2
+     ]
+    ],
+    "after": {
+     "Rush": 1,
+     "Rage": 1,
+     "Axe Mastery": 2
+    }
+   },
+   {
+    "lo": 32,
+    "hi": 32,
+    "spend": [
+     [
+      "Axe Mastery",
+      3
+     ]
+    ],
+    "after": {
+     "Rush": 1,
+     "Rage": 1,
+     "Axe Mastery": 5
+    }
+   },
+   {
+    "lo": 33,
+    "hi": 33,
+    "spend": [
+     [
+      "Axe Booster",
+      1
+     ],
+     [
+      "Final Attack: Axe",
+      1
+     ],
+     [
+      "Axe Mastery",
+      1
+     ]
+    ],
+    "after": {
+     "Rush": 1,
+     "Rage": 1,
+     "Axe Mastery": 6,
+     "Axe Booster": 1,
+     "Final Attack: Axe": 1
+    }
+   },
+   {
+    "lo": 34,
+    "hi": 37,
+    "spend": [
+     [
+      "Axe Mastery",
+      12
+     ]
+    ],
+    "after": {
+     "Rush": 1,
+     "Rage": 1,
+     "Axe Mastery": 18,
+     "Axe Booster": 1,
+     "Final Attack: Axe": 1
+    }
+   },
+   {
+    "lo": 38,
+    "hi": 38,
+    "spend": [
+     [
+      "Axe Mastery",
+      2
+     ],
+     [
+      "Final Attack: Axe",
+      1
+     ]
+    ],
+    "after": {
+     "Rush": 1,
+     "Rage": 1,
+     "Axe Mastery": 20,
+     "Axe Booster": 1,
+     "Final Attack: Axe": 2
+    }
+   },
+   {
+    "lo": 39,
+    "hi": 47,
+    "spend": [
+     [
+      "Rage",
+      27
+     ]
+    ],
+    "after": {
+     "Rush": 1,
+     "Rage": 28,
+     "Axe Mastery": 20,
+     "Axe Booster": 1,
+     "Final Attack: Axe": 2
+    }
+   },
+   {
+    "lo": 48,
+    "hi": 48,
+    "spend": [
+     [
+      "Rage",
+      2
+     ],
+     [
+      "Final Attack: Axe",
+      1
+     ]
+    ],
+    "after": {
+     "Rush": 1,
+     "Rage": 30,
+     "Axe Mastery": 20,
+     "Axe Booster": 1,
+     "Final Attack: Axe": 3
+    }
+   },
+   {
+    "lo": 49,
+    "hi": 57,
+    "spend": [
+     [
+      "Final Attack: Axe",
+      27
+     ]
+    ],
+    "after": {
+     "Rush": 1,
+     "Rage": 30,
+     "Axe Mastery": 20,
+     "Axe Booster": 1,
+     "Final Attack: Axe": 30
+    }
+   },
+   {
+    "lo": 58,
+    "hi": 63,
+    "spend": [
+     [
+      "Axe Booster",
+      18
+     ]
+    ],
+    "after": {
+     "Rush": 1,
+     "Rage": 30,
+     "Axe Mastery": 20,
+     "Axe Booster": 19,
+     "Final Attack: Axe": 30
+    }
+   },
+   {
+    "lo": 64,
+    "hi": 64,
+    "spend": [
+     [
+      "Axe Booster",
+      1
+     ],
+     [
+      "Rush",
+      2
+     ]
+    ],
+    "after": {
+     "Rush": 3,
+     "Rage": 30,
+     "Axe Mastery": 20,
+     "Axe Booster": 20,
+     "Final Attack: Axe": 30
+    }
+   },
+   {
+    "lo": 65,
+    "hi": 69,
+    "spend": [
+     [
+      "Rush",
+      15
+     ]
+    ],
+    "after": {
+     "Rush": 18,
+     "Rage": 30,
+     "Axe Mastery": 20,
+     "Axe Booster": 20,
+     "Final Attack: Axe": 30
+    }
+   },
+   {
+    "lo": 70,
+    "hi": 70,
+    "spend": [
+     [
+      "Rush",
+      2
+     ]
+    ],
+    "after": {
+     "Rush": 20,
+     "Rage": 30,
+     "Axe Mastery": 20,
+     "Axe Booster": 20,
+     "Final Attack: Axe": 30
+    }
+   }
+  ],
+  "end": {
+   "Rush": 20,
+   "Rage": 30,
+   "Axe Mastery": 20,
+   "Axe Booster": 20,
+   "Final Attack: Axe": 30
+  },
+  "to_level": 70
+ },
+ "Page": {
+  "source": "meowdb.com/msclassic/guides/page-class-guide",
+  "steps": [
+   [
+    30,
+    "Rush",
+    1
+   ],
+   [
+    31,
+    "Blunt Weapon Mastery",
+    1
+   ],
+   [
+    31,
+    "Blunt Weapon Mastery",
+    2
+   ],
+   [
+    31,
+    "Blunt Weapon Mastery",
+    3
+   ],
+   [
+    32,
+    "Blunt Weapon Mastery",
+    4
+   ],
+   [
+    32,
+    "Blunt Weapon Mastery",
+    5
+   ],
+   [
+    32,
+    "Blunt Weapon Booster",
+    1
+   ],
+   [
+    33,
+    "Threaten",
+    1
+   ],
+   [
+    33,
+    "Blunt Weapon Mastery",
+    6
+   ],
+   [
+    33,
+    "Blunt Weapon Mastery",
+    7
+   ],
+   [
+    34,
+    "Blunt Weapon Mastery",
+    8
+   ],
+   [
+    34,
+    "Blunt Weapon Mastery",
+    9
+   ],
+   [
+    34,
+    "Blunt Weapon Mastery",
+    10
+   ],
+   [
+    35,
+    "Blunt Weapon Mastery",
+    11
+   ],
+   [
+    35,
+    "Blunt Weapon Mastery",
+    12
+   ],
+   [
+    35,
+    "Blunt Weapon Mastery",
+    13
+   ],
+   [
+    36,
+    "Blunt Weapon Mastery",
+    14
+   ],
+   [
+    36,
+    "Blunt Weapon Mastery",
+    15
+   ],
+   [
+    36,
+    "Blunt Weapon Mastery",
+    16
+   ],
+   [
+    37,
+    "Blunt Weapon Mastery",
+    17
+   ],
+   [
+    37,
+    "Blunt Weapon Mastery",
+    18
+   ],
+   [
+    37,
+    "Blunt Weapon Mastery",
+    19
+   ],
+   [
+    38,
+    "Blunt Weapon Mastery",
+    20
+   ],
+   [
+    38,
+    "Final Attack: Sword",
+    1
+   ],
+   [
+    38,
+    "Final Attack: Sword",
+    2
+   ],
+   [
+    39,
+    "Final Attack: Sword",
+    3
+   ],
+   [
+    39,
+    "Final Attack: Sword",
+    4
+   ],
+   [
+    39,
+    "Final Attack: Sword",
+    5
+   ],
+   [
+    40,
+    "Final Attack: Sword",
+    6
+   ],
+   [
+    40,
+    "Final Attack: Sword",
+    7
+   ],
+   [
+    40,
+    "Final Attack: Sword",
+    8
+   ],
+   [
+    41,
+    "Final Attack: Sword",
+    9
+   ],
+   [
+    41,
+    "Final Attack: Sword",
+    10
+   ],
+   [
+    41,
+    "Final Attack: Sword",
+    11
+   ],
+   [
+    42,
+    "Final Attack: Sword",
+    12
+   ],
+   [
+    42,
+    "Final Attack: Sword",
+    13
+   ],
+   [
+    42,
+    "Final Attack: Sword",
+    14
+   ],
+   [
+    43,
+    "Final Attack: Sword",
+    15
+   ],
+   [
+    43,
+    "Final Attack: Sword",
+    16
+   ],
+   [
+    43,
+    "Final Attack: Sword",
+    17
+   ],
+   [
+    44,
+    "Final Attack: Sword",
+    18
+   ],
+   [
+    44,
+    "Final Attack: Sword",
+    19
+   ],
+   [
+    44,
+    "Final Attack: Sword",
+    20
+   ],
+   [
+    45,
+    "Final Attack: Sword",
+    21
+   ],
+   [
+    45,
+    "Final Attack: Sword",
+    22
+   ],
+   [
+    45,
+    "Final Attack: Sword",
+    23
+   ],
+   [
+    46,
+    "Final Attack: Sword",
+    24
+   ],
+   [
+    46,
+    "Final Attack: Sword",
+    25
+   ],
+   [
+    46,
+    "Final Attack: Sword",
+    26
+   ],
+   [
+    47,
+    "Final Attack: Sword",
+    27
+   ],
+   [
+    47,
+    "Final Attack: Sword",
+    28
+   ],
+   [
+    47,
+    "Final Attack: Sword",
+    29
+   ],
+   [
+    48,
+    "Final Attack: Sword",
+    30
+   ],
+   [
+    48,
+    "Threaten",
+    2
+   ],
+   [
+    48,
+    "Threaten",
+    3
+   ],
+   [
+    49,
+    "Threaten",
+    4
+   ],
+   [
+    49,
+    "Threaten",
+    5
+   ],
+   [
+    49,
+    "Threaten",
+    6
+   ],
+   [
+    50,
+    "Threaten",
+    7
+   ],
+   [
+    50,
+    "Threaten",
+    8
+   ],
+   [
+    50,
+    "Threaten",
+    9
+   ],
+   [
+    51,
+    "Threaten",
+    10
+   ],
+   [
+    51,
+    "Threaten",
+    11
+   ],
+   [
+    51,
+    "Threaten",
+    12
+   ],
+   [
+    52,
+    "Threaten",
+    13
+   ],
+   [
+    52,
+    "Threaten",
+    14
+   ],
+   [
+    52,
+    "Threaten",
+    15
+   ],
+   [
+    53,
+    "Threaten",
+    16
+   ],
+   [
+    53,
+    "Threaten",
+    17
+   ],
+   [
+    53,
+    "Threaten",
+    18
+   ],
+   [
+    54,
+    "Threaten",
+    19
+   ],
+   [
+    54,
+    "Threaten",
+    20
+   ],
+   [
+    54,
+    "Threaten",
+    21
+   ],
+   [
+    55,
+    "Threaten",
+    22
+   ],
+   [
+    55,
+    "Threaten",
+    23
+   ],
+   [
+    55,
+    "Threaten",
+    24
+   ],
+   [
+    56,
+    "Threaten",
+    25
+   ],
+   [
+    56,
+    "Threaten",
+    26
+   ],
+   [
+    56,
+    "Threaten",
+    27
+   ],
+   [
+    57,
+    "Threaten",
+    28
+   ],
+   [
+    57,
+    "Threaten",
+    29
+   ],
+   [
+    57,
+    "Threaten",
+    30
+   ],
+   [
+    58,
+    "Blunt Weapon Booster",
+    2
+   ],
+   [
+    58,
+    "Blunt Weapon Booster",
+    3
+   ],
+   [
+    58,
+    "Blunt Weapon Booster",
+    4
+   ],
+   [
+    59,
+    "Blunt Weapon Booster",
+    5
+   ],
+   [
+    59,
+    "Blunt Weapon Booster",
+    6
+   ],
+   [
+    59,
+    "Blunt Weapon Booster",
+    7
+   ],
+   [
+    60,
+    "Blunt Weapon Booster",
+    8
+   ],
+   [
+    60,
+    "Blunt Weapon Booster",
+    9
+   ],
+   [
+    60,
+    "Blunt Weapon Booster",
+    10
+   ],
+   [
+    61,
+    "Blunt Weapon Booster",
+    11
+   ],
+   [
+    61,
+    "Blunt Weapon Booster",
+    12
+   ],
+   [
+    61,
+    "Blunt Weapon Booster",
+    13
+   ],
+   [
+    62,
+    "Blunt Weapon Booster",
+    14
+   ],
+   [
+    62,
+    "Blunt Weapon Booster",
+    15
+   ],
+   [
+    62,
+    "Blunt Weapon Booster",
+    16
+   ],
+   [
+    63,
+    "Blunt Weapon Booster",
+    17
+   ],
+   [
+    63,
+    "Blunt Weapon Booster",
+    18
+   ],
+   [
+    63,
+    "Blunt Weapon Booster",
+    19
+   ],
+   [
+    64,
+    "Blunt Weapon Booster",
+    20
+   ],
+   [
+    64,
+    "Rush",
+    2
+   ],
+   [
+    64,
+    "Rush",
+    3
+   ],
+   [
+    65,
+    "Rush",
+    4
+   ],
+   [
+    65,
+    "Rush",
+    5
+   ],
+   [
+    65,
+    "Rush",
+    6
+   ],
+   [
+    66,
+    "Rush",
+    7
+   ],
+   [
+    66,
+    "Rush",
+    8
+   ],
+   [
+    66,
+    "Rush",
+    9
+   ],
+   [
+    67,
+    "Rush",
+    10
+   ],
+   [
+    67,
+    "Rush",
+    11
+   ],
+   [
+    67,
+    "Rush",
+    12
+   ],
+   [
+    68,
+    "Rush",
+    13
+   ],
+   [
+    68,
+    "Rush",
+    14
+   ],
+   [
+    68,
+    "Rush",
+    15
+   ],
+   [
+    69,
+    "Rush",
+    16
+   ],
+   [
+    69,
+    "Rush",
+    17
+   ],
+   [
+    69,
+    "Rush",
+    18
+   ],
+   [
+    70,
+    "Rush",
+    19
+   ],
+   [
+    70,
+    "Rush",
+    20
+   ],
+   [
+    70,
+    "Sword Mastery",
+    1
+   ]
+  ],
+  "rows": [
+   {
+    "lo": 30,
+    "hi": 30,
+    "spend": [
+     [
+      "Rush",
+      1
+     ]
+    ],
+    "after": {
+     "Rush": 1
+    }
+   },
+   {
+    "lo": 31,
+    "hi": 31,
+    "spend": [
+     [
+      "Blunt Weapon Mastery",
+      3
+     ]
+    ],
+    "after": {
+     "Rush": 1,
+     "Blunt Weapon Mastery": 3
+    }
+   },
+   {
+    "lo": 32,
+    "hi": 32,
+    "spend": [
+     [
+      "Blunt Weapon Mastery",
+      2
+     ],
+     [
+      "Blunt Weapon Booster",
+      1
+     ]
+    ],
+    "after": {
+     "Rush": 1,
+     "Blunt Weapon Mastery": 5,
+     "Blunt Weapon Booster": 1
+    }
+   },
+   {
+    "lo": 33,
+    "hi": 33,
+    "spend": [
+     [
+      "Threaten",
+      1
+     ],
+     [
+      "Blunt Weapon Mastery",
+      2
+     ]
+    ],
+    "after": {
+     "Rush": 1,
+     "Blunt Weapon Mastery": 7,
+     "Blunt Weapon Booster": 1,
+     "Threaten": 1
+    }
+   },
+   {
+    "lo": 34,
+    "hi": 37,
+    "spend": [
+     [
+      "Blunt Weapon Mastery",
+      12
+     ]
+    ],
+    "after": {
+     "Rush": 1,
+     "Blunt Weapon Mastery": 19,
+     "Blunt Weapon Booster": 1,
+     "Threaten": 1
+    }
+   },
+   {
+    "lo": 38,
+    "hi": 38,
+    "spend": [
+     [
+      "Blunt Weapon Mastery",
+      1
+     ],
+     [
+      "Final Attack: Sword",
+      2
+     ]
+    ],
+    "after": {
+     "Rush": 1,
+     "Blunt Weapon Mastery": 20,
+     "Blunt Weapon Booster": 1,
+     "Threaten": 1,
+     "Final Attack: Sword": 2
+    }
+   },
+   {
+    "lo": 39,
+    "hi": 47,
+    "spend": [
+     [
+      "Final Attack: Sword",
+      27
+     ]
+    ],
+    "after": {
+     "Rush": 1,
+     "Blunt Weapon Mastery": 20,
+     "Blunt Weapon Booster": 1,
+     "Threaten": 1,
+     "Final Attack: Sword": 29
+    }
+   },
+   {
+    "lo": 48,
+    "hi": 48,
+    "spend": [
+     [
+      "Final Attack: Sword",
+      1
+     ],
+     [
+      "Threaten",
+      2
+     ]
+    ],
+    "after": {
+     "Rush": 1,
+     "Blunt Weapon Mastery": 20,
+     "Blunt Weapon Booster": 1,
+     "Threaten": 3,
+     "Final Attack: Sword": 30
+    }
+   },
+   {
+    "lo": 49,
+    "hi": 57,
+    "spend": [
+     [
+      "Threaten",
+      27
+     ]
+    ],
+    "after": {
+     "Rush": 1,
+     "Blunt Weapon Mastery": 20,
+     "Blunt Weapon Booster": 1,
+     "Threaten": 30,
+     "Final Attack: Sword": 30
+    }
+   },
+   {
+    "lo": 58,
+    "hi": 58,
+    "spend": [
+     [
+      "Blunt Weapon Booster",
+      3
+     ]
+    ],
+    "after": {
+     "Rush": 1,
+     "Blunt Weapon Mastery": 20,
+     "Blunt Weapon Booster": 4,
+     "Threaten": 30,
+     "Final Attack: Sword": 30
+    }
+   },
+   {
+    "lo": 59,
+    "hi": 63,
+    "spend": [
+     [
+      "Blunt Weapon Booster",
+      15
+     ]
+    ],
+    "after": {
+     "Rush": 1,
+     "Blunt Weapon Mastery": 20,
+     "Blunt Weapon Booster": 19,
+     "Threaten": 30,
+     "Final Attack: Sword": 30
+    }
+   },
+   {
+    "lo": 64,
+    "hi": 64,
+    "spend": [
+     [
+      "Blunt Weapon Booster",
+      1
+     ],
+     [
+      "Rush",
+      2
+     ]
+    ],
+    "after": {
+     "Rush": 3,
+     "Blunt Weapon Mastery": 20,
+     "Blunt Weapon Booster": 20,
+     "Threaten": 30,
+     "Final Attack: Sword": 30
+    }
+   },
+   {
+    "lo": 65,
+    "hi": 69,
+    "spend": [
+     [
+      "Rush",
+      15
+     ]
+    ],
+    "after": {
+     "Rush": 18,
+     "Blunt Weapon Mastery": 20,
+     "Blunt Weapon Booster": 20,
+     "Threaten": 30,
+     "Final Attack: Sword": 30
+    }
+   },
+   {
+    "lo": 70,
+    "hi": 70,
+    "spend": [
+     [
+      "Rush",
+      2
+     ],
+     [
+      "Sword Mastery",
+      1
+     ]
+    ],
+    "after": {
+     "Rush": 20,
+     "Blunt Weapon Mastery": 20,
+     "Blunt Weapon Booster": 20,
+     "Threaten": 30,
+     "Final Attack: Sword": 30,
+     "Sword Mastery": 1
+    }
+   }
+  ],
+  "end": {
+   "Rush": 20,
+   "Blunt Weapon Mastery": 20,
+   "Blunt Weapon Booster": 20,
+   "Threaten": 30,
+   "Final Attack: Sword": 30,
+   "Sword Mastery": 1
+  },
+  "to_level": 70
+ },
+ "Spearman": {
+  "source": "meowdb.com/msclassic/guides/spearman-class-guide",
+  "steps": [
+   [
+    30,
+    "Rush",
+    1
+   ],
+   [
+    31,
+    "Spear Mastery",
+    1
+   ],
+   [
+    31,
+    "Spear Mastery",
+    2
+   ],
+   [
+    31,
+    "Spear Mastery",
+    3
+   ],
+   [
+    32,
+    "Spear Mastery",
+    4
+   ],
+   [
+    32,
+    "Spear Mastery",
+    5
+   ],
+   [
+    32,
+    "Spear Booster",
+    1
+   ],
+   [
+    33,
+    "Spear Mastery",
+    6
+   ],
+   [
+    33,
+    "Final Attack: Spear",
+    1
+   ],
+   [
+    33,
+    "Final Attack: Spear",
+    2
+   ],
+   [
+    34,
+    "Spear Mastery",
+    7
+   ],
+   [
+    34,
+    "Spear Mastery",
+    8
+   ],
+   [
+    34,
+    "Spear Mastery",
+    9
+   ],
+   [
+    35,
+    "Spear Mastery",
+    10
+   ],
+   [
+    35,
+    "Spear Mastery",
+    11
+   ],
+   [
+    35,
+    "Spear Mastery",
+    12
+   ],
+   [
+    36,
+    "Spear Mastery",
+    13
+   ],
+   [
+    36,
+    "Spear Mastery",
+    14
+   ],
+   [
+    36,
+    "Spear Mastery",
+    15
+   ],
+   [
+    37,
+    "Spear Mastery",
+    16
+   ],
+   [
+    37,
+    "Spear Mastery",
+    17
+   ],
+   [
+    37,
+    "Spear Mastery",
+    18
+   ],
+   [
+    38,
+    "Spear Mastery",
+    19
+   ],
+   [
+    38,
+    "Spear Mastery",
+    20
+   ],
+   [
+    38,
+    "Final Attack: Spear",
+    3
+   ],
+   [
+    39,
+    "Final Attack: Spear",
+    4
+   ],
+   [
+    39,
+    "Final Attack: Spear",
+    5
+   ],
+   [
+    39,
+    "Final Attack: Spear",
+    6
+   ],
+   [
+    40,
+    "Final Attack: Spear",
+    7
+   ],
+   [
+    40,
+    "Final Attack: Spear",
+    8
+   ],
+   [
+    40,
+    "Final Attack: Spear",
+    9
+   ],
+   [
+    41,
+    "Final Attack: Spear",
+    10
+   ],
+   [
+    41,
+    "Final Attack: Spear",
+    11
+   ],
+   [
+    41,
+    "Final Attack: Spear",
+    12
+   ],
+   [
+    42,
+    "Final Attack: Spear",
+    13
+   ],
+   [
+    42,
+    "Final Attack: Spear",
+    14
+   ],
+   [
+    42,
+    "Final Attack: Spear",
+    15
+   ],
+   [
+    43,
+    "Final Attack: Spear",
+    16
+   ],
+   [
+    43,
+    "Final Attack: Spear",
+    17
+   ],
+   [
+    43,
+    "Final Attack: Spear",
+    18
+   ],
+   [
+    44,
+    "Final Attack: Spear",
+    19
+   ],
+   [
+    44,
+    "Final Attack: Spear",
+    20
+   ],
+   [
+    44,
+    "Final Attack: Spear",
+    21
+   ],
+   [
+    45,
+    "Final Attack: Spear",
+    22
+   ],
+   [
+    45,
+    "Final Attack: Spear",
+    23
+   ],
+   [
+    45,
+    "Final Attack: Spear",
+    24
+   ],
+   [
+    46,
+    "Final Attack: Spear",
+    25
+   ],
+   [
+    46,
+    "Final Attack: Spear",
+    26
+   ],
+   [
+    46,
+    "Final Attack: Spear",
+    27
+   ],
+   [
+    47,
+    "Final Attack: Spear",
+    28
+   ],
+   [
+    47,
+    "Final Attack: Spear",
+    29
+   ],
+   [
+    47,
+    "Final Attack: Spear",
+    30
+   ],
+   [
+    48,
+    "Spear Booster",
+    2
+   ],
+   [
+    48,
+    "Spear Booster",
+    3
+   ],
+   [
+    48,
+    "Spear Booster",
+    4
+   ],
+   [
+    49,
+    "Spear Booster",
+    5
+   ],
+   [
+    49,
+    "Spear Booster",
+    6
+   ],
+   [
+    49,
+    "Spear Booster",
+    7
+   ],
+   [
+    50,
+    "Spear Booster",
+    8
+   ],
+   [
+    50,
+    "Spear Booster",
+    9
+   ],
+   [
+    50,
+    "Spear Booster",
+    10
+   ],
+   [
+    51,
+    "Spear Booster",
+    11
+   ],
+   [
+    51,
+    "Spear Booster",
+    12
+   ],
+   [
+    51,
+    "Spear Booster",
+    13
+   ],
+   [
+    52,
+    "Spear Booster",
+    14
+   ],
+   [
+    52,
+    "Spear Booster",
+    15
+   ],
+   [
+    52,
+    "Spear Booster",
+    16
+   ],
+   [
+    53,
+    "Spear Booster",
+    17
+   ],
+   [
+    53,
+    "Spear Booster",
+    18
+   ],
+   [
+    53,
+    "Spear Booster",
+    19
+   ],
+   [
+    54,
+    "Spear Booster",
+    20
+   ],
+   [
+    54,
+    "Rush",
+    2
+   ],
+   [
+    54,
+    "Rush",
+    3
+   ],
+   [
+    55,
+    "Rush",
+    4
+   ],
+   [
+    55,
+    "Rush",
+    5
+   ],
+   [
+    55,
+    "Rush",
+    6
+   ],
+   [
+    56,
+    "Rush",
+    7
+   ],
+   [
+    56,
+    "Rush",
+    8
+   ],
+   [
+    56,
+    "Rush",
+    9
+   ],
+   [
+    57,
+    "Rush",
+    10
+   ],
+   [
+    57,
+    "Rush",
+    11
+   ],
+   [
+    57,
+    "Rush",
+    12
+   ],
+   [
+    58,
+    "Rush",
+    13
+   ],
+   [
+    58,
+    "Rush",
+    14
+   ],
+   [
+    58,
+    "Rush",
+    15
+   ],
+   [
+    59,
+    "Rush",
+    16
+   ],
+   [
+    59,
+    "Rush",
+    17
+   ],
+   [
+    59,
+    "Rush",
+    18
+   ],
+   [
+    60,
+    "Rush",
+    19
+   ],
+   [
+    60,
+    "Rush",
+    20
+   ],
+   [
+    60,
+    "Iron Will",
+    1
+   ],
+   [
+    61,
+    "Iron Will",
+    2
+   ],
+   [
+    61,
+    "Iron Will",
+    3
+   ],
+   [
+    61,
+    "Iron Will",
+    4
+   ],
+   [
+    62,
+    "Iron Will",
+    5
+   ],
+   [
+    62,
+    "Iron Will",
+    6
+   ],
+   [
+    62,
+    "Iron Will",
+    7
+   ],
+   [
+    63,
+    "Iron Will",
+    8
+   ],
+   [
+    63,
+    "Iron Will",
+    9
+   ],
+   [
+    63,
+    "Iron Will",
+    10
+   ],
+   [
+    64,
+    "Iron Will",
+    11
+   ],
+   [
+    64,
+    "Iron Will",
+    12
+   ],
+   [
+    64,
+    "Iron Will",
+    13
+   ],
+   [
+    65,
+    "Iron Will",
+    14
+   ],
+   [
+    65,
+    "Iron Will",
+    15
+   ],
+   [
+    65,
+    "Iron Will",
+    16
+   ],
+   [
+    66,
+    "Iron Will",
+    17
+   ],
+   [
+    66,
+    "Iron Will",
+    18
+   ],
+   [
+    66,
+    "Iron Will",
+    19
+   ],
+   [
+    67,
+    "Iron Will",
+    20
+   ],
+   [
+    67,
+    "Iron Will",
+    21
+   ],
+   [
+    67,
+    "Iron Will",
+    22
+   ],
+   [
+    68,
+    "Iron Will",
+    23
+   ],
+   [
+    68,
+    "Iron Will",
+    24
+   ],
+   [
+    68,
+    "Iron Will",
+    25
+   ],
+   [
+    69,
+    "Iron Will",
+    26
+   ],
+   [
+    69,
+    "Iron Will",
+    27
+   ],
+   [
+    69,
+    "Iron Will",
+    28
+   ],
+   [
+    70,
+    "Iron Will",
+    29
+   ],
+   [
+    70,
+    "Iron Will",
+    30
+   ],
+   [
+    70,
+    "Polearm Mastery",
+    1
+   ]
+  ],
+  "rows": [
+   {
+    "lo": 30,
+    "hi": 30,
+    "spend": [
+     [
+      "Rush",
+      1
+     ]
+    ],
+    "after": {
+     "Rush": 1
+    }
+   },
+   {
+    "lo": 31,
+    "hi": 31,
+    "spend": [
+     [
+      "Spear Mastery",
+      3
+     ]
+    ],
+    "after": {
+     "Rush": 1,
+     "Spear Mastery": 3
+    }
+   },
+   {
+    "lo": 32,
+    "hi": 32,
+    "spend": [
+     [
+      "Spear Mastery",
+      2
+     ],
+     [
+      "Spear Booster",
+      1
+     ]
+    ],
+    "after": {
+     "Rush": 1,
+     "Spear Mastery": 5,
+     "Spear Booster": 1
+    }
+   },
+   {
+    "lo": 33,
+    "hi": 33,
+    "spend": [
+     [
+      "Spear Mastery",
+      1
+     ],
+     [
+      "Final Attack: Spear",
+      2
+     ]
+    ],
+    "after": {
+     "Rush": 1,
+     "Spear Mastery": 6,
+     "Spear Booster": 1,
+     "Final Attack: Spear": 2
+    }
+   },
+   {
+    "lo": 34,
+    "hi": 37,
+    "spend": [
+     [
+      "Spear Mastery",
+      12
+     ]
+    ],
+    "after": {
+     "Rush": 1,
+     "Spear Mastery": 18,
+     "Spear Booster": 1,
+     "Final Attack: Spear": 2
+    }
+   },
+   {
+    "lo": 38,
+    "hi": 38,
+    "spend": [
+     [
+      "Spear Mastery",
+      2
+     ],
+     [
+      "Final Attack: Spear",
+      1
+     ]
+    ],
+    "after": {
+     "Rush": 1,
+     "Spear Mastery": 20,
+     "Spear Booster": 1,
+     "Final Attack: Spear": 3
+    }
+   },
+   {
+    "lo": 39,
+    "hi": 47,
+    "spend": [
+     [
+      "Final Attack: Spear",
+      27
+     ]
+    ],
+    "after": {
+     "Rush": 1,
+     "Spear Mastery": 20,
+     "Spear Booster": 1,
+     "Final Attack: Spear": 30
+    }
+   },
+   {
+    "lo": 48,
+    "hi": 48,
+    "spend": [
+     [
+      "Spear Booster",
+      3
+     ]
+    ],
+    "after": {
+     "Rush": 1,
+     "Spear Mastery": 20,
+     "Spear Booster": 4,
+     "Final Attack: Spear": 30
+    }
+   },
+   {
+    "lo": 49,
+    "hi": 53,
+    "spend": [
+     [
+      "Spear Booster",
+      15
+     ]
+    ],
+    "after": {
+     "Rush": 1,
+     "Spear Mastery": 20,
+     "Spear Booster": 19,
+     "Final Attack: Spear": 30
+    }
+   },
+   {
+    "lo": 54,
+    "hi": 54,
+    "spend": [
+     [
+      "Spear Booster",
+      1
+     ],
+     [
+      "Rush",
+      2
+     ]
+    ],
+    "after": {
+     "Rush": 3,
+     "Spear Mastery": 20,
+     "Spear Booster": 20,
+     "Final Attack: Spear": 30
+    }
+   },
+   {
+    "lo": 55,
+    "hi": 59,
+    "spend": [
+     [
+      "Rush",
+      15
+     ]
+    ],
+    "after": {
+     "Rush": 18,
+     "Spear Mastery": 20,
+     "Spear Booster": 20,
+     "Final Attack: Spear": 30
+    }
+   },
+   {
+    "lo": 60,
+    "hi": 60,
+    "spend": [
+     [
+      "Rush",
+      2
+     ],
+     [
+      "Iron Will",
+      1
+     ]
+    ],
+    "after": {
+     "Rush": 20,
+     "Spear Mastery": 20,
+     "Spear Booster": 20,
+     "Final Attack: Spear": 30,
+     "Iron Will": 1
+    }
+   },
+   {
+    "lo": 61,
+    "hi": 69,
+    "spend": [
+     [
+      "Iron Will",
+      27
+     ]
+    ],
+    "after": {
+     "Rush": 20,
+     "Spear Mastery": 20,
+     "Spear Booster": 20,
+     "Final Attack: Spear": 30,
+     "Iron Will": 28
+    }
+   },
+   {
+    "lo": 70,
+    "hi": 70,
+    "spend": [
+     [
+      "Iron Will",
+      2
+     ],
+     [
+      "Polearm Mastery",
+      1
+     ]
+    ],
+    "after": {
+     "Rush": 20,
+     "Spear Mastery": 20,
+     "Spear Booster": 20,
+     "Final Attack: Spear": 30,
+     "Iron Will": 30,
+     "Polearm Mastery": 1
+    }
+   }
+  ],
+  "end": {
+   "Rush": 20,
+   "Spear Mastery": 20,
+   "Spear Booster": 20,
+   "Final Attack: Spear": 30,
+   "Iron Will": 30,
+   "Polearm Mastery": 1
+  },
+  "to_level": 70
+ },
+ "Magician": {
+  "source": "meowdb.com/msclassic/guides/magician-class-guide",
+  "steps": [
+   [
+    10,
+    "Energy Bolt",
+    1
+   ],
+   [
+    11,
+    "Energy Bolt",
+    2
+   ],
+   [
+    11,
+    "Energy Bolt",
+    3
+   ],
+   [
+    11,
+    "Improved MP Recovery",
+    1
+   ],
+   [
+    12,
+    "Energy Bolt",
+    4
+   ],
+   [
+    12,
+    "Energy Bolt",
+    5
+   ],
+   [
+    12,
+    "Energy Bolt",
+    6
+   ],
+   [
+    13,
+    "Energy Bolt",
+    7
+   ],
+   [
+    13,
+    "Energy Bolt",
+    8
+   ],
+   [
+    13,
+    "Energy Bolt",
+    9
+   ],
+   [
+    14,
+    "Energy Bolt",
+    10
+   ],
+   [
+    14,
+    "Energy Bolt",
+    11
+   ],
+   [
+    14,
+    "Energy Bolt",
+    12
+   ],
+   [
+    15,
+    "Energy Bolt",
+    13
+   ],
+   [
+    15,
+    "Energy Bolt",
+    14
+   ],
+   [
+    15,
+    "Energy Bolt",
+    15
+   ],
+   [
+    16,
+    "Energy Bolt",
+    16
+   ],
+   [
+    16,
+    "Energy Bolt",
+    17
+   ],
+   [
+    16,
+    "Energy Bolt",
+    18
+   ],
+   [
+    17,
+    "Energy Bolt",
+    19
+   ],
+   [
+    17,
+    "Energy Bolt",
+    20
+   ],
+   [
+    17,
+    "Magic Guard",
+    1
+   ],
+   [
+    18,
+    "Magic Guard",
+    2
+   ],
+   [
+    18,
+    "Magic Guard",
+    3
+   ],
+   [
+    18,
+    "Improved MP Recovery",
+    2
+   ],
+   [
+    19,
+    "Improved MP Recovery",
+    3
+   ],
+   [
+    19,
+    "Max MP Increase",
+    1
+   ],
+   [
+    19,
+    "Max MP Increase",
+    2
+   ],
+   [
+    20,
+    "Magic Armor",
+    1
+   ],
+   [
+    20,
+    "Magic Armor",
+    2
+   ],
+   [
+    20,
+    "Magic Armor",
+    3
+   ],
+   [
+    21,
+    "Magic Armor",
+    4
+   ],
+   [
+    21,
+    "Magic Armor",
+    5
+   ],
+   [
+    21,
+    "Magic Armor",
+    6
+   ],
+   [
+    22,
+    "Magic Armor",
+    7
+   ],
+   [
+    22,
+    "Magic Armor",
+    8
+   ],
+   [
+    22,
+    "Magic Armor",
+    9
+   ],
+   [
+    23,
+    "Magic Armor",
+    10
+   ],
+   [
+    23,
+    "Magic Armor",
+    11
+   ],
+   [
+    23,
+    "Magic Armor",
+    12
+   ],
+   [
+    24,
+    "Magic Armor",
+    13
+   ],
+   [
+    24,
+    "Magic Armor",
+    14
+   ],
+   [
+    24,
+    "Magic Armor",
+    15
+   ],
+   [
+    25,
+    "Magic Armor",
+    16
+   ],
+   [
+    25,
+    "Magic Armor",
+    17
+   ],
+   [
+    25,
+    "Magic Armor",
+    18
+   ],
+   [
+    26,
+    "Magic Armor",
+    19
+   ],
+   [
+    26,
+    "Magic Armor",
+    20
+   ],
+   [
+    26,
+    "Max MP Increase",
+    3
+   ],
+   [
+    27,
+    "Max MP Increase",
+    4
+   ],
+   [
+    27,
+    "Max MP Increase",
+    5
+   ],
+   [
+    27,
+    "Max MP Increase",
+    6
+   ],
+   [
+    28,
+    "Max MP Increase",
+    7
+   ],
+   [
+    28,
+    "Max MP Increase",
+    8
+   ],
+   [
+    28,
+    "Max MP Increase",
+    9
+   ],
+   [
+    29,
+    "Max MP Increase",
+    10
+   ],
+   [
+    29,
+    "Max MP Increase",
+    11
+   ],
+   [
+    29,
+    "Max MP Increase",
+    12
+   ],
+   [
+    30,
+    "Max MP Increase",
+    13
+   ],
+   [
+    30,
+    "Max MP Increase",
+    14
+   ],
+   [
+    30,
+    "Max MP Increase",
+    15
+   ]
+  ],
+  "rows": [
+   {
+    "lo": 10,
+    "hi": 10,
+    "spend": [
+     [
+      "Energy Bolt",
+      1
+     ]
+    ],
+    "after": {
+     "Energy Bolt": 1
+    }
+   },
+   {
+    "lo": 11,
+    "hi": 11,
+    "spend": [
+     [
+      "Energy Bolt",
+      2
+     ],
+     [
+      "Improved MP Recovery",
+      1
+     ]
+    ],
+    "after": {
+     "Energy Bolt": 3,
+     "Improved MP Recovery": 1
+    }
+   },
+   {
+    "lo": 12,
+    "hi": 12,
+    "spend": [
+     [
+      "Energy Bolt",
+      3
+     ]
+    ],
+    "after": {
+     "Energy Bolt": 6,
+     "Improved MP Recovery": 1
+    }
+   },
+   {
+    "lo": 13,
+    "hi": 13,
+    "spend": [
+     [
+      "Energy Bolt",
+      3
+     ]
+    ],
+    "after": {
+     "Energy Bolt": 9,
+     "Improved MP Recovery": 1
+    }
+   },
+   {
+    "lo": 14,
+    "hi": 14,
+    "spend": [
+     [
+      "Energy Bolt",
+      3
+     ]
+    ],
+    "after": {
+     "Energy Bolt": 12,
+     "Improved MP Recovery": 1
+    }
+   },
+   {
+    "lo": 15,
+    "hi": 15,
+    "spend": [
+     [
+      "Energy Bolt",
+      3
+     ]
+    ],
+    "after": {
+     "Energy Bolt": 15,
+     "Improved MP Recovery": 1
+    }
+   },
+   {
+    "lo": 16,
+    "hi": 16,
+    "spend": [
+     [
+      "Energy Bolt",
+      3
+     ]
+    ],
+    "after": {
+     "Energy Bolt": 18,
+     "Improved MP Recovery": 1
+    }
+   },
+   {
+    "lo": 17,
+    "hi": 17,
+    "spend": [
+     [
+      "Energy Bolt",
+      2
+     ],
+     [
+      "Magic Guard",
+      1
+     ]
+    ],
+    "after": {
+     "Energy Bolt": 20,
+     "Improved MP Recovery": 1,
+     "Magic Guard": 1
+    }
+   },
+   {
+    "lo": 18,
+    "hi": 18,
+    "spend": [
+     [
+      "Magic Guard",
+      2
+     ],
+     [
+      "Improved MP Recovery",
+      1
+     ]
+    ],
+    "after": {
+     "Energy Bolt": 20,
+     "Improved MP Recovery": 2,
+     "Magic Guard": 3
+    }
+   },
+   {
+    "lo": 19,
+    "hi": 19,
+    "spend": [
+     [
+      "Improved MP Recovery",
+      1
+     ],
+     [
+      "Max MP Increase",
+      2
+     ]
+    ],
+    "after": {
+     "Energy Bolt": 20,
+     "Improved MP Recovery": 3,
+     "Magic Guard": 3,
+     "Max MP Increase": 2
+    }
+   },
+   {
+    "lo": 20,
+    "hi": 20,
+    "spend": [
+     [
+      "Magic Armor",
+      3
+     ]
+    ],
+    "after": {
+     "Energy Bolt": 20,
+     "Improved MP Recovery": 3,
+     "Magic Guard": 3,
+     "Max MP Increase": 2,
+     "Magic Armor": 3
+    }
+   },
+   {
+    "lo": 21,
+    "hi": 21,
+    "spend": [
+     [
+      "Magic Armor",
+      3
+     ]
+    ],
+    "after": {
+     "Energy Bolt": 20,
+     "Improved MP Recovery": 3,
+     "Magic Guard": 3,
+     "Max MP Increase": 2,
+     "Magic Armor": 6
+    }
+   },
+   {
+    "lo": 22,
+    "hi": 22,
+    "spend": [
+     [
+      "Magic Armor",
+      3
+     ]
+    ],
+    "after": {
+     "Energy Bolt": 20,
+     "Improved MP Recovery": 3,
+     "Magic Guard": 3,
+     "Max MP Increase": 2,
+     "Magic Armor": 9
+    }
+   },
+   {
+    "lo": 23,
+    "hi": 23,
+    "spend": [
+     [
+      "Magic Armor",
+      3
+     ]
+    ],
+    "after": {
+     "Energy Bolt": 20,
+     "Improved MP Recovery": 3,
+     "Magic Guard": 3,
+     "Max MP Increase": 2,
+     "Magic Armor": 12
+    }
+   },
+   {
+    "lo": 24,
+    "hi": 24,
+    "spend": [
+     [
+      "Magic Armor",
+      3
+     ]
+    ],
+    "after": {
+     "Energy Bolt": 20,
+     "Improved MP Recovery": 3,
+     "Magic Guard": 3,
+     "Max MP Increase": 2,
+     "Magic Armor": 15
+    }
+   },
+   {
+    "lo": 25,
+    "hi": 25,
+    "spend": [
+     [
+      "Magic Armor",
+      3
+     ]
+    ],
+    "after": {
+     "Energy Bolt": 20,
+     "Improved MP Recovery": 3,
+     "Magic Guard": 3,
+     "Max MP Increase": 2,
+     "Magic Armor": 18
+    }
+   },
+   {
+    "lo": 26,
+    "hi": 26,
+    "spend": [
+     [
+      "Magic Armor",
+      2
+     ],
+     [
+      "Max MP Increase",
+      1
+     ]
+    ],
+    "after": {
+     "Energy Bolt": 20,
+     "Improved MP Recovery": 3,
+     "Magic Guard": 3,
+     "Max MP Increase": 3,
+     "Magic Armor": 20
+    }
+   },
+   {
+    "lo": 27,
+    "hi": 27,
+    "spend": [
+     [
+      "Max MP Increase",
+      3
+     ]
+    ],
+    "after": {
+     "Energy Bolt": 20,
+     "Improved MP Recovery": 3,
+     "Magic Guard": 3,
+     "Max MP Increase": 6,
+     "Magic Armor": 20
+    }
+   },
+   {
+    "lo": 28,
+    "hi": 28,
+    "spend": [
+     [
+      "Max MP Increase",
+      3
+     ]
+    ],
+    "after": {
+     "Energy Bolt": 20,
+     "Improved MP Recovery": 3,
+     "Magic Guard": 3,
+     "Max MP Increase": 9,
+     "Magic Armor": 20
+    }
+   },
+   {
+    "lo": 29,
+    "hi": 29,
+    "spend": [
+     [
+      "Max MP Increase",
+      3
+     ]
+    ],
+    "after": {
+     "Energy Bolt": 20,
+     "Improved MP Recovery": 3,
+     "Magic Guard": 3,
+     "Max MP Increase": 12,
+     "Magic Armor": 20
+    }
+   },
+   {
+    "lo": 30,
+    "hi": 30,
+    "spend": [
+     [
+      "Max MP Increase",
+      3
+     ]
+    ],
+    "after": {
+     "Energy Bolt": 20,
+     "Improved MP Recovery": 3,
+     "Magic Guard": 3,
+     "Max MP Increase": 15,
+     "Magic Armor": 20
+    }
+   }
+  ],
+  "end": {
+   "Energy Bolt": 20,
+   "Improved MP Recovery": 3,
+   "Magic Guard": 3,
+   "Max MP Increase": 15,
+   "Magic Armor": 20
+  },
+  "to_level": 30
+ },
+ "F/P Wizard": {
+  "source": "meowdb.com/msclassic/guides/fp-wizard-class-guide",
+  "steps": [
+   [
+    30,
+    "Teleport",
+    1
+   ],
+   [
+    31,
+    "Fire Arrow",
+    1
+   ],
+   [
+    31,
+    "Fire Arrow",
+    2
+   ],
+   [
+    31,
+    "Fire Arrow",
+    3
+   ],
+   [
+    32,
+    "Fire Arrow",
+    4
+   ],
+   [
+    32,
+    "Fire Arrow",
+    5
+   ],
+   [
+    32,
+    "Fire Arrow",
+    6
+   ],
+   [
+    33,
+    "Fire Arrow",
+    7
+   ],
+   [
+    33,
+    "Fire Arrow",
+    8
+   ],
+   [
+    33,
+    "Fire Arrow",
+    9
+   ],
+   [
+    34,
+    "Fire Arrow",
+    10
+   ],
+   [
+    34,
+    "Fire Arrow",
+    11
+   ],
+   [
+    34,
+    "Fire Arrow",
+    12
+   ],
+   [
+    35,
+    "Fire Arrow",
+    13
+   ],
+   [
+    35,
+    "Fire Arrow",
+    14
+   ],
+   [
+    35,
+    "Fire Arrow",
+    15
+   ],
+   [
+    36,
+    "Fire Arrow",
+    16
+   ],
+   [
+    36,
+    "Fire Arrow",
+    17
+   ],
+   [
+    36,
+    "Fire Arrow",
+    18
+   ],
+   [
+    37,
+    "Fire Arrow",
+    19
+   ],
+   [
+    37,
+    "Fire Arrow",
+    20
+   ],
+   [
+    37,
+    "Fire Arrow",
+    21
+   ],
+   [
+    38,
+    "Fire Arrow",
+    22
+   ],
+   [
+    38,
+    "Fire Arrow",
+    23
+   ],
+   [
+    38,
+    "Fire Arrow",
+    24
+   ],
+   [
+    39,
+    "Fire Arrow",
+    25
+   ],
+   [
+    39,
+    "Fire Arrow",
+    26
+   ],
+   [
+    39,
+    "Fire Arrow",
+    27
+   ],
+   [
+    40,
+    "Fire Arrow",
+    28
+   ],
+   [
+    40,
+    "Fire Arrow",
+    29
+   ],
+   [
+    40,
+    "Fire Arrow",
+    30
+   ],
+   [
+    41,
+    "Poison Breath",
+    1
+   ],
+   [
+    41,
+    "Poison Breath",
+    2
+   ],
+   [
+    41,
+    "Poison Breath",
+    3
+   ],
+   [
+    42,
+    "Poison Breath",
+    4
+   ],
+   [
+    42,
+    "Poison Breath",
+    5
+   ],
+   [
+    42,
+    "Poison Breath",
+    6
+   ],
+   [
+    43,
+    "Poison Breath",
+    7
+   ],
+   [
+    43,
+    "Poison Breath",
+    8
+   ],
+   [
+    43,
+    "Poison Breath",
+    9
+   ],
+   [
+    44,
+    "Poison Breath",
+    10
+   ],
+   [
+    44,
+    "Poison Breath",
+    11
+   ],
+   [
+    44,
+    "Poison Breath",
+    12
+   ],
+   [
+    45,
+    "Poison Breath",
+    13
+   ],
+   [
+    45,
+    "Poison Breath",
+    14
+   ],
+   [
+    45,
+    "Poison Breath",
+    15
+   ],
+   [
+    46,
+    "Poison Breath",
+    16
+   ],
+   [
+    46,
+    "Poison Breath",
+    17
+   ],
+   [
+    46,
+    "Poison Breath",
+    18
+   ],
+   [
+    47,
+    "Poison Breath",
+    19
+   ],
+   [
+    47,
+    "Poison Breath",
+    20
+   ],
+   [
+    47,
+    "Poison Breath",
+    21
+   ],
+   [
+    48,
+    "Poison Breath",
+    22
+   ],
+   [
+    48,
+    "Poison Breath",
+    23
+   ],
+   [
+    48,
+    "Poison Breath",
+    24
+   ],
+   [
+    49,
+    "Poison Breath",
+    25
+   ],
+   [
+    49,
+    "Poison Breath",
+    26
+   ],
+   [
+    49,
+    "Poison Breath",
+    27
+   ],
+   [
+    50,
+    "Poison Breath",
+    28
+   ],
+   [
+    50,
+    "Poison Breath",
+    29
+   ],
+   [
+    50,
+    "Poison Breath",
+    30
+   ],
+   [
+    51,
+    "MP Eater",
+    1
+   ],
+   [
+    51,
+    "MP Eater",
+    2
+   ],
+   [
+    51,
+    "MP Eater",
+    3
+   ],
+   [
+    52,
+    "Meditation",
+    1
+   ],
+   [
+    52,
+    "Meditation",
+    2
+   ],
+   [
+    52,
+    "Meditation",
+    3
+   ],
+   [
+    53,
+    "Meditation",
+    4
+   ],
+   [
+    53,
+    "Meditation",
+    5
+   ],
+   [
+    53,
+    "Meditation",
+    6
+   ],
+   [
+    54,
+    "Meditation",
+    7
+   ],
+   [
+    54,
+    "Meditation",
+    8
+   ],
+   [
+    54,
+    "Meditation",
+    9
+   ],
+   [
+    55,
+    "Meditation",
+    10
+   ],
+   [
+    55,
+    "Meditation",
+    11
+   ],
+   [
+    55,
+    "Meditation",
+    12
+   ],
+   [
+    56,
+    "Meditation",
+    13
+   ],
+   [
+    56,
+    "Meditation",
+    14
+   ],
+   [
+    56,
+    "Meditation",
+    15
+   ],
+   [
+    57,
+    "Meditation",
+    16
+   ],
+   [
+    57,
+    "Meditation",
+    17
+   ],
+   [
+    57,
+    "Meditation",
+    18
+   ],
+   [
+    58,
+    "Meditation",
+    19
+   ],
+   [
+    58,
+    "Meditation",
+    20
+   ],
+   [
+    58,
+    "MP Eater",
+    4
+   ],
+   [
+    59,
+    "MP Eater",
+    5
+   ],
+   [
+    59,
+    "MP Eater",
+    6
+   ],
+   [
+    59,
+    "MP Eater",
+    7
+   ],
+   [
+    60,
+    "MP Eater",
+    8
+   ],
+   [
+    60,
+    "MP Eater",
+    9
+   ],
+   [
+    60,
+    "MP Eater",
+    10
+   ],
+   [
+    61,
+    "MP Eater",
+    11
+   ],
+   [
+    61,
+    "MP Eater",
+    12
+   ],
+   [
+    61,
+    "MP Eater",
+    13
+   ],
+   [
+    62,
+    "MP Eater",
+    14
+   ],
+   [
+    62,
+    "MP Eater",
+    15
+   ],
+   [
+    62,
+    "MP Eater",
+    16
+   ],
+   [
+    63,
+    "MP Eater",
+    17
+   ],
+   [
+    63,
+    "MP Eater",
+    18
+   ],
+   [
+    63,
+    "MP Eater",
+    19
+   ],
+   [
+    64,
+    "MP Eater",
+    20
+   ],
+   [
+    64,
+    "Teleport",
+    2
+   ],
+   [
+    64,
+    "Teleport",
+    3
+   ],
+   [
+    65,
+    "Teleport",
+    4
+   ],
+   [
+    65,
+    "Teleport",
+    5
+   ],
+   [
+    65,
+    "Teleport",
+    6
+   ],
+   [
+    66,
+    "Teleport",
+    7
+   ],
+   [
+    66,
+    "Teleport",
+    8
+   ],
+   [
+    66,
+    "Teleport",
+    9
+   ],
+   [
+    67,
+    "Teleport",
+    10
+   ],
+   [
+    67,
+    "Teleport",
+    11
+   ],
+   [
+    67,
+    "Teleport",
+    12
+   ],
+   [
+    68,
+    "Teleport",
+    13
+   ],
+   [
+    68,
+    "Teleport",
+    14
+   ],
+   [
+    68,
+    "Teleport",
+    15
+   ],
+   [
+    69,
+    "Teleport",
+    16
+   ],
+   [
+    69,
+    "Teleport",
+    17
+   ],
+   [
+    69,
+    "Teleport",
+    18
+   ],
+   [
+    70,
+    "Teleport",
+    19
+   ],
+   [
+    70,
+    "Teleport",
+    20
+   ],
+   [
+    70,
+    "Slow",
+    1
+   ]
+  ],
+  "rows": [
+   {
+    "lo": 30,
+    "hi": 30,
+    "spend": [
+     [
+      "Teleport",
+      1
+     ]
+    ],
+    "after": {
+     "Teleport": 1
+    }
+   },
+   {
+    "lo": 31,
+    "hi": 39,
+    "spend": [
+     [
+      "Fire Arrow",
+      27
+     ]
+    ],
+    "after": {
+     "Teleport": 1,
+     "Fire Arrow": 27
+    }
+   },
+   {
+    "lo": 40,
+    "hi": 40,
+    "spend": [
+     [
+      "Fire Arrow",
+      3
+     ]
+    ],
+    "after": {
+     "Teleport": 1,
+     "Fire Arrow": 30
+    }
+   },
+   {
+    "lo": 41,
+    "hi": 49,
+    "spend": [
+     [
+      "Poison Breath",
+      27
+     ]
+    ],
+    "after": {
+     "Teleport": 1,
+     "Fire Arrow": 30,
+     "Poison Breath": 27
+    }
+   },
+   {
+    "lo": 50,
+    "hi": 50,
+    "spend": [
+     [
+      "Poison Breath",
+      3
+     ]
+    ],
+    "after": {
+     "Teleport": 1,
+     "Fire Arrow": 30,
+     "Poison Breath": 30
+    }
+   },
+   {
+    "lo": 51,
+    "hi": 51,
+    "spend": [
+     [
+      "MP Eater",
+      3
+     ]
+    ],
+    "after": {
+     "Teleport": 1,
+     "Fire Arrow": 30,
+     "Poison Breath": 30,
+     "MP Eater": 3
+    }
+   },
+   {
+    "lo": 52,
+    "hi": 57,
+    "spend": [
+     [
+      "Meditation",
+      18
+     ]
+    ],
+    "after": {
+     "Teleport": 1,
+     "Fire Arrow": 30,
+     "Poison Breath": 30,
+     "MP Eater": 3,
+     "Meditation": 18
+    }
+   },
+   {
+    "lo": 58,
+    "hi": 58,
+    "spend": [
+     [
+      "Meditation",
+      2
+     ],
+     [
+      "MP Eater",
+      1
+     ]
+    ],
+    "after": {
+     "Teleport": 1,
+     "Fire Arrow": 30,
+     "Poison Breath": 30,
+     "MP Eater": 4,
+     "Meditation": 20
+    }
+   },
+   {
+    "lo": 59,
+    "hi": 63,
+    "spend": [
+     [
+      "MP Eater",
+      15
+     ]
+    ],
+    "after": {
+     "Teleport": 1,
+     "Fire Arrow": 30,
+     "Poison Breath": 30,
+     "MP Eater": 19,
+     "Meditation": 20
+    }
+   },
+   {
+    "lo": 64,
+    "hi": 64,
+    "spend": [
+     [
+      "MP Eater",
+      1
+     ],
+     [
+      "Teleport",
+      2
+     ]
+    ],
+    "after": {
+     "Teleport": 3,
+     "Fire Arrow": 30,
+     "Poison Breath": 30,
+     "MP Eater": 20,
+     "Meditation": 20
+    }
+   },
+   {
+    "lo": 65,
+    "hi": 69,
+    "spend": [
+     [
+      "Teleport",
+      15
+     ]
+    ],
+    "after": {
+     "Teleport": 18,
+     "Fire Arrow": 30,
+     "Poison Breath": 30,
+     "MP Eater": 20,
+     "Meditation": 20
+    }
+   },
+   {
+    "lo": 70,
+    "hi": 70,
+    "spend": [
+     [
+      "Teleport",
+      2
+     ],
+     [
+      "Slow",
+      1
+     ]
+    ],
+    "after": {
+     "Teleport": 20,
+     "Fire Arrow": 30,
+     "Poison Breath": 30,
+     "MP Eater": 20,
+     "Meditation": 20,
+     "Slow": 1
+    }
+   }
+  ],
+  "end": {
+   "Teleport": 20,
+   "Fire Arrow": 30,
+   "Poison Breath": 30,
+   "MP Eater": 20,
+   "Meditation": 20,
+   "Slow": 1
+  },
+  "to_level": 70
+ },
+ "I/L Wizard": {
+  "source": "meowdb.com/msclassic/guides/il-wizard-class-guide",
+  "steps": [
+   [
+    30,
+    "Teleport",
+    1
+   ],
+   [
+    31,
+    "Cold Beam",
+    1
+   ],
+   [
+    31,
+    "Cold Beam",
+    2
+   ],
+   [
+    31,
+    "Cold Beam",
+    3
+   ],
+   [
+    32,
+    "Cold Beam",
+    4
+   ],
+   [
+    32,
+    "Cold Beam",
+    5
+   ],
+   [
+    32,
+    "Cold Beam",
+    6
+   ],
+   [
+    33,
+    "Cold Beam",
+    7
+   ],
+   [
+    33,
+    "Cold Beam",
+    8
+   ],
+   [
+    33,
+    "Cold Beam",
+    9
+   ],
+   [
+    34,
+    "Cold Beam",
+    10
+   ],
+   [
+    34,
+    "Cold Beam",
+    11
+   ],
+   [
+    34,
+    "Cold Beam",
+    12
+   ],
+   [
+    35,
+    "Cold Beam",
+    13
+   ],
+   [
+    35,
+    "Cold Beam",
+    14
+   ],
+   [
+    35,
+    "Cold Beam",
+    15
+   ],
+   [
+    36,
+    "Cold Beam",
+    16
+   ],
+   [
+    36,
+    "Cold Beam",
+    17
+   ],
+   [
+    36,
+    "Cold Beam",
+    18
+   ],
+   [
+    37,
+    "Cold Beam",
+    19
+   ],
+   [
+    37,
+    "Cold Beam",
+    20
+   ],
+   [
+    37,
+    "Cold Beam",
+    21
+   ],
+   [
+    38,
+    "Cold Beam",
+    22
+   ],
+   [
+    38,
+    "Cold Beam",
+    23
+   ],
+   [
+    38,
+    "Cold Beam",
+    24
+   ],
+   [
+    39,
+    "Cold Beam",
+    25
+   ],
+   [
+    39,
+    "Cold Beam",
+    26
+   ],
+   [
+    39,
+    "Cold Beam",
+    27
+   ],
+   [
+    40,
+    "Cold Beam",
+    28
+   ],
+   [
+    40,
+    "Cold Beam",
+    29
+   ],
+   [
+    40,
+    "Cold Beam",
+    30
+   ],
+   [
+    41,
+    "Thunder Bolt",
+    1
+   ],
+   [
+    41,
+    "Thunder Bolt",
+    2
+   ],
+   [
+    41,
+    "Thunder Bolt",
+    3
+   ],
+   [
+    42,
+    "Thunder Bolt",
+    4
+   ],
+   [
+    42,
+    "Thunder Bolt",
+    5
+   ],
+   [
+    42,
+    "Thunder Bolt",
+    6
+   ],
+   [
+    43,
+    "Thunder Bolt",
+    7
+   ],
+   [
+    43,
+    "Thunder Bolt",
+    8
+   ],
+   [
+    43,
+    "Thunder Bolt",
+    9
+   ],
+   [
+    44,
+    "Thunder Bolt",
+    10
+   ],
+   [
+    44,
+    "Thunder Bolt",
+    11
+   ],
+   [
+    44,
+    "Thunder Bolt",
+    12
+   ],
+   [
+    45,
+    "Thunder Bolt",
+    13
+   ],
+   [
+    45,
+    "Thunder Bolt",
+    14
+   ],
+   [
+    45,
+    "Thunder Bolt",
+    15
+   ],
+   [
+    46,
+    "Thunder Bolt",
+    16
+   ],
+   [
+    46,
+    "Thunder Bolt",
+    17
+   ],
+   [
+    46,
+    "Thunder Bolt",
+    18
+   ],
+   [
+    47,
+    "Thunder Bolt",
+    19
+   ],
+   [
+    47,
+    "Thunder Bolt",
+    20
+   ],
+   [
+    47,
+    "Thunder Bolt",
+    21
+   ],
+   [
+    48,
+    "Thunder Bolt",
+    22
+   ],
+   [
+    48,
+    "Thunder Bolt",
+    23
+   ],
+   [
+    48,
+    "Thunder Bolt",
+    24
+   ],
+   [
+    49,
+    "Thunder Bolt",
+    25
+   ],
+   [
+    49,
+    "Thunder Bolt",
+    26
+   ],
+   [
+    49,
+    "Thunder Bolt",
+    27
+   ],
+   [
+    50,
+    "Thunder Bolt",
+    28
+   ],
+   [
+    50,
+    "Thunder Bolt",
+    29
+   ],
+   [
+    50,
+    "Thunder Bolt",
+    30
+   ],
+   [
+    51,
+    "MP Eater",
+    1
+   ],
+   [
+    51,
+    "MP Eater",
+    2
+   ],
+   [
+    51,
+    "MP Eater",
+    3
+   ],
+   [
+    52,
+    "Meditation",
+    1
+   ],
+   [
+    52,
+    "Meditation",
+    2
+   ],
+   [
+    52,
+    "Meditation",
+    3
+   ],
+   [
+    53,
+    "Meditation",
+    4
+   ],
+   [
+    53,
+    "Meditation",
+    5
+   ],
+   [
+    53,
+    "Meditation",
+    6
+   ],
+   [
+    54,
+    "Meditation",
+    7
+   ],
+   [
+    54,
+    "Meditation",
+    8
+   ],
+   [
+    54,
+    "Meditation",
+    9
+   ],
+   [
+    55,
+    "Meditation",
+    10
+   ],
+   [
+    55,
+    "Meditation",
+    11
+   ],
+   [
+    55,
+    "Meditation",
+    12
+   ],
+   [
+    56,
+    "Meditation",
+    13
+   ],
+   [
+    56,
+    "Meditation",
+    14
+   ],
+   [
+    56,
+    "Meditation",
+    15
+   ],
+   [
+    57,
+    "Meditation",
+    16
+   ],
+   [
+    57,
+    "Meditation",
+    17
+   ],
+   [
+    57,
+    "Meditation",
+    18
+   ],
+   [
+    58,
+    "Meditation",
+    19
+   ],
+   [
+    58,
+    "Meditation",
+    20
+   ],
+   [
+    58,
+    "MP Eater",
+    4
+   ],
+   [
+    59,
+    "MP Eater",
+    5
+   ],
+   [
+    59,
+    "MP Eater",
+    6
+   ],
+   [
+    59,
+    "MP Eater",
+    7
+   ],
+   [
+    60,
+    "MP Eater",
+    8
+   ],
+   [
+    60,
+    "MP Eater",
+    9
+   ],
+   [
+    60,
+    "MP Eater",
+    10
+   ],
+   [
+    61,
+    "MP Eater",
+    11
+   ],
+   [
+    61,
+    "MP Eater",
+    12
+   ],
+   [
+    61,
+    "MP Eater",
+    13
+   ],
+   [
+    62,
+    "MP Eater",
+    14
+   ],
+   [
+    62,
+    "MP Eater",
+    15
+   ],
+   [
+    62,
+    "MP Eater",
+    16
+   ],
+   [
+    63,
+    "MP Eater",
+    17
+   ],
+   [
+    63,
+    "MP Eater",
+    18
+   ],
+   [
+    63,
+    "MP Eater",
+    19
+   ],
+   [
+    64,
+    "MP Eater",
+    20
+   ],
+   [
+    64,
+    "Teleport",
+    2
+   ],
+   [
+    64,
+    "Teleport",
+    3
+   ],
+   [
+    65,
+    "Teleport",
+    4
+   ],
+   [
+    65,
+    "Teleport",
+    5
+   ],
+   [
+    65,
+    "Teleport",
+    6
+   ],
+   [
+    66,
+    "Teleport",
+    7
+   ],
+   [
+    66,
+    "Teleport",
+    8
+   ],
+   [
+    66,
+    "Teleport",
+    9
+   ],
+   [
+    67,
+    "Teleport",
+    10
+   ],
+   [
+    67,
+    "Teleport",
+    11
+   ],
+   [
+    67,
+    "Teleport",
+    12
+   ],
+   [
+    68,
+    "Teleport",
+    13
+   ],
+   [
+    68,
+    "Teleport",
+    14
+   ],
+   [
+    68,
+    "Teleport",
+    15
+   ],
+   [
+    69,
+    "Teleport",
+    16
+   ],
+   [
+    69,
+    "Teleport",
+    17
+   ],
+   [
+    69,
+    "Teleport",
+    18
+   ],
+   [
+    70,
+    "Teleport",
+    19
+   ],
+   [
+    70,
+    "Teleport",
+    20
+   ],
+   [
+    70,
+    "Slow",
+    1
+   ]
+  ],
+  "rows": [
+   {
+    "lo": 30,
+    "hi": 30,
+    "spend": [
+     [
+      "Teleport",
+      1
+     ]
+    ],
+    "after": {
+     "Teleport": 1
+    }
+   },
+   {
+    "lo": 31,
+    "hi": 39,
+    "spend": [
+     [
+      "Cold Beam",
+      27
+     ]
+    ],
+    "after": {
+     "Teleport": 1,
+     "Cold Beam": 27
+    }
+   },
+   {
+    "lo": 40,
+    "hi": 40,
+    "spend": [
+     [
+      "Cold Beam",
+      3
+     ]
+    ],
+    "after": {
+     "Teleport": 1,
+     "Cold Beam": 30
+    }
+   },
+   {
+    "lo": 41,
+    "hi": 50,
+    "spend": [
+     [
+      "Thunder Bolt",
+      30
+     ]
+    ],
+    "after": {
+     "Teleport": 1,
+     "Cold Beam": 30,
+     "Thunder Bolt": 30
+    }
+   },
+   {
+    "lo": 51,
+    "hi": 51,
+    "spend": [
+     [
+      "MP Eater",
+      3
+     ]
+    ],
+    "after": {
+     "Teleport": 1,
+     "Cold Beam": 30,
+     "Thunder Bolt": 30,
+     "MP Eater": 3
+    }
+   },
+   {
+    "lo": 52,
+    "hi": 57,
+    "spend": [
+     [
+      "Meditation",
+      18
+     ]
+    ],
+    "after": {
+     "Teleport": 1,
+     "Cold Beam": 30,
+     "Thunder Bolt": 30,
+     "MP Eater": 3,
+     "Meditation": 18
+    }
+   },
+   {
+    "lo": 58,
+    "hi": 58,
+    "spend": [
+     [
+      "Meditation",
+      2
+     ],
+     [
+      "MP Eater",
+      1
+     ]
+    ],
+    "after": {
+     "Teleport": 1,
+     "Cold Beam": 30,
+     "Thunder Bolt": 30,
+     "MP Eater": 4,
+     "Meditation": 20
+    }
+   },
+   {
+    "lo": 59,
+    "hi": 63,
+    "spend": [
+     [
+      "MP Eater",
+      15
+     ]
+    ],
+    "after": {
+     "Teleport": 1,
+     "Cold Beam": 30,
+     "Thunder Bolt": 30,
+     "MP Eater": 19,
+     "Meditation": 20
+    }
+   },
+   {
+    "lo": 64,
+    "hi": 64,
+    "spend": [
+     [
+      "MP Eater",
+      1
+     ],
+     [
+      "Teleport",
+      2
+     ]
+    ],
+    "after": {
+     "Teleport": 3,
+     "Cold Beam": 30,
+     "Thunder Bolt": 30,
+     "MP Eater": 20,
+     "Meditation": 20
+    }
+   },
+   {
+    "lo": 65,
+    "hi": 69,
+    "spend": [
+     [
+      "Teleport",
+      15
+     ]
+    ],
+    "after": {
+     "Teleport": 18,
+     "Cold Beam": 30,
+     "Thunder Bolt": 30,
+     "MP Eater": 20,
+     "Meditation": 20
+    }
+   },
+   {
+    "lo": 70,
+    "hi": 70,
+    "spend": [
+     [
+      "Teleport",
+      2
+     ],
+     [
+      "Slow",
+      1
+     ]
+    ],
+    "after": {
+     "Teleport": 20,
+     "Cold Beam": 30,
+     "Thunder Bolt": 30,
+     "MP Eater": 20,
+     "Meditation": 20,
+     "Slow": 1
+    }
+   }
+  ],
+  "end": {
+   "Teleport": 20,
+   "Cold Beam": 30,
+   "Thunder Bolt": 30,
+   "MP Eater": 20,
+   "Meditation": 20,
+   "Slow": 1
+  },
+  "to_level": 70
+ },
+ "Cleric": {
+  "source": "meowdb.com/msclassic/guides/cleric-class-guide",
+  "steps": [
+   [
+    30,
+    "Heal",
+    1
+   ],
+   [
+    31,
+    "Teleport",
+    1
+   ],
+   [
+    31,
+    "MP Eater",
+    1
+   ],
+   [
+    31,
+    "Holy Arrow",
+    1
+   ],
+   [
+    32,
+    "Holy Arrow",
+    2
+   ],
+   [
+    32,
+    "Holy Arrow",
+    3
+   ],
+   [
+    32,
+    "Holy Arrow",
+    4
+   ],
+   [
+    33,
+    "Holy Arrow",
+    5
+   ],
+   [
+    33,
+    "Holy Arrow",
+    6
+   ],
+   [
+    33,
+    "Holy Arrow",
+    7
+   ],
+   [
+    34,
+    "Holy Arrow",
+    8
+   ],
+   [
+    34,
+    "Holy Arrow",
+    9
+   ],
+   [
+    34,
+    "Holy Arrow",
+    10
+   ],
+   [
+    35,
+    "Holy Arrow",
+    11
+   ],
+   [
+    35,
+    "Holy Arrow",
+    12
+   ],
+   [
+    35,
+    "Holy Arrow",
+    13
+   ],
+   [
+    36,
+    "Holy Arrow",
+    14
+   ],
+   [
+    36,
+    "Holy Arrow",
+    15
+   ],
+   [
+    36,
+    "Holy Arrow",
+    16
+   ],
+   [
+    37,
+    "Holy Arrow",
+    17
+   ],
+   [
+    37,
+    "Holy Arrow",
+    18
+   ],
+   [
+    37,
+    "Holy Arrow",
+    19
+   ],
+   [
+    38,
+    "Holy Arrow",
+    20
+   ],
+   [
+    38,
+    "Holy Arrow",
+    21
+   ],
+   [
+    38,
+    "Holy Arrow",
+    22
+   ],
+   [
+    39,
+    "Holy Arrow",
+    23
+   ],
+   [
+    39,
+    "Holy Arrow",
+    24
+   ],
+   [
+    39,
+    "Holy Arrow",
+    25
+   ],
+   [
+    40,
+    "Holy Arrow",
+    26
+   ],
+   [
+    40,
+    "Holy Arrow",
+    27
+   ],
+   [
+    40,
+    "Holy Arrow",
+    28
+   ],
+   [
+    41,
+    "Holy Arrow",
+    29
+   ],
+   [
+    41,
+    "Holy Arrow",
+    30
+   ],
+   [
+    41,
+    "Heal",
+    2
+   ],
+   [
+    42,
+    "Heal",
+    3
+   ],
+   [
+    42,
+    "Heal",
+    4
+   ],
+   [
+    42,
+    "Heal",
+    5
+   ],
+   [
+    43,
+    "Invincible",
+    1
+   ],
+   [
+    43,
+    "Invincible",
+    2
+   ],
+   [
+    43,
+    "Invincible",
+    3
+   ],
+   [
+    44,
+    "Invincible",
+    4
+   ],
+   [
+    44,
+    "Invincible",
+    5
+   ],
+   [
+    44,
+    "Bless",
+    1
+   ],
+   [
+    45,
+    "Bless",
+    2
+   ],
+   [
+    45,
+    "Bless",
+    3
+   ],
+   [
+    45,
+    "Bless",
+    4
+   ],
+   [
+    46,
+    "Bless",
+    5
+   ],
+   [
+    46,
+    "Bless",
+    6
+   ],
+   [
+    46,
+    "Bless",
+    7
+   ],
+   [
+    47,
+    "Bless",
+    8
+   ],
+   [
+    47,
+    "Bless",
+    9
+   ],
+   [
+    47,
+    "Bless",
+    10
+   ],
+   [
+    48,
+    "Bless",
+    11
+   ],
+   [
+    48,
+    "Bless",
+    12
+   ],
+   [
+    48,
+    "Bless",
+    13
+   ],
+   [
+    49,
+    "Bless",
+    14
+   ],
+   [
+    49,
+    "Bless",
+    15
+   ],
+   [
+    49,
+    "Bless",
+    16
+   ],
+   [
+    50,
+    "Heal",
+    6
+   ],
+   [
+    50,
+    "Heal",
+    7
+   ],
+   [
+    50,
+    "Heal",
+    8
+   ],
+   [
+    51,
+    "Heal",
+    9
+   ],
+   [
+    51,
+    "Heal",
+    10
+   ],
+   [
+    51,
+    "Heal",
+    11
+   ],
+   [
+    52,
+    "Heal",
+    12
+   ],
+   [
+    52,
+    "Heal",
+    13
+   ],
+   [
+    52,
+    "Heal",
+    14
+   ],
+   [
+    53,
+    "Heal",
+    15
+   ],
+   [
+    53,
+    "Heal",
+    16
+   ],
+   [
+    53,
+    "Heal",
+    17
+   ],
+   [
+    54,
+    "Heal",
+    18
+   ],
+   [
+    54,
+    "Heal",
+    19
+   ],
+   [
+    54,
+    "Heal",
+    20
+   ],
+   [
+    55,
+    "Heal",
+    21
+   ],
+   [
+    55,
+    "Heal",
+    22
+   ],
+   [
+    55,
+    "Heal",
+    23
+   ],
+   [
+    56,
+    "Heal",
+    24
+   ],
+   [
+    56,
+    "Heal",
+    25
+   ],
+   [
+    56,
+    "Heal",
+    26
+   ],
+   [
+    57,
+    "Heal",
+    27
+   ],
+   [
+    57,
+    "Heal",
+    28
+   ],
+   [
+    57,
+    "Heal",
+    29
+   ],
+   [
+    58,
+    "Heal",
+    30
+   ],
+   [
+    58,
+    "MP Eater",
+    2
+   ],
+   [
+    58,
+    "MP Eater",
+    3
+   ],
+   [
+    59,
+    "MP Eater",
+    4
+   ],
+   [
+    59,
+    "MP Eater",
+    5
+   ],
+   [
+    59,
+    "MP Eater",
+    6
+   ],
+   [
+    60,
+    "MP Eater",
+    7
+   ],
+   [
+    60,
+    "MP Eater",
+    8
+   ],
+   [
+    60,
+    "MP Eater",
+    9
+   ],
+   [
+    61,
+    "MP Eater",
+    10
+   ],
+   [
+    61,
+    "MP Eater",
+    11
+   ],
+   [
+    61,
+    "MP Eater",
+    12
+   ],
+   [
+    62,
+    "MP Eater",
+    13
+   ],
+   [
+    62,
+    "MP Eater",
+    14
+   ],
+   [
+    62,
+    "MP Eater",
+    15
+   ],
+   [
+    63,
+    "MP Eater",
+    16
+   ],
+   [
+    63,
+    "MP Eater",
+    17
+   ],
+   [
+    63,
+    "MP Eater",
+    18
+   ],
+   [
+    64,
+    "MP Eater",
+    19
+   ],
+   [
+    64,
+    "MP Eater",
+    20
+   ],
+   [
+    64,
+    "Teleport",
+    2
+   ],
+   [
+    65,
+    "Teleport",
+    3
+   ],
+   [
+    65,
+    "Teleport",
+    4
+   ],
+   [
+    65,
+    "Teleport",
+    5
+   ],
+   [
+    66,
+    "Teleport",
+    6
+   ],
+   [
+    66,
+    "Teleport",
+    7
+   ],
+   [
+    66,
+    "Teleport",
+    8
+   ],
+   [
+    67,
+    "Teleport",
+    9
+   ],
+   [
+    67,
+    "Teleport",
+    10
+   ],
+   [
+    67,
+    "Teleport",
+    11
+   ],
+   [
+    68,
+    "Teleport",
+    12
+   ],
+   [
+    68,
+    "Teleport",
+    13
+   ],
+   [
+    68,
+    "Teleport",
+    14
+   ],
+   [
+    69,
+    "Teleport",
+    15
+   ],
+   [
+    69,
+    "Teleport",
+    16
+   ],
+   [
+    69,
+    "Teleport",
+    17
+   ],
+   [
+    70,
+    "Teleport",
+    18
+   ],
+   [
+    70,
+    "Teleport",
+    19
+   ],
+   [
+    70,
+    "Teleport",
+    20
+   ]
+  ],
+  "rows": [
+   {
+    "lo": 30,
+    "hi": 30,
+    "spend": [
+     [
+      "Heal",
+      1
+     ]
+    ],
+    "after": {
+     "Heal": 1
+    }
+   },
+   {
+    "lo": 31,
+    "hi": 31,
+    "spend": [
+     [
+      "Teleport",
+      1
+     ],
+     [
+      "MP Eater",
+      1
+     ],
+     [
+      "Holy Arrow",
+      1
+     ]
+    ],
+    "after": {
+     "Heal": 1,
+     "Teleport": 1,
+     "MP Eater": 1,
+     "Holy Arrow": 1
+    }
+   },
+   {
+    "lo": 32,
+    "hi": 40,
+    "spend": [
+     [
+      "Holy Arrow",
+      27
+     ]
+    ],
+    "after": {
+     "Heal": 1,
+     "Teleport": 1,
+     "MP Eater": 1,
+     "Holy Arrow": 28
+    }
+   },
+   {
+    "lo": 41,
+    "hi": 41,
+    "spend": [
+     [
+      "Holy Arrow",
+      2
+     ],
+     [
+      "Heal",
+      1
+     ]
+    ],
+    "after": {
+     "Heal": 2,
+     "Teleport": 1,
+     "MP Eater": 1,
+     "Holy Arrow": 30
+    }
+   },
+   {
+    "lo": 42,
+    "hi": 42,
+    "spend": [
+     [
+      "Heal",
+      3
+     ]
+    ],
+    "after": {
+     "Heal": 5,
+     "Teleport": 1,
+     "MP Eater": 1,
+     "Holy Arrow": 30
+    }
+   },
+   {
+    "lo": 43,
+    "hi": 43,
+    "spend": [
+     [
+      "Invincible",
+      3
+     ]
+    ],
+    "after": {
+     "Heal": 5,
+     "Teleport": 1,
+     "MP Eater": 1,
+     "Holy Arrow": 30,
+     "Invincible": 3
+    }
+   },
+   {
+    "lo": 44,
+    "hi": 44,
+    "spend": [
+     [
+      "Invincible",
+      2
+     ],
+     [
+      "Bless",
+      1
+     ]
+    ],
+    "after": {
+     "Heal": 5,
+     "Teleport": 1,
+     "MP Eater": 1,
+     "Holy Arrow": 30,
+     "Invincible": 5,
+     "Bless": 1
+    }
+   },
+   {
+    "lo": 45,
+    "hi": 49,
+    "spend": [
+     [
+      "Bless",
+      15
+     ]
+    ],
+    "after": {
+     "Heal": 5,
+     "Teleport": 1,
+     "MP Eater": 1,
+     "Holy Arrow": 30,
+     "Invincible": 5,
+     "Bless": 16
+    }
+   },
+   {
+    "lo": 50,
+    "hi": 57,
+    "spend": [
+     [
+      "Heal",
+      24
+     ]
+    ],
+    "after": {
+     "Heal": 29,
+     "Teleport": 1,
+     "MP Eater": 1,
+     "Holy Arrow": 30,
+     "Invincible": 5,
+     "Bless": 16
+    }
+   },
+   {
+    "lo": 58,
+    "hi": 58,
+    "spend": [
+     [
+      "Heal",
+      1
+     ],
+     [
+      "MP Eater",
+      2
+     ]
+    ],
+    "after": {
+     "Heal": 30,
+     "Teleport": 1,
+     "MP Eater": 3,
+     "Holy Arrow": 30,
+     "Invincible": 5,
+     "Bless": 16
+    }
+   },
+   {
+    "lo": 59,
+    "hi": 63,
+    "spend": [
+     [
+      "MP Eater",
+      15
+     ]
+    ],
+    "after": {
+     "Heal": 30,
+     "Teleport": 1,
+     "MP Eater": 18,
+     "Holy Arrow": 30,
+     "Invincible": 5,
+     "Bless": 16
+    }
+   },
+   {
+    "lo": 64,
+    "hi": 64,
+    "spend": [
+     [
+      "MP Eater",
+      2
+     ],
+     [
+      "Teleport",
+      1
+     ]
+    ],
+    "after": {
+     "Heal": 30,
+     "Teleport": 2,
+     "MP Eater": 20,
+     "Holy Arrow": 30,
+     "Invincible": 5,
+     "Bless": 16
+    }
+   },
+   {
+    "lo": 65,
+    "hi": 70,
+    "spend": [
+     [
+      "Teleport",
+      18
+     ]
+    ],
+    "after": {
+     "Heal": 30,
+     "Teleport": 20,
+     "MP Eater": 20,
+     "Holy Arrow": 30,
+     "Invincible": 5,
+     "Bless": 16
+    }
+   }
+  ],
+  "end": {
+   "Heal": 30,
+   "Teleport": 20,
+   "MP Eater": 20,
+   "Holy Arrow": 30,
+   "Invincible": 5,
+   "Bless": 16
+  },
+  "to_level": 70
+ },
+ "Archer": {
+  "source": "meowdb.com/msclassic/guides/bowman-class-guide",
+  "steps": [
+   [
+    10,
+    "Arrow Blow",
+    1
+   ],
+   [
+    11,
+    "Arrow Blow",
+    2
+   ],
+   [
+    11,
+    "Arrow Blow",
+    3
+   ],
+   [
+    11,
+    "Arrow Blow",
+    4
+   ],
+   [
+    12,
+    "Arrow Blow",
+    5
+   ],
+   [
+    12,
+    "Arrow Blow",
+    6
+   ],
+   [
+    12,
+    "The Eye of Amazon",
+    1
+   ],
+   [
+    13,
+    "Arrow Blow",
+    7
+   ],
+   [
+    13,
+    "Arrow Blow",
+    8
+   ],
+   [
+    13,
+    "Arrow Blow",
+    9
+   ],
+   [
+    14,
+    "Arrow Blow",
+    10
+   ],
+   [
+    14,
+    "Arrow Blow",
+    11
+   ],
+   [
+    14,
+    "Arrow Blow",
+    12
+   ],
+   [
+    15,
+    "Arrow Blow",
+    13
+   ],
+   [
+    15,
+    "The Eye of Amazon",
+    2
+   ],
+   [
+    15,
+    "The Eye of Amazon",
+    3
+   ],
+   [
+    16,
+    "Arrow Blow",
+    14
+   ],
+   [
+    16,
+    "Arrow Blow",
+    15
+   ],
+   [
+    16,
+    "Arrow Blow",
+    16
+   ],
+   [
+    17,
+    "Arrow Blow",
+    17
+   ],
+   [
+    17,
+    "Arrow Blow",
+    18
+   ],
+   [
+    17,
+    "Arrow Blow",
+    19
+   ],
+   [
+    18,
+    "Arrow Blow",
+    20
+   ],
+   [
+    18,
+    "Critical Shot",
+    1
+   ],
+   [
+    18,
+    "Critical Shot",
+    2
+   ],
+   [
+    19,
+    "Critical Shot",
+    3
+   ],
+   [
+    19,
+    "Critical Shot",
+    4
+   ],
+   [
+    19,
+    "Critical Shot",
+    5
+   ],
+   [
+    20,
+    "Critical Shot",
+    6
+   ],
+   [
+    20,
+    "Critical Shot",
+    7
+   ],
+   [
+    20,
+    "Critical Shot",
+    8
+   ],
+   [
+    21,
+    "Critical Shot",
+    9
+   ],
+   [
+    21,
+    "Critical Shot",
+    10
+   ],
+   [
+    21,
+    "Critical Shot",
+    11
+   ],
+   [
+    22,
+    "Critical Shot",
+    12
+   ],
+   [
+    22,
+    "Critical Shot",
+    13
+   ],
+   [
+    22,
+    "Critical Shot",
+    14
+   ],
+   [
+    23,
+    "Critical Shot",
+    15
+   ],
+   [
+    23,
+    "The Eye of Amazon",
+    4
+   ],
+   [
+    23,
+    "The Eye of Amazon",
+    5
+   ],
+   [
+    24,
+    "The Eye of Amazon",
+    6
+   ],
+   [
+    24,
+    "The Eye of Amazon",
+    7
+   ],
+   [
+    24,
+    "The Eye of Amazon",
+    8
+   ],
+   [
+    25,
+    "The Eye of Amazon",
+    9
+   ],
+   [
+    25,
+    "The Eye of Amazon",
+    10
+   ],
+   [
+    25,
+    "The Eye of Amazon",
+    11
+   ],
+   [
+    26,
+    "The Eye of Amazon",
+    12
+   ],
+   [
+    26,
+    "The Eye of Amazon",
+    13
+   ],
+   [
+    26,
+    "The Eye of Amazon",
+    14
+   ],
+   [
+    27,
+    "The Eye of Amazon",
+    15
+   ],
+   [
+    27,
+    "Focus",
+    1
+   ],
+   [
+    27,
+    "Focus",
+    2
+   ],
+   [
+    28,
+    "Focus",
+    3
+   ],
+   [
+    28,
+    "Focus",
+    4
+   ],
+   [
+    28,
+    "Focus",
+    5
+   ],
+   [
+    29,
+    "Focus",
+    6
+   ],
+   [
+    29,
+    "Focus",
+    7
+   ],
+   [
+    29,
+    "Focus",
+    8
+   ],
+   [
+    30,
+    "Focus",
+    9
+   ],
+   [
+    30,
+    "Focus",
+    10
+   ],
+   [
+    30,
+    "Power Knockback",
+    1
+   ]
+  ],
+  "rows": [
+   {
+    "lo": 10,
+    "hi": 10,
+    "spend": [
+     [
+      "Arrow Blow",
+      1
+     ]
+    ],
+    "after": {
+     "Arrow Blow": 1
+    }
+   },
+   {
+    "lo": 11,
+    "hi": 11,
+    "spend": [
+     [
+      "Arrow Blow",
+      3
+     ]
+    ],
+    "after": {
+     "Arrow Blow": 4
+    }
+   },
+   {
+    "lo": 12,
+    "hi": 12,
+    "spend": [
+     [
+      "Arrow Blow",
+      2
+     ],
+     [
+      "The Eye of Amazon",
+      1
+     ]
+    ],
+    "after": {
+     "Arrow Blow": 6,
+     "The Eye of Amazon": 1
+    }
+   },
+   {
+    "lo": 13,
+    "hi": 14,
+    "spend": [
+     [
+      "Arrow Blow",
+      6
+     ]
+    ],
+    "after": {
+     "Arrow Blow": 12,
+     "The Eye of Amazon": 1
+    }
+   },
+   {
+    "lo": 15,
+    "hi": 15,
+    "spend": [
+     [
+      "Arrow Blow",
+      1
+     ],
+     [
+      "The Eye of Amazon",
+      2
+     ]
+    ],
+    "after": {
+     "Arrow Blow": 13,
+     "The Eye of Amazon": 3
+    }
+   },
+   {
+    "lo": 16,
+    "hi": 17,
+    "spend": [
+     [
+      "Arrow Blow",
+      6
+     ]
+    ],
+    "after": {
+     "Arrow Blow": 19,
+     "The Eye of Amazon": 3
+    }
+   },
+   {
+    "lo": 18,
+    "hi": 18,
+    "spend": [
+     [
+      "Arrow Blow",
+      1
+     ],
+     [
+      "Critical Shot",
+      2
+     ]
+    ],
+    "after": {
+     "Arrow Blow": 20,
+     "The Eye of Amazon": 3,
+     "Critical Shot": 2
+    }
+   },
+   {
+    "lo": 19,
+    "hi": 22,
+    "spend": [
+     [
+      "Critical Shot",
+      12
+     ]
+    ],
+    "after": {
+     "Arrow Blow": 20,
+     "The Eye of Amazon": 3,
+     "Critical Shot": 14
+    }
+   },
+   {
+    "lo": 23,
+    "hi": 23,
+    "spend": [
+     [
+      "Critical Shot",
+      1
+     ],
+     [
+      "The Eye of Amazon",
+      2
+     ]
+    ],
+    "after": {
+     "Arrow Blow": 20,
+     "The Eye of Amazon": 5,
+     "Critical Shot": 15
+    }
+   },
+   {
+    "lo": 24,
+    "hi": 26,
+    "spend": [
+     [
+      "The Eye of Amazon",
+      9
+     ]
+    ],
+    "after": {
+     "Arrow Blow": 20,
+     "The Eye of Amazon": 14,
+     "Critical Shot": 15
+    }
+   },
+   {
+    "lo": 27,
+    "hi": 27,
+    "spend": [
+     [
+      "The Eye of Amazon",
+      1
+     ],
+     [
+      "Focus",
+      2
+     ]
+    ],
+    "after": {
+     "Arrow Blow": 20,
+     "The Eye of Amazon": 15,
+     "Critical Shot": 15,
+     "Focus": 2
+    }
+   },
+   {
+    "lo": 28,
+    "hi": 29,
+    "spend": [
+     [
+      "Focus",
+      6
+     ]
+    ],
+    "after": {
+     "Arrow Blow": 20,
+     "The Eye of Amazon": 15,
+     "Critical Shot": 15,
+     "Focus": 8
+    }
+   },
+   {
+    "lo": 30,
+    "hi": 30,
+    "spend": [
+     [
+      "Focus",
+      2
+     ],
+     [
+      "Power Knockback",
+      1
+     ]
+    ],
+    "after": {
+     "Arrow Blow": 20,
+     "The Eye of Amazon": 15,
+     "Critical Shot": 15,
+     "Focus": 10,
+     "Power Knockback": 1
+    }
+   }
+  ],
+  "end": {
+   "Arrow Blow": 20,
+   "The Eye of Amazon": 15,
+   "Critical Shot": 15,
+   "Focus": 10,
+   "Power Knockback": 1
+  },
+  "to_level": 30
+ },
+ "Hunter": {
+  "source": "meowdb.com/msclassic/guides/hunter-class-guide",
+  "steps": [
+   [
+    30,
+    "Arrow Bomb",
+    1
+   ],
+   [
+    31,
+    "Bow Mastery",
+    1
+   ],
+   [
+    31,
+    "Bow Mastery",
+    2
+   ],
+   [
+    31,
+    "Bow Mastery",
+    3
+   ],
+   [
+    32,
+    "Bow Mastery",
+    4
+   ],
+   [
+    32,
+    "Bow Mastery",
+    5
+   ],
+   [
+    32,
+    "Bow Booster",
+    1
+   ],
+   [
+    33,
+    "Bow Booster",
+    2
+   ],
+   [
+    33,
+    "Bow Booster",
+    3
+   ],
+   [
+    33,
+    "Bow Booster",
+    4
+   ],
+   [
+    34,
+    "Bow Booster",
+    5
+   ],
+   [
+    34,
+    "Soul Arrow: Bow",
+    1
+   ],
+   [
+    34,
+    "Bow Mastery",
+    6
+   ],
+   [
+    35,
+    "Bow Mastery",
+    7
+   ],
+   [
+    35,
+    "Bow Mastery",
+    8
+   ],
+   [
+    35,
+    "Bow Mastery",
+    9
+   ],
+   [
+    36,
+    "Bow Mastery",
+    10
+   ],
+   [
+    36,
+    "Bow Mastery",
+    11
+   ],
+   [
+    36,
+    "Bow Mastery",
+    12
+   ],
+   [
+    37,
+    "Bow Mastery",
+    13
+   ],
+   [
+    37,
+    "Bow Mastery",
+    14
+   ],
+   [
+    37,
+    "Bow Mastery",
+    15
+   ],
+   [
+    38,
+    "Bow Mastery",
+    16
+   ],
+   [
+    38,
+    "Bow Mastery",
+    17
+   ],
+   [
+    38,
+    "Bow Mastery",
+    18
+   ],
+   [
+    39,
+    "Bow Mastery",
+    19
+   ],
+   [
+    39,
+    "Bow Mastery",
+    20
+   ],
+   [
+    39,
+    "Final Attack: Bow",
+    1
+   ],
+   [
+    40,
+    "Arrow Bomb",
+    2
+   ],
+   [
+    40,
+    "Arrow Bomb",
+    3
+   ],
+   [
+    40,
+    "Arrow Bomb",
+    4
+   ],
+   [
+    41,
+    "Arrow Bomb",
+    5
+   ],
+   [
+    41,
+    "Arrow Bomb",
+    6
+   ],
+   [
+    41,
+    "Arrow Bomb",
+    7
+   ],
+   [
+    42,
+    "Arrow Bomb",
+    8
+   ],
+   [
+    42,
+    "Arrow Bomb",
+    9
+   ],
+   [
+    42,
+    "Arrow Bomb",
+    10
+   ],
+   [
+    43,
+    "Arrow Bomb",
+    11
+   ],
+   [
+    43,
+    "Arrow Bomb",
+    12
+   ],
+   [
+    43,
+    "Arrow Bomb",
+    13
+   ],
+   [
+    44,
+    "Arrow Bomb",
+    14
+   ],
+   [
+    44,
+    "Arrow Bomb",
+    15
+   ],
+   [
+    44,
+    "Arrow Bomb",
+    16
+   ],
+   [
+    45,
+    "Arrow Bomb",
+    17
+   ],
+   [
+    45,
+    "Arrow Bomb",
+    18
+   ],
+   [
+    45,
+    "Arrow Bomb",
+    19
+   ],
+   [
+    46,
+    "Arrow Bomb",
+    20
+   ],
+   [
+    46,
+    "Arrow Bomb",
+    21
+   ],
+   [
+    46,
+    "Arrow Bomb",
+    22
+   ],
+   [
+    47,
+    "Arrow Bomb",
+    23
+   ],
+   [
+    47,
+    "Arrow Bomb",
+    24
+   ],
+   [
+    47,
+    "Arrow Bomb",
+    25
+   ],
+   [
+    48,
+    "Arrow Bomb",
+    26
+   ],
+   [
+    48,
+    "Arrow Bomb",
+    27
+   ],
+   [
+    48,
+    "Arrow Bomb",
+    28
+   ],
+   [
+    49,
+    "Arrow Bomb",
+    29
+   ],
+   [
+    49,
+    "Arrow Bomb",
+    30
+   ],
+   [
+    49,
+    "Final Attack: Bow",
+    2
+   ],
+   [
+    50,
+    "Final Attack: Bow",
+    3
+   ],
+   [
+    50,
+    "Final Attack: Bow",
+    4
+   ],
+   [
+    50,
+    "Final Attack: Bow",
+    5
+   ],
+   [
+    51,
+    "Final Attack: Bow",
+    6
+   ],
+   [
+    51,
+    "Final Attack: Bow",
+    7
+   ],
+   [
+    51,
+    "Final Attack: Bow",
+    8
+   ],
+   [
+    52,
+    "Final Attack: Bow",
+    9
+   ],
+   [
+    52,
+    "Final Attack: Bow",
+    10
+   ],
+   [
+    52,
+    "Final Attack: Bow",
+    11
+   ],
+   [
+    53,
+    "Final Attack: Bow",
+    12
+   ],
+   [
+    53,
+    "Final Attack: Bow",
+    13
+   ],
+   [
+    53,
+    "Final Attack: Bow",
+    14
+   ],
+   [
+    54,
+    "Final Attack: Bow",
+    15
+   ],
+   [
+    54,
+    "Final Attack: Bow",
+    16
+   ],
+   [
+    54,
+    "Final Attack: Bow",
+    17
+   ],
+   [
+    55,
+    "Final Attack: Bow",
+    18
+   ],
+   [
+    55,
+    "Final Attack: Bow",
+    19
+   ],
+   [
+    55,
+    "Final Attack: Bow",
+    20
+   ],
+   [
+    56,
+    "Final Attack: Bow",
+    21
+   ],
+   [
+    56,
+    "Final Attack: Bow",
+    22
+   ],
+   [
+    56,
+    "Final Attack: Bow",
+    23
+   ],
+   [
+    57,
+    "Final Attack: Bow",
+    24
+   ],
+   [
+    57,
+    "Final Attack: Bow",
+    25
+   ],
+   [
+    57,
+    "Final Attack: Bow",
+    26
+   ],
+   [
+    58,
+    "Final Attack: Bow",
+    27
+   ],
+   [
+    58,
+    "Final Attack: Bow",
+    28
+   ],
+   [
+    58,
+    "Final Attack: Bow",
+    29
+   ],
+   [
+    59,
+    "Final Attack: Bow",
+    30
+   ],
+   [
+    59,
+    "Amazon's Judgement",
+    1
+   ],
+   [
+    59,
+    "Amazon's Judgement",
+    2
+   ],
+   [
+    60,
+    "Amazon's Judgement",
+    3
+   ],
+   [
+    60,
+    "Amazon's Judgement",
+    4
+   ],
+   [
+    60,
+    "Amazon's Judgement",
+    5
+   ],
+   [
+    61,
+    "Amazon's Judgement",
+    6
+   ],
+   [
+    61,
+    "Amazon's Judgement",
+    7
+   ],
+   [
+    61,
+    "Amazon's Judgement",
+    8
+   ],
+   [
+    62,
+    "Amazon's Judgement",
+    9
+   ],
+   [
+    62,
+    "Amazon's Judgement",
+    10
+   ],
+   [
+    62,
+    "Amazon's Judgement",
+    11
+   ],
+   [
+    63,
+    "Amazon's Judgement",
+    12
+   ],
+   [
+    63,
+    "Amazon's Judgement",
+    13
+   ],
+   [
+    63,
+    "Amazon's Judgement",
+    14
+   ],
+   [
+    64,
+    "Amazon's Judgement",
+    15
+   ],
+   [
+    64,
+    "Amazon's Judgement",
+    16
+   ],
+   [
+    64,
+    "Amazon's Judgement",
+    17
+   ],
+   [
+    65,
+    "Amazon's Judgement",
+    18
+   ],
+   [
+    65,
+    "Amazon's Judgement",
+    19
+   ],
+   [
+    65,
+    "Amazon's Judgement",
+    20
+   ],
+   [
+    66,
+    "Bow Booster",
+    6
+   ],
+   [
+    66,
+    "Bow Booster",
+    7
+   ],
+   [
+    66,
+    "Bow Booster",
+    8
+   ],
+   [
+    67,
+    "Bow Booster",
+    9
+   ],
+   [
+    67,
+    "Bow Booster",
+    10
+   ],
+   [
+    67,
+    "Soul Arrow: Bow",
+    2
+   ],
+   [
+    68,
+    "Soul Arrow: Bow",
+    3
+   ],
+   [
+    68,
+    "Soul Arrow: Bow",
+    4
+   ],
+   [
+    68,
+    "Soul Arrow: Bow",
+    5
+   ],
+   [
+    69,
+    "Soul Arrow: Bow",
+    6
+   ],
+   [
+    69,
+    "Soul Arrow: Bow",
+    7
+   ],
+   [
+    69,
+    "Soul Arrow: Bow",
+    8
+   ],
+   [
+    70,
+    "Soul Arrow: Bow",
+    9
+   ],
+   [
+    70,
+    "Soul Arrow: Bow",
+    10
+   ],
+   [
+    70,
+    "Soul Arrow: Bow",
+    11
+   ]
+  ],
+  "rows": [
+   {
+    "lo": 30,
+    "hi": 30,
+    "spend": [
+     [
+      "Arrow Bomb",
+      1
+     ]
+    ],
+    "after": {
+     "Arrow Bomb": 1
+    }
+   },
+   {
+    "lo": 31,
+    "hi": 31,
+    "spend": [
+     [
+      "Bow Mastery",
+      3
+     ]
+    ],
+    "after": {
+     "Arrow Bomb": 1,
+     "Bow Mastery": 3
+    }
+   },
+   {
+    "lo": 32,
+    "hi": 32,
+    "spend": [
+     [
+      "Bow Mastery",
+      2
+     ],
+     [
+      "Bow Booster",
+      1
+     ]
+    ],
+    "after": {
+     "Arrow Bomb": 1,
+     "Bow Mastery": 5,
+     "Bow Booster": 1
+    }
+   },
+   {
+    "lo": 33,
+    "hi": 33,
+    "spend": [
+     [
+      "Bow Booster",
+      3
+     ]
+    ],
+    "after": {
+     "Arrow Bomb": 1,
+     "Bow Mastery": 5,
+     "Bow Booster": 4
+    }
+   },
+   {
+    "lo": 34,
+    "hi": 34,
+    "spend": [
+     [
+      "Bow Booster",
+      1
+     ],
+     [
+      "Soul Arrow: Bow",
+      1
+     ],
+     [
+      "Bow Mastery",
+      1
+     ]
+    ],
+    "after": {
+     "Arrow Bomb": 1,
+     "Bow Mastery": 6,
+     "Bow Booster": 5,
+     "Soul Arrow: Bow": 1
+    }
+   },
+   {
+    "lo": 35,
+    "hi": 38,
+    "spend": [
+     [
+      "Bow Mastery",
+      12
+     ]
+    ],
+    "after": {
+     "Arrow Bomb": 1,
+     "Bow Mastery": 18,
+     "Bow Booster": 5,
+     "Soul Arrow: Bow": 1
+    }
+   },
+   {
+    "lo": 39,
+    "hi": 39,
+    "spend": [
+     [
+      "Bow Mastery",
+      2
+     ],
+     [
+      "Final Attack: Bow",
+      1
+     ]
+    ],
+    "after": {
+     "Arrow Bomb": 1,
+     "Bow Mastery": 20,
+     "Bow Booster": 5,
+     "Soul Arrow: Bow": 1,
+     "Final Attack: Bow": 1
+    }
+   },
+   {
+    "lo": 40,
+    "hi": 48,
+    "spend": [
+     [
+      "Arrow Bomb",
+      27
+     ]
+    ],
+    "after": {
+     "Arrow Bomb": 28,
+     "Bow Mastery": 20,
+     "Bow Booster": 5,
+     "Soul Arrow: Bow": 1,
+     "Final Attack: Bow": 1
+    }
+   },
+   {
+    "lo": 49,
+    "hi": 49,
+    "spend": [
+     [
+      "Arrow Bomb",
+      2
+     ],
+     [
+      "Final Attack: Bow",
+      1
+     ]
+    ],
+    "after": {
+     "Arrow Bomb": 30,
+     "Bow Mastery": 20,
+     "Bow Booster": 5,
+     "Soul Arrow: Bow": 1,
+     "Final Attack: Bow": 2
+    }
+   },
+   {
+    "lo": 50,
+    "hi": 58,
+    "spend": [
+     [
+      "Final Attack: Bow",
+      27
+     ]
+    ],
+    "after": {
+     "Arrow Bomb": 30,
+     "Bow Mastery": 20,
+     "Bow Booster": 5,
+     "Soul Arrow: Bow": 1,
+     "Final Attack: Bow": 29
+    }
+   },
+   {
+    "lo": 59,
+    "hi": 59,
+    "spend": [
+     [
+      "Final Attack: Bow",
+      1
+     ],
+     [
+      "Amazon's Judgement",
+      2
+     ]
+    ],
+    "after": {
+     "Arrow Bomb": 30,
+     "Bow Mastery": 20,
+     "Bow Booster": 5,
+     "Soul Arrow: Bow": 1,
+     "Final Attack: Bow": 30,
+     "Amazon's Judgement": 2
+    }
+   },
+   {
+    "lo": 60,
+    "hi": 65,
+    "spend": [
+     [
+      "Amazon's Judgement",
+      18
+     ]
+    ],
+    "after": {
+     "Arrow Bomb": 30,
+     "Bow Mastery": 20,
+     "Bow Booster": 5,
+     "Soul Arrow: Bow": 1,
+     "Final Attack: Bow": 30,
+     "Amazon's Judgement": 20
+    }
+   },
+   {
+    "lo": 66,
+    "hi": 66,
+    "spend": [
+     [
+      "Bow Booster",
+      3
+     ]
+    ],
+    "after": {
+     "Arrow Bomb": 30,
+     "Bow Mastery": 20,
+     "Bow Booster": 8,
+     "Soul Arrow: Bow": 1,
+     "Final Attack: Bow": 30,
+     "Amazon's Judgement": 20
+    }
+   },
+   {
+    "lo": 67,
+    "hi": 67,
+    "spend": [
+     [
+      "Bow Booster",
+      2
+     ],
+     [
+      "Soul Arrow: Bow",
+      1
+     ]
+    ],
+    "after": {
+     "Arrow Bomb": 30,
+     "Bow Mastery": 20,
+     "Bow Booster": 10,
+     "Soul Arrow: Bow": 2,
+     "Final Attack: Bow": 30,
+     "Amazon's Judgement": 20
+    }
+   },
+   {
+    "lo": 68,
+    "hi": 70,
+    "spend": [
+     [
+      "Soul Arrow: Bow",
+      9
+     ]
+    ],
+    "after": {
+     "Arrow Bomb": 30,
+     "Bow Mastery": 20,
+     "Bow Booster": 10,
+     "Soul Arrow: Bow": 11,
+     "Final Attack: Bow": 30,
+     "Amazon's Judgement": 20
+    }
+   }
+  ],
+  "end": {
+   "Arrow Bomb": 30,
+   "Bow Mastery": 20,
+   "Bow Booster": 10,
+   "Soul Arrow: Bow": 11,
+   "Final Attack: Bow": 30,
+   "Amazon's Judgement": 20
+  },
+  "to_level": 70
+ },
+ "Crossbowman": {
+  "source": "meowdb.com/msclassic/guides/crossbowman-class-guide",
+  "steps": [
+   [
+    30,
+    "Iron Arrow",
+    1
+   ],
+   [
+    31,
+    "Crossbow Mastery",
+    1
+   ],
+   [
+    31,
+    "Crossbow Mastery",
+    2
+   ],
+   [
+    31,
+    "Crossbow Mastery",
+    3
+   ],
+   [
+    32,
+    "Crossbow Mastery",
+    4
+   ],
+   [
+    32,
+    "Crossbow Mastery",
+    5
+   ],
+   [
+    32,
+    "Crossbow Booster",
+    1
+   ],
+   [
+    33,
+    "Crossbow Booster",
+    2
+   ],
+   [
+    33,
+    "Crossbow Booster",
+    3
+   ],
+   [
+    33,
+    "Final Attack: Crossbow",
+    1
+   ],
+   [
+    34,
+    "Crossbow Booster",
+    4
+   ],
+   [
+    34,
+    "Soul Arrow: Crossbow",
+    1
+   ],
+   [
+    34,
+    "Crossbow Mastery",
+    6
+   ],
+   [
+    35,
+    "Crossbow Mastery",
+    7
+   ],
+   [
+    35,
+    "Crossbow Mastery",
+    8
+   ],
+   [
+    35,
+    "Crossbow Mastery",
+    9
+   ],
+   [
+    36,
+    "Crossbow Mastery",
+    10
+   ],
+   [
+    36,
+    "Crossbow Mastery",
+    11
+   ],
+   [
+    36,
+    "Crossbow Mastery",
+    12
+   ],
+   [
+    37,
+    "Crossbow Mastery",
+    13
+   ],
+   [
+    37,
+    "Crossbow Mastery",
+    14
+   ],
+   [
+    37,
+    "Crossbow Mastery",
+    15
+   ],
+   [
+    38,
+    "Crossbow Mastery",
+    16
+   ],
+   [
+    38,
+    "Crossbow Mastery",
+    17
+   ],
+   [
+    38,
+    "Crossbow Mastery",
+    18
+   ],
+   [
+    39,
+    "Crossbow Mastery",
+    19
+   ],
+   [
+    39,
+    "Crossbow Mastery",
+    20
+   ],
+   [
+    39,
+    "Crossbow Booster",
+    5
+   ],
+   [
+    40,
+    "Iron Arrow",
+    2
+   ],
+   [
+    40,
+    "Iron Arrow",
+    3
+   ],
+   [
+    40,
+    "Iron Arrow",
+    4
+   ],
+   [
+    41,
+    "Iron Arrow",
+    5
+   ],
+   [
+    41,
+    "Iron Arrow",
+    6
+   ],
+   [
+    41,
+    "Iron Arrow",
+    7
+   ],
+   [
+    42,
+    "Iron Arrow",
+    8
+   ],
+   [
+    42,
+    "Iron Arrow",
+    9
+   ],
+   [
+    42,
+    "Iron Arrow",
+    10
+   ],
+   [
+    43,
+    "Iron Arrow",
+    11
+   ],
+   [
+    43,
+    "Iron Arrow",
+    12
+   ],
+   [
+    43,
+    "Iron Arrow",
+    13
+   ],
+   [
+    44,
+    "Iron Arrow",
+    14
+   ],
+   [
+    44,
+    "Iron Arrow",
+    15
+   ],
+   [
+    44,
+    "Iron Arrow",
+    16
+   ],
+   [
+    45,
+    "Iron Arrow",
+    17
+   ],
+   [
+    45,
+    "Iron Arrow",
+    18
+   ],
+   [
+    45,
+    "Iron Arrow",
+    19
+   ],
+   [
+    46,
+    "Iron Arrow",
+    20
+   ],
+   [
+    46,
+    "Iron Arrow",
+    21
+   ],
+   [
+    46,
+    "Iron Arrow",
+    22
+   ],
+   [
+    47,
+    "Iron Arrow",
+    23
+   ],
+   [
+    47,
+    "Iron Arrow",
+    24
+   ],
+   [
+    47,
+    "Iron Arrow",
+    25
+   ],
+   [
+    48,
+    "Iron Arrow",
+    26
+   ],
+   [
+    48,
+    "Iron Arrow",
+    27
+   ],
+   [
+    48,
+    "Iron Arrow",
+    28
+   ],
+   [
+    49,
+    "Iron Arrow",
+    29
+   ],
+   [
+    49,
+    "Iron Arrow",
+    30
+   ],
+   [
+    49,
+    "Amazon's Judgement",
+    1
+   ],
+   [
+    50,
+    "Amazon's Judgement",
+    2
+   ],
+   [
+    50,
+    "Amazon's Judgement",
+    3
+   ],
+   [
+    50,
+    "Amazon's Judgement",
+    4
+   ],
+   [
+    51,
+    "Amazon's Judgement",
+    5
+   ],
+   [
+    51,
+    "Amazon's Judgement",
+    6
+   ],
+   [
+    51,
+    "Amazon's Judgement",
+    7
+   ],
+   [
+    52,
+    "Amazon's Judgement",
+    8
+   ],
+   [
+    52,
+    "Amazon's Judgement",
+    9
+   ],
+   [
+    52,
+    "Amazon's Judgement",
+    10
+   ],
+   [
+    53,
+    "Amazon's Judgement",
+    11
+   ],
+   [
+    53,
+    "Amazon's Judgement",
+    12
+   ],
+   [
+    53,
+    "Amazon's Judgement",
+    13
+   ],
+   [
+    54,
+    "Amazon's Judgement",
+    14
+   ],
+   [
+    54,
+    "Amazon's Judgement",
+    15
+   ],
+   [
+    54,
+    "Amazon's Judgement",
+    16
+   ],
+   [
+    55,
+    "Amazon's Judgement",
+    17
+   ],
+   [
+    55,
+    "Amazon's Judgement",
+    18
+   ],
+   [
+    55,
+    "Amazon's Judgement",
+    19
+   ],
+   [
+    56,
+    "Amazon's Judgement",
+    20
+   ],
+   [
+    56,
+    "Crossbow Booster",
+    6
+   ],
+   [
+    56,
+    "Crossbow Booster",
+    7
+   ],
+   [
+    57,
+    "Crossbow Booster",
+    8
+   ],
+   [
+    57,
+    "Crossbow Booster",
+    9
+   ],
+   [
+    57,
+    "Crossbow Booster",
+    10
+   ],
+   [
+    58,
+    "Crossbow Booster",
+    11
+   ],
+   [
+    58,
+    "Crossbow Booster",
+    12
+   ],
+   [
+    58,
+    "Crossbow Booster",
+    13
+   ],
+   [
+    59,
+    "Crossbow Booster",
+    14
+   ],
+   [
+    59,
+    "Crossbow Booster",
+    15
+   ],
+   [
+    59,
+    "Crossbow Booster",
+    16
+   ],
+   [
+    60,
+    "Crossbow Booster",
+    17
+   ],
+   [
+    60,
+    "Crossbow Booster",
+    18
+   ],
+   [
+    60,
+    "Crossbow Booster",
+    19
+   ],
+   [
+    61,
+    "Crossbow Booster",
+    20
+   ],
+   [
+    61,
+    "Soul Arrow: Crossbow",
+    2
+   ],
+   [
+    61,
+    "Soul Arrow: Crossbow",
+    3
+   ],
+   [
+    62,
+    "Soul Arrow: Crossbow",
+    4
+   ],
+   [
+    62,
+    "Soul Arrow: Crossbow",
+    5
+   ],
+   [
+    62,
+    "Soul Arrow: Crossbow",
+    6
+   ],
+   [
+    63,
+    "Soul Arrow: Crossbow",
+    7
+   ],
+   [
+    63,
+    "Soul Arrow: Crossbow",
+    8
+   ],
+   [
+    63,
+    "Soul Arrow: Crossbow",
+    9
+   ],
+   [
+    64,
+    "Soul Arrow: Crossbow",
+    10
+   ],
+   [
+    64,
+    "Soul Arrow: Crossbow",
+    11
+   ],
+   [
+    64,
+    "Soul Arrow: Crossbow",
+    12
+   ],
+   [
+    65,
+    "Soul Arrow: Crossbow",
+    13
+   ],
+   [
+    65,
+    "Soul Arrow: Crossbow",
+    14
+   ],
+   [
+    65,
+    "Soul Arrow: Crossbow",
+    15
+   ],
+   [
+    66,
+    "Soul Arrow: Crossbow",
+    16
+   ],
+   [
+    66,
+    "Soul Arrow: Crossbow",
+    17
+   ],
+   [
+    66,
+    "Soul Arrow: Crossbow",
+    18
+   ],
+   [
+    67,
+    "Soul Arrow: Crossbow",
+    19
+   ],
+   [
+    67,
+    "Soul Arrow: Crossbow",
+    20
+   ],
+   [
+    67,
+    "Final Attack: Crossbow",
+    2
+   ],
+   [
+    68,
+    "Final Attack: Crossbow",
+    3
+   ],
+   [
+    68,
+    "Final Attack: Crossbow",
+    4
+   ],
+   [
+    68,
+    "Final Attack: Crossbow",
+    5
+   ],
+   [
+    69,
+    "Final Attack: Crossbow",
+    6
+   ],
+   [
+    69,
+    "Final Attack: Crossbow",
+    7
+   ],
+   [
+    69,
+    "Final Attack: Crossbow",
+    8
+   ],
+   [
+    70,
+    "Final Attack: Crossbow",
+    9
+   ],
+   [
+    70,
+    "Final Attack: Crossbow",
+    10
+   ],
+   [
+    70,
+    "Final Attack: Crossbow",
+    11
+   ]
+  ],
+  "rows": [
+   {
+    "lo": 30,
+    "hi": 30,
+    "spend": [
+     [
+      "Iron Arrow",
+      1
+     ]
+    ],
+    "after": {
+     "Iron Arrow": 1
+    }
+   },
+   {
+    "lo": 31,
+    "hi": 31,
+    "spend": [
+     [
+      "Crossbow Mastery",
+      3
+     ]
+    ],
+    "after": {
+     "Iron Arrow": 1,
+     "Crossbow Mastery": 3
+    }
+   },
+   {
+    "lo": 32,
+    "hi": 32,
+    "spend": [
+     [
+      "Crossbow Mastery",
+      2
+     ],
+     [
+      "Crossbow Booster",
+      1
+     ]
+    ],
+    "after": {
+     "Iron Arrow": 1,
+     "Crossbow Mastery": 5,
+     "Crossbow Booster": 1
+    }
+   },
+   {
+    "lo": 33,
+    "hi": 33,
+    "spend": [
+     [
+      "Crossbow Booster",
+      2
+     ],
+     [
+      "Final Attack: Crossbow",
+      1
+     ]
+    ],
+    "after": {
+     "Iron Arrow": 1,
+     "Crossbow Mastery": 5,
+     "Crossbow Booster": 3,
+     "Final Attack: Crossbow": 1
+    }
+   },
+   {
+    "lo": 34,
+    "hi": 34,
+    "spend": [
+     [
+      "Crossbow Booster",
+      1
+     ],
+     [
+      "Soul Arrow: Crossbow",
+      1
+     ],
+     [
+      "Crossbow Mastery",
+      1
+     ]
+    ],
+    "after": {
+     "Iron Arrow": 1,
+     "Crossbow Mastery": 6,
+     "Crossbow Booster": 4,
+     "Final Attack: Crossbow": 1,
+     "Soul Arrow: Crossbow": 1
+    }
+   },
+   {
+    "lo": 35,
+    "hi": 38,
+    "spend": [
+     [
+      "Crossbow Mastery",
+      12
+     ]
+    ],
+    "after": {
+     "Iron Arrow": 1,
+     "Crossbow Mastery": 18,
+     "Crossbow Booster": 4,
+     "Final Attack: Crossbow": 1,
+     "Soul Arrow: Crossbow": 1
+    }
+   },
+   {
+    "lo": 39,
+    "hi": 39,
+    "spend": [
+     [
+      "Crossbow Mastery",
+      2
+     ],
+     [
+      "Crossbow Booster",
+      1
+     ]
+    ],
+    "after": {
+     "Iron Arrow": 1,
+     "Crossbow Mastery": 20,
+     "Crossbow Booster": 5,
+     "Final Attack: Crossbow": 1,
+     "Soul Arrow: Crossbow": 1
+    }
+   },
+   {
+    "lo": 40,
+    "hi": 48,
+    "spend": [
+     [
+      "Iron Arrow",
+      27
+     ]
+    ],
+    "after": {
+     "Iron Arrow": 28,
+     "Crossbow Mastery": 20,
+     "Crossbow Booster": 5,
+     "Final Attack: Crossbow": 1,
+     "Soul Arrow: Crossbow": 1
+    }
+   },
+   {
+    "lo": 49,
+    "hi": 49,
+    "spend": [
+     [
+      "Iron Arrow",
+      2
+     ],
+     [
+      "Amazon's Judgement",
+      1
+     ]
+    ],
+    "after": {
+     "Iron Arrow": 30,
+     "Crossbow Mastery": 20,
+     "Crossbow Booster": 5,
+     "Final Attack: Crossbow": 1,
+     "Soul Arrow: Crossbow": 1,
+     "Amazon's Judgement": 1
+    }
+   },
+   {
+    "lo": 50,
+    "hi": 55,
+    "spend": [
+     [
+      "Amazon's Judgement",
+      18
+     ]
+    ],
+    "after": {
+     "Iron Arrow": 30,
+     "Crossbow Mastery": 20,
+     "Crossbow Booster": 5,
+     "Final Attack: Crossbow": 1,
+     "Soul Arrow: Crossbow": 1,
+     "Amazon's Judgement": 19
+    }
+   },
+   {
+    "lo": 56,
+    "hi": 60,
+    "spend": [
+     [
+      "Amazon's Judgement",
+      1
+     ],
+     [
+      "Crossbow Booster",
+      14
+     ]
+    ],
+    "after": {
+     "Iron Arrow": 30,
+     "Crossbow Mastery": 20,
+     "Crossbow Booster": 19,
+     "Final Attack: Crossbow": 1,
+     "Soul Arrow: Crossbow": 1,
+     "Amazon's Judgement": 20
+    }
+   },
+   {
+    "lo": 61,
+    "hi": 66,
+    "spend": [
+     [
+      "Crossbow Booster",
+      1
+     ],
+     [
+      "Soul Arrow: Crossbow",
+      17
+     ]
+    ],
+    "after": {
+     "Iron Arrow": 30,
+     "Crossbow Mastery": 20,
+     "Crossbow Booster": 20,
+     "Final Attack: Crossbow": 1,
+     "Soul Arrow: Crossbow": 18,
+     "Amazon's Judgement": 20
+    }
+   },
+   {
+    "lo": 67,
+    "hi": 67,
+    "spend": [
+     [
+      "Soul Arrow: Crossbow",
+      2
+     ],
+     [
+      "Final Attack: Crossbow",
+      1
+     ]
+    ],
+    "after": {
+     "Iron Arrow": 30,
+     "Crossbow Mastery": 20,
+     "Crossbow Booster": 20,
+     "Final Attack: Crossbow": 2,
+     "Soul Arrow: Crossbow": 20,
+     "Amazon's Judgement": 20
+    }
+   },
+   {
+    "lo": 68,
+    "hi": 70,
+    "spend": [
+     [
+      "Final Attack: Crossbow",
+      9
+     ]
+    ],
+    "after": {
+     "Iron Arrow": 30,
+     "Crossbow Mastery": 20,
+     "Crossbow Booster": 20,
+     "Final Attack: Crossbow": 11,
+     "Soul Arrow: Crossbow": 20,
+     "Amazon's Judgement": 20
+    }
+   }
+  ],
+  "end": {
+   "Iron Arrow": 30,
+   "Crossbow Mastery": 20,
+   "Crossbow Booster": 20,
+   "Final Attack: Crossbow": 11,
+   "Soul Arrow: Crossbow": 20,
+   "Amazon's Judgement": 20
+  },
+  "to_level": 70
+ },
+ "Rogue": {
+  "source": "meowdb.com/msclassic/guides/thief-class-guide",
+  "steps": [
+   [
+    10,
+    "Lucky Seven",
+    1
+   ],
+   [
+    11,
+    "Nimble Body",
+    1
+   ],
+   [
+    11,
+    "Nimble Body",
+    2
+   ],
+   [
+    11,
+    "Nimble Body",
+    3
+   ],
+   [
+    12,
+    "Keen Eyes",
+    1
+   ],
+   [
+    12,
+    "Lucky Seven",
+    2
+   ],
+   [
+    12,
+    "Lucky Seven",
+    3
+   ],
+   [
+    13,
+    "Lucky Seven",
+    4
+   ],
+   [
+    13,
+    "Lucky Seven",
+    5
+   ],
+   [
+    13,
+    "Lucky Seven",
+    6
+   ],
+   [
+    14,
+    "Lucky Seven",
+    7
+   ],
+   [
+    14,
+    "Lucky Seven",
+    8
+   ],
+   [
+    14,
+    "Lucky Seven",
+    9
+   ],
+   [
+    15,
+    "Lucky Seven",
+    10
+   ],
+   [
+    15,
+    "Lucky Seven",
+    11
+   ],
+   [
+    15,
+    "Lucky Seven",
+    12
+   ],
+   [
+    16,
+    "Lucky Seven",
+    13
+   ],
+   [
+    16,
+    "Lucky Seven",
+    14
+   ],
+   [
+    16,
+    "Lucky Seven",
+    15
+   ],
+   [
+    17,
+    "Lucky Seven",
+    16
+   ],
+   [
+    17,
+    "Lucky Seven",
+    17
+   ],
+   [
+    17,
+    "Lucky Seven",
+    18
+   ],
+   [
+    18,
+    "Lucky Seven",
+    19
+   ],
+   [
+    18,
+    "Lucky Seven",
+    20
+   ],
+   [
+    18,
+    "Keen Eyes",
+    2
+   ],
+   [
+    19,
+    "Keen Eyes",
+    3
+   ],
+   [
+    19,
+    "Keen Eyes",
+    4
+   ],
+   [
+    19,
+    "Keen Eyes",
+    5
+   ],
+   [
+    20,
+    "Keen Eyes",
+    6
+   ],
+   [
+    20,
+    "Keen Eyes",
+    7
+   ],
+   [
+    20,
+    "Keen Eyes",
+    8
+   ],
+   [
+    21,
+    "Keen Eyes",
+    9
+   ],
+   [
+    21,
+    "Keen Eyes",
+    10
+   ],
+   [
+    21,
+    "Keen Eyes",
+    11
+   ],
+   [
+    22,
+    "Keen Eyes",
+    12
+   ],
+   [
+    22,
+    "Keen Eyes",
+    13
+   ],
+   [
+    22,
+    "Keen Eyes",
+    14
+   ],
+   [
+    23,
+    "Keen Eyes",
+    15
+   ],
+   [
+    23,
+    "Nimble Body",
+    4
+   ],
+   [
+    23,
+    "Nimble Body",
+    5
+   ],
+   [
+    24,
+    "Nimble Body",
+    6
+   ],
+   [
+    24,
+    "Nimble Body",
+    7
+   ],
+   [
+    24,
+    "Nimble Body",
+    8
+   ],
+   [
+    25,
+    "Nimble Body",
+    9
+   ],
+   [
+    25,
+    "Nimble Body",
+    10
+   ],
+   [
+    25,
+    "Nimble Body",
+    11
+   ],
+   [
+    26,
+    "Nimble Body",
+    12
+   ],
+   [
+    26,
+    "Nimble Body",
+    13
+   ],
+   [
+    26,
+    "Nimble Body",
+    14
+   ],
+   [
+    27,
+    "Nimble Body",
+    15
+   ],
+   [
+    27,
+    "Disorder",
+    1
+   ],
+   [
+    27,
+    "Disorder",
+    2
+   ],
+   [
+    28,
+    "Disorder",
+    3
+   ],
+   [
+    28,
+    "Dark Sight",
+    1
+   ],
+   [
+    28,
+    "Dark Sight",
+    2
+   ],
+   [
+    29,
+    "Dark Sight",
+    3
+   ],
+   [
+    29,
+    "Dark Sight",
+    4
+   ],
+   [
+    29,
+    "Dark Sight",
+    5
+   ],
+   [
+    30,
+    "Dark Sight",
+    6
+   ],
+   [
+    30,
+    "Dark Sight",
+    7
+   ],
+   [
+    30,
+    "Dark Sight",
+    8
+   ]
+  ],
+  "rows": [
+   {
+    "lo": 10,
+    "hi": 10,
+    "spend": [
+     [
+      "Lucky Seven",
+      1
+     ]
+    ],
+    "after": {
+     "Lucky Seven": 1
+    }
+   },
+   {
+    "lo": 11,
+    "hi": 11,
+    "spend": [
+     [
+      "Nimble Body",
+      3
+     ]
+    ],
+    "after": {
+     "Lucky Seven": 1,
+     "Nimble Body": 3
+    }
+   },
+   {
+    "lo": 12,
+    "hi": 12,
+    "spend": [
+     [
+      "Keen Eyes",
+      1
+     ],
+     [
+      "Lucky Seven",
+      2
+     ]
+    ],
+    "after": {
+     "Lucky Seven": 3,
+     "Nimble Body": 3,
+     "Keen Eyes": 1
+    }
+   },
+   {
+    "lo": 13,
+    "hi": 17,
+    "spend": [
+     [
+      "Lucky Seven",
+      15
+     ]
+    ],
+    "after": {
+     "Lucky Seven": 18,
+     "Nimble Body": 3,
+     "Keen Eyes": 1
+    }
+   },
+   {
+    "lo": 18,
+    "hi": 18,
+    "spend": [
+     [
+      "Lucky Seven",
+      2
+     ],
+     [
+      "Keen Eyes",
+      1
+     ]
+    ],
+    "after": {
+     "Lucky Seven": 20,
+     "Nimble Body": 3,
+     "Keen Eyes": 2
+    }
+   },
+   {
+    "lo": 19,
+    "hi": 22,
+    "spend": [
+     [
+      "Keen Eyes",
+      12
+     ]
+    ],
+    "after": {
+     "Lucky Seven": 20,
+     "Nimble Body": 3,
+     "Keen Eyes": 14
+    }
+   },
+   {
+    "lo": 23,
+    "hi": 23,
+    "spend": [
+     [
+      "Keen Eyes",
+      1
+     ],
+     [
+      "Nimble Body",
+      2
+     ]
+    ],
+    "after": {
+     "Lucky Seven": 20,
+     "Nimble Body": 5,
+     "Keen Eyes": 15
+    }
+   },
+   {
+    "lo": 24,
+    "hi": 26,
+    "spend": [
+     [
+      "Nimble Body",
+      9
+     ]
+    ],
+    "after": {
+     "Lucky Seven": 20,
+     "Nimble Body": 14,
+     "Keen Eyes": 15
+    }
+   },
+   {
+    "lo": 27,
+    "hi": 27,
+    "spend": [
+     [
+      "Nimble Body",
+      1
+     ],
+     [
+      "Disorder",
+      2
+     ]
+    ],
+    "after": {
+     "Lucky Seven": 20,
+     "Nimble Body": 15,
+     "Keen Eyes": 15,
+     "Disorder": 2
+    }
+   },
+   {
+    "lo": 28,
+    "hi": 28,
+    "spend": [
+     [
+      "Disorder",
+      1
+     ],
+     [
+      "Dark Sight",
+      2
+     ]
+    ],
+    "after": {
+     "Lucky Seven": 20,
+     "Nimble Body": 15,
+     "Keen Eyes": 15,
+     "Disorder": 3,
+     "Dark Sight": 2
+    }
+   },
+   {
+    "lo": 29,
+    "hi": 30,
+    "spend": [
+     [
+      "Dark Sight",
+      6
+     ]
+    ],
+    "after": {
+     "Lucky Seven": 20,
+     "Nimble Body": 15,
+     "Keen Eyes": 15,
+     "Disorder": 3,
+     "Dark Sight": 8
+    }
+   }
+  ],
+  "end": {
+   "Lucky Seven": 20,
+   "Nimble Body": 15,
+   "Keen Eyes": 15,
+   "Disorder": 3,
+   "Dark Sight": 8
+  },
+  "to_level": 30
+ },
+ "Assassin": {
+  "source": "meowdb.com/msclassic/guides/assassin-class-guide",
+  "steps": [
+   [
+    30,
+    "Haste",
+    1
+   ],
+   [
+    31,
+    "Claw Mastery",
+    1
+   ],
+   [
+    31,
+    "Claw Mastery",
+    2
+   ],
+   [
+    31,
+    "Claw Mastery",
+    3
+   ],
+   [
+    32,
+    "Claw Mastery",
+    4
+   ],
+   [
+    32,
+    "Claw Mastery",
+    5
+   ],
+   [
+    32,
+    "Claw Booster",
+    1
+   ],
+   [
+    33,
+    "Claw Mastery",
+    6
+   ],
+   [
+    33,
+    "Claw Mastery",
+    7
+   ],
+   [
+    33,
+    "Claw Mastery",
+    8
+   ],
+   [
+    34,
+    "Claw Mastery",
+    9
+   ],
+   [
+    34,
+    "Claw Mastery",
+    10
+   ],
+   [
+    34,
+    "Claw Mastery",
+    11
+   ],
+   [
+    35,
+    "Claw Mastery",
+    12
+   ],
+   [
+    35,
+    "Claw Mastery",
+    13
+   ],
+   [
+    35,
+    "Claw Mastery",
+    14
+   ],
+   [
+    36,
+    "Claw Mastery",
+    15
+   ],
+   [
+    36,
+    "Claw Mastery",
+    16
+   ],
+   [
+    36,
+    "Claw Mastery",
+    17
+   ],
+   [
+    37,
+    "Claw Mastery",
+    18
+   ],
+   [
+    37,
+    "Claw Mastery",
+    19
+   ],
+   [
+    37,
+    "Claw Mastery",
+    20
+   ],
+   [
+    38,
+    "Critical Throw",
+    1
+   ],
+   [
+    38,
+    "Critical Throw",
+    2
+   ],
+   [
+    38,
+    "Critical Throw",
+    3
+   ],
+   [
+    39,
+    "Critical Throw",
+    4
+   ],
+   [
+    39,
+    "Critical Throw",
+    5
+   ],
+   [
+    39,
+    "Critical Throw",
+    6
+   ],
+   [
+    40,
+    "Critical Throw",
+    7
+   ],
+   [
+    40,
+    "Critical Throw",
+    8
+   ],
+   [
+    40,
+    "Critical Throw",
+    9
+   ],
+   [
+    41,
+    "Critical Throw",
+    10
+   ],
+   [
+    41,
+    "Critical Throw",
+    11
+   ],
+   [
+    41,
+    "Critical Throw",
+    12
+   ],
+   [
+    42,
+    "Critical Throw",
+    13
+   ],
+   [
+    42,
+    "Critical Throw",
+    14
+   ],
+   [
+    42,
+    "Critical Throw",
+    15
+   ],
+   [
+    43,
+    "Critical Throw",
+    16
+   ],
+   [
+    43,
+    "Critical Throw",
+    17
+   ],
+   [
+    43,
+    "Critical Throw",
+    18
+   ],
+   [
+    44,
+    "Critical Throw",
+    19
+   ],
+   [
+    44,
+    "Critical Throw",
+    20
+   ],
+   [
+    44,
+    "Critical Throw",
+    21
+   ],
+   [
+    45,
+    "Critical Throw",
+    22
+   ],
+   [
+    45,
+    "Critical Throw",
+    23
+   ],
+   [
+    45,
+    "Critical Throw",
+    24
+   ],
+   [
+    46,
+    "Critical Throw",
+    25
+   ],
+   [
+    46,
+    "Critical Throw",
+    26
+   ],
+   [
+    46,
+    "Critical Throw",
+    27
+   ],
+   [
+    47,
+    "Critical Throw",
+    28
+   ],
+   [
+    47,
+    "Critical Throw",
+    29
+   ],
+   [
+    47,
+    "Critical Throw",
+    30
+   ],
+   [
+    48,
+    "Haste",
+    2
+   ],
+   [
+    48,
+    "Haste",
+    3
+   ],
+   [
+    48,
+    "Haste",
+    4
+   ],
+   [
+    49,
+    "Haste",
+    5
+   ],
+   [
+    49,
+    "Haste",
+    6
+   ],
+   [
+    49,
+    "Haste",
+    7
+   ],
+   [
+    50,
+    "Haste",
+    8
+   ],
+   [
+    50,
+    "Haste",
+    9
+   ],
+   [
+    50,
+    "Haste",
+    10
+   ],
+   [
+    51,
+    "Haste",
+    11
+   ],
+   [
+    51,
+    "Haste",
+    12
+   ],
+   [
+    51,
+    "Haste",
+    13
+   ],
+   [
+    52,
+    "Haste",
+    14
+   ],
+   [
+    52,
+    "Haste",
+    15
+   ],
+   [
+    52,
+    "Haste",
+    16
+   ],
+   [
+    53,
+    "Haste",
+    17
+   ],
+   [
+    53,
+    "Haste",
+    18
+   ],
+   [
+    53,
+    "Haste",
+    19
+   ],
+   [
+    54,
+    "Haste",
+    20
+   ],
+   [
+    54,
+    "Claw Booster",
+    2
+   ],
+   [
+    54,
+    "Claw Booster",
+    3
+   ],
+   [
+    55,
+    "Claw Booster",
+    4
+   ],
+   [
+    55,
+    "Claw Booster",
+    5
+   ],
+   [
+    55,
+    "Claw Booster",
+    6
+   ],
+   [
+    56,
+    "Claw Booster",
+    7
+   ],
+   [
+    56,
+    "Claw Booster",
+    8
+   ],
+   [
+    56,
+    "Claw Booster",
+    9
+   ],
+   [
+    57,
+    "Critical Recovery",
+    1
+   ],
+   [
+    57,
+    "Critical Recovery",
+    2
+   ],
+   [
+    57,
+    "Critical Recovery",
+    3
+   ],
+   [
+    58,
+    "Critical Recovery",
+    4
+   ],
+   [
+    58,
+    "Critical Recovery",
+    5
+   ],
+   [
+    58,
+    "Critical Recovery",
+    6
+   ],
+   [
+    59,
+    "Critical Recovery",
+    7
+   ],
+   [
+    59,
+    "Critical Recovery",
+    8
+   ],
+   [
+    59,
+    "Critical Recovery",
+    9
+   ],
+   [
+    60,
+    "Critical Recovery",
+    10
+   ],
+   [
+    60,
+    "Critical Recovery",
+    11
+   ],
+   [
+    60,
+    "Critical Recovery",
+    12
+   ],
+   [
+    61,
+    "Critical Recovery",
+    13
+   ],
+   [
+    61,
+    "Critical Recovery",
+    14
+   ],
+   [
+    61,
+    "Critical Recovery",
+    15
+   ],
+   [
+    62,
+    "Critical Recovery",
+    16
+   ],
+   [
+    62,
+    "Critical Recovery",
+    17
+   ],
+   [
+    62,
+    "Critical Recovery",
+    18
+   ],
+   [
+    63,
+    "Critical Recovery",
+    19
+   ],
+   [
+    63,
+    "Critical Recovery",
+    20
+   ],
+   [
+    63,
+    "Claw Booster",
+    10
+   ],
+   [
+    64,
+    "Claw Booster",
+    11
+   ],
+   [
+    64,
+    "Claw Booster",
+    12
+   ],
+   [
+    64,
+    "Claw Booster",
+    13
+   ],
+   [
+    65,
+    "Claw Booster",
+    14
+   ],
+   [
+    65,
+    "Claw Booster",
+    15
+   ],
+   [
+    65,
+    "Claw Booster",
+    16
+   ],
+   [
+    66,
+    "Claw Booster",
+    17
+   ],
+   [
+    66,
+    "Claw Booster",
+    18
+   ],
+   [
+    66,
+    "Claw Booster",
+    19
+   ],
+   [
+    67,
+    "Claw Booster",
+    20
+   ],
+   [
+    67,
+    "Drain",
+    1
+   ],
+   [
+    67,
+    "Drain",
+    2
+   ],
+   [
+    68,
+    "Drain",
+    3
+   ],
+   [
+    68,
+    "Drain",
+    4
+   ],
+   [
+    68,
+    "Drain",
+    5
+   ],
+   [
+    69,
+    "Drain",
+    6
+   ],
+   [
+    69,
+    "Drain",
+    7
+   ],
+   [
+    69,
+    "Drain",
+    8
+   ],
+   [
+    70,
+    "Drain",
+    9
+   ],
+   [
+    70,
+    "Drain",
+    10
+   ],
+   [
+    70,
+    "Drain",
+    11
+   ]
+  ],
+  "rows": [
+   {
+    "lo": 30,
+    "hi": 30,
+    "spend": [
+     [
+      "Haste",
+      1
+     ]
+    ],
+    "after": {
+     "Haste": 1
+    }
+   },
+   {
+    "lo": 31,
+    "hi": 31,
+    "spend": [
+     [
+      "Claw Mastery",
+      3
+     ]
+    ],
+    "after": {
+     "Haste": 1,
+     "Claw Mastery": 3
+    }
+   },
+   {
+    "lo": 32,
+    "hi": 32,
+    "spend": [
+     [
+      "Claw Mastery",
+      2
+     ],
+     [
+      "Claw Booster",
+      1
+     ]
+    ],
+    "after": {
+     "Haste": 1,
+     "Claw Mastery": 5,
+     "Claw Booster": 1
+    }
+   },
+   {
+    "lo": 33,
+    "hi": 37,
+    "spend": [
+     [
+      "Claw Mastery",
+      15
+     ]
+    ],
+    "after": {
+     "Haste": 1,
+     "Claw Mastery": 20,
+     "Claw Booster": 1
+    }
+   },
+   {
+    "lo": 38,
+    "hi": 47,
+    "spend": [
+     [
+      "Critical Throw",
+      30
+     ]
+    ],
+    "after": {
+     "Haste": 1,
+     "Claw Mastery": 20,
+     "Claw Booster": 1,
+     "Critical Throw": 30
+    }
+   },
+   {
+    "lo": 48,
+    "hi": 53,
+    "spend": [
+     [
+      "Haste",
+      18
+     ]
+    ],
+    "after": {
+     "Haste": 19,
+     "Claw Mastery": 20,
+     "Claw Booster": 1,
+     "Critical Throw": 30
+    }
+   },
+   {
+    "lo": 54,
+    "hi": 54,
+    "spend": [
+     [
+      "Haste",
+      1
+     ],
+     [
+      "Claw Booster",
+      2
+     ]
+    ],
+    "after": {
+     "Haste": 20,
+     "Claw Mastery": 20,
+     "Claw Booster": 3,
+     "Critical Throw": 30
+    }
+   },
+   {
+    "lo": 55,
+    "hi": 56,
+    "spend": [
+     [
+      "Claw Booster",
+      6
+     ]
+    ],
+    "after": {
+     "Haste": 20,
+     "Claw Mastery": 20,
+     "Claw Booster": 9,
+     "Critical Throw": 30
+    }
+   },
+   {
+    "lo": 57,
+    "hi": 62,
+    "spend": [
+     [
+      "Critical Recovery",
+      18
+     ]
+    ],
+    "after": {
+     "Haste": 20,
+     "Claw Mastery": 20,
+     "Claw Booster": 9,
+     "Critical Throw": 30,
+     "Critical Recovery": 18
+    }
+   },
+   {
+    "lo": 63,
+    "hi": 63,
+    "spend": [
+     [
+      "Critical Recovery",
+      2
+     ],
+     [
+      "Claw Booster",
+      1
+     ]
+    ],
+    "after": {
+     "Haste": 20,
+     "Claw Mastery": 20,
+     "Claw Booster": 10,
+     "Critical Throw": 30,
+     "Critical Recovery": 20
+    }
+   },
+   {
+    "lo": 64,
+    "hi": 66,
+    "spend": [
+     [
+      "Claw Booster",
+      9
+     ]
+    ],
+    "after": {
+     "Haste": 20,
+     "Claw Mastery": 20,
+     "Claw Booster": 19,
+     "Critical Throw": 30,
+     "Critical Recovery": 20
+    }
+   },
+   {
+    "lo": 67,
+    "hi": 67,
+    "spend": [
+     [
+      "Claw Booster",
+      1
+     ],
+     [
+      "Drain",
+      2
+     ]
+    ],
+    "after": {
+     "Haste": 20,
+     "Claw Mastery": 20,
+     "Claw Booster": 20,
+     "Critical Throw": 30,
+     "Critical Recovery": 20,
+     "Drain": 2
+    }
+   },
+   {
+    "lo": 68,
+    "hi": 70,
+    "spend": [
+     [
+      "Drain",
+      9
+     ]
+    ],
+    "after": {
+     "Haste": 20,
+     "Claw Mastery": 20,
+     "Claw Booster": 20,
+     "Critical Throw": 30,
+     "Critical Recovery": 20,
+     "Drain": 11
+    }
+   }
+  ],
+  "end": {
+   "Haste": 20,
+   "Claw Mastery": 20,
+   "Claw Booster": 20,
+   "Critical Throw": 30,
+   "Critical Recovery": 20,
+   "Drain": 11
+  },
+  "to_level": 70
+ },
+ "Bandit": {
+  "source": "meowdb.com/msclassic/guides/bandit-class-guide",
+  "steps": [
+   [
+    30,
+    "Haste",
+    1
+   ],
+   [
+    31,
+    "Dagger Mastery",
+    1
+   ],
+   [
+    31,
+    "Dagger Mastery",
+    2
+   ],
+   [
+    31,
+    "Dagger Mastery",
+    3
+   ],
+   [
+    32,
+    "Dagger Mastery",
+    4
+   ],
+   [
+    32,
+    "Dagger Mastery",
+    5
+   ],
+   [
+    32,
+    "Dagger Booster",
+    1
+   ],
+   [
+    33,
+    "Dagger Mastery",
+    6
+   ],
+   [
+    33,
+    "Dagger Mastery",
+    7
+   ],
+   [
+    33,
+    "Dagger Mastery",
+    8
+   ],
+   [
+    34,
+    "Dagger Mastery",
+    9
+   ],
+   [
+    34,
+    "Dagger Mastery",
+    10
+   ],
+   [
+    34,
+    "Dagger Mastery",
+    11
+   ],
+   [
+    35,
+    "Dagger Mastery",
+    12
+   ],
+   [
+    35,
+    "Dagger Mastery",
+    13
+   ],
+   [
+    35,
+    "Dagger Mastery",
+    14
+   ],
+   [
+    36,
+    "Dagger Mastery",
+    15
+   ],
+   [
+    36,
+    "Dagger Mastery",
+    16
+   ],
+   [
+    36,
+    "Dagger Mastery",
+    17
+   ],
+   [
+    37,
+    "Dagger Mastery",
+    18
+   ],
+   [
+    37,
+    "Dagger Mastery",
+    19
+   ],
+   [
+    37,
+    "Dagger Mastery",
+    20
+   ],
+   [
+    38,
+    "Savage Blow",
+    1
+   ],
+   [
+    38,
+    "Savage Blow",
+    2
+   ],
+   [
+    38,
+    "Savage Blow",
+    3
+   ],
+   [
+    39,
+    "Savage Blow",
+    4
+   ],
+   [
+    39,
+    "Savage Blow",
+    5
+   ],
+   [
+    39,
+    "Savage Blow",
+    6
+   ],
+   [
+    40,
+    "Savage Blow",
+    7
+   ],
+   [
+    40,
+    "Savage Blow",
+    8
+   ],
+   [
+    40,
+    "Savage Blow",
+    9
+   ],
+   [
+    41,
+    "Savage Blow",
+    10
+   ],
+   [
+    41,
+    "Savage Blow",
+    11
+   ],
+   [
+    41,
+    "Savage Blow",
+    12
+   ],
+   [
+    42,
+    "Savage Blow",
+    13
+   ],
+   [
+    42,
+    "Savage Blow",
+    14
+   ],
+   [
+    42,
+    "Savage Blow",
+    15
+   ],
+   [
+    43,
+    "Savage Blow",
+    16
+   ],
+   [
+    43,
+    "Savage Blow",
+    17
+   ],
+   [
+    43,
+    "Savage Blow",
+    18
+   ],
+   [
+    44,
+    "Savage Blow",
+    19
+   ],
+   [
+    44,
+    "Savage Blow",
+    20
+   ],
+   [
+    44,
+    "Savage Blow",
+    21
+   ],
+   [
+    45,
+    "Savage Blow",
+    22
+   ],
+   [
+    45,
+    "Savage Blow",
+    23
+   ],
+   [
+    45,
+    "Savage Blow",
+    24
+   ],
+   [
+    46,
+    "Savage Blow",
+    25
+   ],
+   [
+    46,
+    "Savage Blow",
+    26
+   ],
+   [
+    46,
+    "Savage Blow",
+    27
+   ],
+   [
+    47,
+    "Savage Blow",
+    28
+   ],
+   [
+    47,
+    "Savage Blow",
+    29
+   ],
+   [
+    47,
+    "Savage Blow",
+    30
+   ],
+   [
+    48,
+    "Haste",
+    2
+   ],
+   [
+    48,
+    "Haste",
+    3
+   ],
+   [
+    48,
+    "Haste",
+    4
+   ],
+   [
+    49,
+    "Haste",
+    5
+   ],
+   [
+    49,
+    "Haste",
+    6
+   ],
+   [
+    49,
+    "Haste",
+    7
+   ],
+   [
+    50,
+    "Haste",
+    8
+   ],
+   [
+    50,
+    "Haste",
+    9
+   ],
+   [
+    50,
+    "Haste",
+    10
+   ],
+   [
+    51,
+    "Haste",
+    11
+   ],
+   [
+    51,
+    "Haste",
+    12
+   ],
+   [
+    51,
+    "Haste",
+    13
+   ],
+   [
+    52,
+    "Haste",
+    14
+   ],
+   [
+    52,
+    "Haste",
+    15
+   ],
+   [
+    52,
+    "Haste",
+    16
+   ],
+   [
+    53,
+    "Haste",
+    17
+   ],
+   [
+    53,
+    "Haste",
+    18
+   ],
+   [
+    53,
+    "Haste",
+    19
+   ],
+   [
+    54,
+    "Haste",
+    20
+   ],
+   [
+    54,
+    "Nimble Recovery",
+    1
+   ],
+   [
+    54,
+    "Nimble Recovery",
+    2
+   ],
+   [
+    55,
+    "Nimble Recovery",
+    3
+   ],
+   [
+    55,
+    "Nimble Recovery",
+    4
+   ],
+   [
+    55,
+    "Nimble Recovery",
+    5
+   ],
+   [
+    56,
+    "Nimble Recovery",
+    6
+   ],
+   [
+    56,
+    "Nimble Recovery",
+    7
+   ],
+   [
+    56,
+    "Nimble Recovery",
+    8
+   ],
+   [
+    57,
+    "Nimble Recovery",
+    9
+   ],
+   [
+    57,
+    "Nimble Recovery",
+    10
+   ],
+   [
+    57,
+    "Nimble Recovery",
+    11
+   ],
+   [
+    58,
+    "Nimble Recovery",
+    12
+   ],
+   [
+    58,
+    "Steal",
+    1
+   ],
+   [
+    58,
+    "Steal",
+    2
+   ],
+   [
+    59,
+    "Steal",
+    3
+   ],
+   [
+    59,
+    "Steal",
+    4
+   ],
+   [
+    59,
+    "Steal",
+    5
+   ],
+   [
+    60,
+    "Steal",
+    6
+   ],
+   [
+    60,
+    "Steal",
+    7
+   ],
+   [
+    60,
+    "Steal",
+    8
+   ],
+   [
+    61,
+    "Steal",
+    9
+   ],
+   [
+    61,
+    "Steal",
+    10
+   ],
+   [
+    61,
+    "Steal",
+    11
+   ],
+   [
+    62,
+    "Steal",
+    12
+   ],
+   [
+    62,
+    "Steal",
+    13
+   ],
+   [
+    62,
+    "Steal",
+    14
+   ],
+   [
+    63,
+    "Steal",
+    15
+   ],
+   [
+    63,
+    "Steal",
+    16
+   ],
+   [
+    63,
+    "Steal",
+    17
+   ],
+   [
+    64,
+    "Steal",
+    18
+   ],
+   [
+    64,
+    "Steal",
+    19
+   ],
+   [
+    64,
+    "Steal",
+    20
+   ],
+   [
+    65,
+    "Steal",
+    21
+   ],
+   [
+    65,
+    "Steal",
+    22
+   ],
+   [
+    65,
+    "Steal",
+    23
+   ],
+   [
+    66,
+    "Steal",
+    24
+   ],
+   [
+    66,
+    "Steal",
+    25
+   ],
+   [
+    66,
+    "Steal",
+    26
+   ],
+   [
+    67,
+    "Steal",
+    27
+   ],
+   [
+    67,
+    "Steal",
+    28
+   ],
+   [
+    67,
+    "Steal",
+    29
+   ],
+   [
+    68,
+    "Steal",
+    30
+   ],
+   [
+    68,
+    "Dagger Booster",
+    2
+   ],
+   [
+    68,
+    "Dagger Booster",
+    3
+   ],
+   [
+    69,
+    "Dagger Booster",
+    4
+   ],
+   [
+    69,
+    "Dagger Booster",
+    5
+   ],
+   [
+    69,
+    "Dagger Booster",
+    6
+   ],
+   [
+    70,
+    "Dagger Booster",
+    7
+   ],
+   [
+    70,
+    "Dagger Booster",
+    8
+   ],
+   [
+    70,
+    "Dagger Booster",
+    9
+   ]
+  ],
+  "rows": [
+   {
+    "lo": 30,
+    "hi": 30,
+    "spend": [
+     [
+      "Haste",
+      1
+     ]
+    ],
+    "after": {
+     "Haste": 1
+    }
+   },
+   {
+    "lo": 31,
+    "hi": 31,
+    "spend": [
+     [
+      "Dagger Mastery",
+      3
+     ]
+    ],
+    "after": {
+     "Haste": 1,
+     "Dagger Mastery": 3
+    }
+   },
+   {
+    "lo": 32,
+    "hi": 32,
+    "spend": [
+     [
+      "Dagger Mastery",
+      2
+     ],
+     [
+      "Dagger Booster",
+      1
+     ]
+    ],
+    "after": {
+     "Haste": 1,
+     "Dagger Mastery": 5,
+     "Dagger Booster": 1
+    }
+   },
+   {
+    "lo": 33,
+    "hi": 37,
+    "spend": [
+     [
+      "Dagger Mastery",
+      15
+     ]
+    ],
+    "after": {
+     "Haste": 1,
+     "Dagger Mastery": 20,
+     "Dagger Booster": 1
+    }
+   },
+   {
+    "lo": 38,
+    "hi": 44,
+    "spend": [
+     [
+      "Savage Blow",
+      21
+     ]
+    ],
+    "after": {
+     "Haste": 1,
+     "Dagger Mastery": 20,
+     "Dagger Booster": 1,
+     "Savage Blow": 21
+    }
+   },
+   {
+    "lo": 45,
+    "hi": 47,
+    "spend": [
+     [
+      "Savage Blow",
+      9
+     ]
+    ],
+    "after": {
+     "Haste": 1,
+     "Dagger Mastery": 20,
+     "Dagger Booster": 1,
+     "Savage Blow": 30
+    }
+   },
+   {
+    "lo": 48,
+    "hi": 53,
+    "spend": [
+     [
+      "Haste",
+      18
+     ]
+    ],
+    "after": {
+     "Haste": 19,
+     "Dagger Mastery": 20,
+     "Dagger Booster": 1,
+     "Savage Blow": 30
+    }
+   },
+   {
+    "lo": 54,
+    "hi": 54,
+    "spend": [
+     [
+      "Haste",
+      1
+     ],
+     [
+      "Nimble Recovery",
+      2
+     ]
+    ],
+    "after": {
+     "Haste": 20,
+     "Dagger Mastery": 20,
+     "Dagger Booster": 1,
+     "Savage Blow": 30,
+     "Nimble Recovery": 2
+    }
+   },
+   {
+    "lo": 55,
+    "hi": 57,
+    "spend": [
+     [
+      "Nimble Recovery",
+      9
+     ]
+    ],
+    "after": {
+     "Haste": 20,
+     "Dagger Mastery": 20,
+     "Dagger Booster": 1,
+     "Savage Blow": 30,
+     "Nimble Recovery": 11
+    }
+   },
+   {
+    "lo": 58,
+    "hi": 58,
+    "spend": [
+     [
+      "Nimble Recovery",
+      1
+     ],
+     [
+      "Steal",
+      2
+     ]
+    ],
+    "after": {
+     "Haste": 20,
+     "Dagger Mastery": 20,
+     "Dagger Booster": 1,
+     "Savage Blow": 30,
+     "Nimble Recovery": 12,
+     "Steal": 2
+    }
+   },
+   {
+    "lo": 59,
+    "hi": 67,
+    "spend": [
+     [
+      "Steal",
+      27
+     ]
+    ],
+    "after": {
+     "Haste": 20,
+     "Dagger Mastery": 20,
+     "Dagger Booster": 1,
+     "Savage Blow": 30,
+     "Nimble Recovery": 12,
+     "Steal": 29
+    }
+   },
+   {
+    "lo": 68,
+    "hi": 68,
+    "spend": [
+     [
+      "Steal",
+      1
+     ],
+     [
+      "Dagger Booster",
+      2
+     ]
+    ],
+    "after": {
+     "Haste": 20,
+     "Dagger Mastery": 20,
+     "Dagger Booster": 3,
+     "Savage Blow": 30,
+     "Nimble Recovery": 12,
+     "Steal": 30
+    }
+   },
+   {
+    "lo": 69,
+    "hi": 70,
+    "spend": [
+     [
+      "Dagger Booster",
+      6
+     ]
+    ],
+    "after": {
+     "Haste": 20,
+     "Dagger Mastery": 20,
+     "Dagger Booster": 9,
+     "Savage Blow": 30,
+     "Nimble Recovery": 12,
+     "Steal": 30
+    }
+   }
+  ],
+  "end": {
+   "Haste": 20,
+   "Dagger Mastery": 20,
+   "Dagger Booster": 9,
+   "Savage Blow": 30,
+   "Nimble Recovery": 12,
+   "Steal": 30
+  },
+  "to_level": 70
+ }
+}
