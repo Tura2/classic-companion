@@ -21,6 +21,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 import cozy
+from reader import MIN_HEIGHT
 from gamedata import JOBS, GameData
 
 from paths import APP_DIR, RES_DIR, load_json, save_json
@@ -211,6 +212,8 @@ def make_handler(data, state, cfg):
                     return self.send(200, {"profile": prof, "jobs": list(JOBS), "live": state["live"],
                                            "game": state.get("game") or {}, "has_frame": bool(state.get("frame")),
                                            "deals": state["deals"], "overlay": state["overlay"],
+                                           "game_size": state.get("game_size") if state.get("game_found") else None,
+                                           "min_height": MIN_HEIGHT,
                                            "screen": {"reading": bool(cfg.get("screen_reading")) and state["overlay"],
                                                       "drawing": bool(cfg.get("draw_overlay")) and state["overlay"]},
                                            "prices": data.market.updated, "nav": state["nav"],
@@ -314,6 +317,12 @@ def make_handler(data, state, cfg):
                 done = set(str(x) for x in state["profile"].get("quests_done", []))
                 (done.add if body.get("done", True) else done.discard)(str(body["id"]))
                 state["profile"]["quests_done"] = sorted(done)
+                save_profile(state)
+                return self.send(200, {"ok": True})
+            if path == "/api/quest_active":   # "Not in progress": a quest the game misread, or you dropped
+                qid = str(body["id"])
+                prof = state["profile"]
+                prof["quests_active"] = [a for a in prof.get("quests_active", []) if str(a.get("id")) != qid]
                 save_profile(state)
                 return self.send(200, {"ok": True})
             if path == "/api/nav":
