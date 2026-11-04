@@ -173,7 +173,8 @@ Nothing is uploaded anywhere.
 - SP order per job: NiaDB's class guides (meowdb.com/msclassic/guides), credited on the Skills
   tab with a link to each guide, as NiaDB's reuse page asks for single facts. Using NiaDB's
   prices or crawling the site would need their permission first (contact@meowdb.com).
-- Game images belong to Nexon. Fine for personal use; don't sell them.
+- Game images belong to Nexon. Fine for personal use; don't sell them. The logo is the game's own Maple Leaf
+  and Steely Throwing Knives item pictures, on a badge.
 
 Not used, on purpose: MesoWatch (meso.watch) says its price data isn't free to copy, disallows its
 data files in robots.txt and names crawlers and AI agents on a full disallow, so nothing of its is

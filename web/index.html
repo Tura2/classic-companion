@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <title>Companion</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23C8620A'/%3E%3Ctext x='16' y='23' font-family='Segoe UI' font-weight='700' font-size='19' text-anchor='middle' fill='white'%3ELV%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="/logo.png" type="image/png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Nunito:wght@600;700;800;900&family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
@@ -61,7 +61,8 @@ button,input,select{font:inherit}
 .where .map{font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.9}
 .coin{display:flex;align-items:center;gap:6px}
 .coin::before{content:"";width:13px;height:13px;flex:none;border-radius:50%;background:#E9A923;box-shadow:inset -2px -2px 0 #B37812,0 0 0 1px #8A5A0A}
-.brand{grid-area:brand;font:400 1.05rem "DotGothic16",sans-serif;color:var(--hud-muted);white-space:nowrap}
+.brand{grid-area:brand;display:flex;align-items:center;gap:8px;font:400 1.05rem "DotGothic16",sans-serif;color:var(--hud-muted);white-space:nowrap}
+.brand img{width:34px;height:34px;flex:none}
 .help{grid-area:help;width:38px;height:38px;border-radius:50%;border:1px solid var(--hud-rim);background:transparent;color:var(--hud-ink);
   font:400 1.2rem/1 "DotGothic16",sans-serif;cursor:pointer}
 .help:hover{background:rgba(255,255,255,.1)}
@@ -374,7 +375,7 @@ kbd.wide{font-size:.82rem}
     <div class="where"><span class="lbl">Map</span><div class="map" id="cmap" title="">not set</div></div>
     <div class="money"><label for="mesos">Mesos</label><div class="coin"><input id="mesos" inputmode="numeric"></div></div>
     <div class="accb"><label for="acc">ACC</label><input id="acc" type="number" min="0" inputmode="numeric" placeholder="?"></div>
-    <div class="brand">Companion</div>
+    <div class="brand"><img src="/logo.png" alt="">Companion</div>
     <button class="help" id="help" type="button" aria-label="How to use Companion" title="How to use (Hebrew)">?</button>
   </header>
 
@@ -398,7 +399,7 @@ kbd.wide{font-size:.82rem}
 </div>
 
 <dialog class="setup" id="setup" dir="rtl" lang="he" aria-labelledby="setup-title">
-  <div class="stitle"><b id="setup-title" class="px" dir="ltr"><img id="setup-leaf" alt="" width="22" height="24">Companion</b><span class="steps3" id="setup-dots" aria-hidden="true"></span></div>
+  <div class="stitle"><b id="setup-title" class="px" dir="ltr"><img id="setup-leaf" src="/logo.png" alt="" width="24" height="24">Companion</b><span class="steps3" id="setup-dots" aria-hidden="true"></span></div>
   <div class="sbody" id="setup-body"></div>
   <div class="sfoot" id="setup-foot"></div>
 </dialog>
@@ -1378,7 +1379,6 @@ setupDlg.addEventListener("close", async () => {
   liveKey = ""; render();
 });
 $("#help").addEventListener("click", () => openSetup(2));
-$("#setup-leaf").src = ICON.leaf;
 
 loadState().then(async s => {
   profRev = s.profile.rev; fillProfile(s.profile);
