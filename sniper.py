@@ -727,7 +727,7 @@ class App:
                 near = [l - pad, tp - pad, r + pad, b + pad]
                 region = near if region is None else [min(region[0], near[0]), min(region[1], near[1]),
                                                       max(region[2], near[2]), max(region[3], near[3])]
-            found = reader.look_for_tooltips(frame, region, self.reader.item_names) if region else []
+            found = self.reader.look_for_tooltips(frame, region) if region else []
             if found or tips:
                 self.q.put(("tips", self.tips_on_screen(found, frame)))
         except Exception as e:
