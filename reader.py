@@ -431,14 +431,17 @@ def _have(nums, need):
 
 def read_helper(frame, t, s, quests_by_name):
     """Tracked quests and their kill / collect counts, as listed in the Quest Helper. The counts'
-    text is often half-read over a busy map, so each line is matched to what the quest asks for."""
+    text is often half-read over a busy map, so each line is matched to what the quest asks for.
+    "bottom" is where its last quest or count line ends: the Quest Helper is only as tall as the
+    quests you track, and a tooltip right under it is still a tooltip."""
     from rapidfuzz import fuzz, process
     names = list(quests_by_name)
     x, y = t[1], t[2]
-    quests, cur = [], None
-    for text, *_ in read_box(frame, (x - 4 * s, y + 22 * s, x + 330 * s, y + 640 * s), s):
+    quests, cur, bottom = [], None, None
+    for text, _, ly, _, lh in read_box(frame, (x - 4 * s, y + 22 * s, x + 330 * s, y + 640 * s), s):
         m = PROGRESS.match(_count_text(text))
         if m:
+            bottom = ly + lh
             if cur is None:
                 continue
             what = (m.group(2) or "").strip(" .")
@@ -456,6 +459,7 @@ def read_helper(frame, t, s, quests_by_name):
             continue
         hit = match_quest(text, names)
         if hit:
+            bottom = ly + lh
             q = quests_by_name[hit]
             cur = {"quest": hit, "id": str(q["id"]), "needs": [],
                    "reqs": {r["name"]: r["count"] for r in q.get("requirements_list") or []
@@ -465,7 +469,7 @@ def read_helper(frame, t, s, quests_by_name):
             cur = None    # a title we couldn't place: skip its counts rather than pin them on another quest
     for q in quests:
         q["asks"] = len(q.pop("reqs"))     # how many counts the quest has, read or not
-    return {"quests": quests}
+    return {"quests": quests, "bottom": bottom}
 
 
 def read_hud(frame, t, s, job_names):
@@ -687,8 +691,11 @@ def look_for_tooltips(frame, region, item_names, skip=()):
     return read_tooltips(ocr(frame.crop((l, t, r, b)), 1, l, t), frame, frame.height / REF_HEIGHT, item_names, skip)
 
 
-# where the windows that list items you don't hover sit, measured from their title, at the 1200 px UI size
-NOT_TIPS = {"helper": (-8, -4, 340, 660), "quest": (-8, -4, 350, 580)}
+# where the windows that list items you don't hover sit, measured from their title, at the 1200 px UI
+# size: the Quest window is always 375 x 607. The Quest Helper is 345 wide but only as tall as the
+# quests you track, so its bottom comes from the last line it shows; until one has read, only its title
+NOT_TIPS = {"helper": (-8, -4, 340, 30), "quest": (-10, -9, 366, 600)}
+HELPER_MARGIN = 10      # the Quest Helper's frame below its last line
 
 
 def tooltip_still_up(frame, tip):
@@ -806,6 +813,7 @@ class Reader:
         self.data = data
         self.digits = LevelDigits()
         self.kept = {}            # window -> its title line and look, from the last read that saw it
+        self.helper_depth = None  # how far the Quest Helper's last line reaches below its title
         self.by_name = {}         # quest name -> every quest with that name (job quests share names)
         for q in data.quest_list:
             self.by_name.setdefault(q["name"], []).append(q)
@@ -821,8 +829,14 @@ class Reader:
     def tip_skip(self, frame):
         """The Quest Helper's and Quest window's areas, as last seen: item names in them aren't tooltips."""
         s = frame.height / REF_HEIGHT
-        return [(ln[1] + a * s, ln[2] + b * s, ln[1] + c * s, ln[2] + d * s)
-                for k, (a, b, c, d) in NOT_TIPS.items() if (ln := (self.kept.get(k) or {}).get("line"))]
+        out = []
+        for k, (a, b, c, d) in NOT_TIPS.items():
+            if not (ln := (self.kept.get(k) or {}).get("line")):
+                continue
+            if k == "helper" and self.helper_depth:
+                d = self.helper_depth + HELPER_MARGIN
+            out.append((ln[1] + a * s, ln[2] + b * s, ln[1] + c * s, ln[2] + d * s))
+        return out
 
     def look_for_tooltips(self, frame, region):
         return look_for_tooltips(frame, region, self.item_names, self.tip_skip(frame))
@@ -898,6 +912,9 @@ class Reader:
                 self.kept.pop("quest", None)
         if "helper" in wins:
             seen["helper"] = read_helper(frame, wins["helper"], s, self.quests_by_name)
+            bottom = seen["helper"].pop("bottom")
+            if bottom is not None:      # kept while a read makes out none of its lines
+                self.helper_depth = (bottom - wins["helper"][2]) / s
         if "shop" in wins:
             seen["shop"] = read_shop(frame, wins["shop"], s, self.item_names)
             seen["shop"]["anchor"] = list(wins["shop"])

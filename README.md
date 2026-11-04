@@ -108,7 +108,9 @@ Settings has two separate switches, both off by default:
    equip's tooltip comes with the one you wear beside it, and each gets its own. The prices show
    about half a second after the tooltip, and go when it does: a quick look seven times a second (a
    few milliseconds, no reading) sees a tooltip come up, move or go, and only the new tooltip's
-   title is read.
+   title is read. The item names the Quest Helper and the Quest window list ("0/20 Broken Mirror
+   Glass") aren't tooltips and get no prices; the Quest Helper counts only as far down as its last
+   quest, so a tooltip right under it still does.
    It follows Windows' display scaling. Unlike Discord's in-game overlay, nothing is injected into
    the game: these are separate click-through windows that sit above it.
 
