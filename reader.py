@@ -568,19 +568,16 @@ def minimap_window(frame, title, s):
     y = int(b + 12 * s)                                   # inside the window, under the title
     if y >= frame.height:
         return None
+    # only columns that run on down count: with a long map name the title box is taller, and this
+    # row can fall on the frame's line across, which is the same blue from one side to the other
     lines = []                                            # a line is a few columns wide: one per line
     for x in range(max(1, int(l - 140 * s)), min(frame.width - 1, int(r + 160 * s))):
-        if _frame_line(px[x, y]):
-            if lines and x - lines[-1][-1] <= 2:
-                lines[-1].append(x)
+        if _frame_line(px[x, y]) and (end := _line_end(px, x, y, frame.height)) - y >= 60 * s:
+            if lines and x - lines[-1][-1][0] <= 2:
+                lines[-1].append((x, end))
             else:
-                lines.append([x])
-    sides = []
-    for cols in lines:
-        x = cols[len(cols) // 2]
-        end = _line_end(px, x, y, frame.height)
-        if end - y >= 60 * s:
-            sides.append((x, end))
+                lines.append([(x, end)])
+    sides = [cols[len(cols) // 2] for cols in lines]
     best = None
     for lx, le in sides:
         if lx > text_l:
