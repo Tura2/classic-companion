@@ -359,16 +359,23 @@ class GameData:
         return name, npc_id, self.npc_place(npc_id) if npc_id is not None else None
 
     def sent_to(self, q):
-        """The NPC the quest's what-to-do line sends you to ("take it to Heena"), if it names one
-        with a place on a map; None otherwise."""
-        task = self.quest_text(q)[1] or ""
-        for m in re.finditer(r"\b(?:to|back to|bring it to|give it to)\s+([A-Z][\w'.]*(?:\s+[A-Z][\w'.]*){0,3})", task):
-            words = m.group(1).split()
-            for n in range(len(words), 0, -1):      # "Lucas in Amherst" -> "Lucas"
-                name = " ".join(words[:n]).rstrip(".,")
-                if name != q.get("npc_name") and self.npc_ids.get(name) is not None and self.npc_place(self.npc_ids[name]):
-                    return name
-        return None
+        """The NPC the quest's what-to-do line sends you to ("deliver it to Mrs. Ming Ming", "return
+        to Dances with Balrog", "to the Warrior Job Instructor"), if it names one with a place on a
+        map; None otherwise. The last one named is who you end with ("take it to Grendel the Really
+        Old ... then talk to Arwen the Fairy again" ends with Arwen, who gave it, so None). Only for
+        a quest that hands you something to carry, or asks for nothing to hunt or collect: one that
+        sends you out to collect ("go back to Shane in Ellinia", who only takes you to the herbs) is
+        brought back to whoever gave it."""
+        asks = any(r.get("type") in ("mob", "item") for r in q.get("requirements_list") or [])
+        if asks and not q.get("start_items"):
+            return None
+        if getattr(self, "_npc_names", None) is None:
+            # whole names only, longest first, so "Grendel the Really Old" isn't cut to "Grendel"
+            names = sorted((n for n in self.npc_ids if n), key=len, reverse=True)
+            self._npc_names = re.compile(r"\bto\s+(?:the\s+)?(" + "|".join(map(re.escape, names)) + r")(?![\w'])")
+        named = [m.group(1) for m in self._npc_names.finditer(self.quest_text(q)[1] or "")
+                 if m.group(1) == q.get("npc_name") or self.npc_place(self.npc_ids[m.group(1)])]
+        return named[-1] if named and named[-1] != q.get("npc_name") else None
 
     @staticmethod
     def quest_text(q):

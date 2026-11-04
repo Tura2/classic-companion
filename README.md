@@ -51,7 +51,8 @@ in this mode:
   do" text, and the guide lays it out step by step: take the quest, each monster to hunt (its level,
   HP and ACC needed, at the nearest map with plenty of it) and item to collect (what drops it, how
   often, about how many kills, or what it costs to buy), anyone to see on the way, and who to bring
-  it back to. A step is done when the game's Quest Helper shows its count reached, or when you tick
+  it back to: the wiki's turn-in NPC; else, for a quest that gives you something to deliver or has
+  nothing to collect, the last NPC its text sends you to; else whoever gave it. A step is done when the game's Quest Helper shows its count reached, or when you tick
   it, so it works without screen reading too. The route strip by the mini map says what to do now
   and takes you where the step happens.
 
