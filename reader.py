@@ -26,6 +26,11 @@ from gamedata import fix_numeral, match_place
 DIGITS_FILE = APP_DIR / "cache" / "hud_digits.json"   # level digit shapes learned from CHARACTER STAT
 JOB_ALIASES = {"Bowman": "Archer", "Thief": "Rogue"}   # Nexon's 1st-job names -> the game data's
 REF_HEIGHT = 1200                                      # game area height the offsets were measured at
+# The smallest game area the reader can be trusted at: its text is read at the size the game draws
+# it, and below about 1000 px tall (a 1920 x 1080 game) the Quest Helper and quest list read wrong
+MIN_HEIGHT = 1000
+JOB_REGIONS = {"warrior": "Warrior", "magician": "Magician", "archer": "Bowman", "rogue": "Thief"}
+KEPT = ("stat", "inventory", "skills", "helper", "quest")   # windows remembered between reads
 
 
 # ---------------------------------------------------------------- OCR
@@ -373,6 +378,8 @@ def read_quest_window(frame, t, s, quest_names):
     tab = max(reds, key=reds.get)
     if reds[tab] < 300 * s * s:
         return None     # no open tab under it: "Quest" was other text, like a half-covered Quest Helper title
+    if sorted(reds.values())[-2] * 1.8 > reds[tab]:
+        return None     # no clear open tab: reading Available as Completed would mark quests you never did
     names = []
     for text, *_ in read_box(frame, (x + 53 * s, y + 60 * s, x + 340 * s, y + 560 * s), s):
         if re.search(r"\(\d+\)\s*$", text) or len(text) < 4:
@@ -770,14 +777,32 @@ def shop_still_open(frame, anchor, s):
 
 
 # ---------------------------------------------------------------- everything at once
+def _title_look(frame, line):
+    """A window's title, as pixels: how a later read knows the window is still there, unmoved."""
+    _, x, y, w, h = line
+    box = (int(x), int(y), int(x + w), int(y + h))
+    return box, frame.crop(box).convert("L")
+
+
+def still_there(frame, kept):
+    """True if a window's title is still exactly where it was last read (a quick look, no OCR)."""
+    box, look = kept["look"]
+    if box[2] > frame.width or box[3] > frame.height:
+        return False
+    now = frame.crop(box).convert("L")
+    return now.size == look.size and ImageStat.Stat(ImageChops.difference(now, look)).mean[0] < 10
+
+
 class Reader:
     def __init__(self, data):
         self.data = data
         self.digits = LevelDigits()
-        self.quests_by_name = {}
+        self.kept = {}            # window -> its title line and look, from the last read that saw it
+        self.by_name = {}         # quest name -> every quest with that name (job quests share names)
         for q in data.quest_list:
-            self.quests_by_name.setdefault(q["name"], q)
-        self.quest_names = sorted(self.quests_by_name)
+            self.by_name.setdefault(q["name"], []).append(q)
+        self.job = None
+        self.set_job("Beginner")
         self.skill_names = sorted({s["name"] for fam, groups in data.skills.items() if isinstance(groups, list)
                                    for g in groups if isinstance(g, dict) for s in g.get("skills", [])})
         self.map_names = sorted({m["name"].strip() for m in data.maps.values() if m.get("name")})
@@ -785,11 +810,33 @@ class Reader:
         from gamedata import JOBS
         self.job_names = list(JOBS)
 
+    def set_job(self, job):
+        """The quests a title can name, for this job. Four quests are called "Test of Qualification",
+        one per job; and another job's quests are left out, so a half-read title can't land on one."""
+        if job == self.job:
+            return
+        from gamedata import JOBS
+        self.job = job
+        own = JOB_REGIONS.get(JOBS.get(job, JOBS["Beginner"])[0])
+        self.quests_by_name = {}
+        for name, qs in self.by_name.items():
+            mine = [q for q in qs if q["region"] == own] or \
+                   [q for q in qs if q["region"] not in JOB_REGIONS.values() or own is None]
+            if mine:
+                self.quests_by_name[name] = mine[0]
+        self.quest_names = sorted(self.quests_by_name)
+
     def read(self, frame):
         """Everything visible in one frame of the game area, plus where each window is."""
         s = frame.height / REF_HEIGHT
         lines = ocr(frame)
         wins = find_windows(lines, frame.height)
+        # windows move whenever you drag them, so each read looks for them again. When a title didn't
+        # read this time, a window whose title is still pixel for pixel where it was is still open
+        for k in KEPT:
+            if k not in wins and k in self.kept and still_there(frame, self.kept[k]):
+                wins[k] = self.kept[k]["line"]
+        self.kept = {k: {"line": wins[k], "look": _title_look(frame, wins[k])} for k in KEPT if k in wins}
         if "hud" not in wins:
             # "LV." doesn't always read; the job name next to it does, 110 px to its right
             from rapidfuzz import fuzz, process
@@ -831,6 +878,7 @@ class Reader:
             seen["quest"] = read_quest_window(frame, wins["quest"], s, self.quest_names)
             if seen["quest"] is None:
                 del seen["quest"], wins["quest"], seen["windows"]["quest"]
+                self.kept.pop("quest", None)
         if "helper" in wins:
             seen["helper"] = read_helper(frame, wins["helper"], s, self.quests_by_name)
         if "shop" in wins:
