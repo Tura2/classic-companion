@@ -864,7 +864,16 @@ class App:
             nav = self.state["nav"]
             mid = self.data.match_map_name(seen["map"]["name"], prefer=[s["id"] for s in nav["steps"]] if nav else ())
             if mid and mid != prof.get("current_map"):
-                self.state["set_current"](mid)     # saves the profile and moves an active route along
+                # the route's next map is taken at once; any other only once two reads in a row agree,
+                # so one misread title doesn't move the route or re-plan it from the wrong map
+                nxt = nav and nav["i"] + 1 < len(nav["steps"]) and nav["steps"][nav["i"] + 1]["id"] == mid
+                if nxt or getattr(self, "map_next", None) == mid:
+                    self.map_next = None
+                    self.state["set_current"](mid)     # saves the profile and moves an active route along
+                else:
+                    self.map_next = mid
+            else:
+                self.map_next = None
             at = seen["map"].get("strip_at")
             if at:
                 m, name = self.mini, seen["map"]["name"]
