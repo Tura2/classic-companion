@@ -11,6 +11,7 @@ import json
 import math
 import os
 import re
+import threading
 import time
 from datetime import datetime
 
@@ -23,6 +24,8 @@ HERE = APP_DIR
 BUILDS_FILE = RES_DIR / "builds.json"
 CACHE = HERE / "cache"
 CACHE.mkdir(exist_ok=True)
+MAP_CACHE = CACHE / "maps"   # map pictures, shrunk to MAP_MAX and kept, so a route's maps show at once
+MAP_MAX = 4096               # longest side: the originals run to 7000 px and 1.7 MB each
 
 OSMS = "https://raw.githubusercontent.com/ohmi69/osms_datamine_dashboard/main/data/"
 # Quest steps (who to talk to where, who takes it back) and monster drops: Classic Maple Wiki
@@ -554,6 +557,48 @@ class GameData:
         h = self.renders.get(f"{mid:09d}")
         return f"{OSMS}maps/{h}.webp" if h else None
 
+    _map_locks, _map_guard = {}, threading.Lock()
+
+    def map_image(self, mid):
+        """(path, {"w", "h", "scale"}) of the map's picture on disk, downloaded and shrunk the first
+        time. w and h are the original's size, the one map coordinates are in; scale is how much the
+        stored picture was shrunk. None if the map has no picture."""
+        h = self.renders.get(f"{int(mid):09d}")
+        if not h:
+            return None
+        path, meta = MAP_CACHE / f"{h}.webp", MAP_CACHE / f"{h}.json"
+        with self._map_guard:
+            lock = self._map_locks.setdefault(h, threading.Lock())
+        with lock:                       # the dashboard and the prefetch may ask for it at once
+            if not (path.exists() and meta.exists()):
+                import io
+                from PIL import Image
+                r = requests.get(f"{OSMS}maps/{h}.webp", timeout=60, headers=UA)
+                r.raise_for_status()
+                im = Image.open(io.BytesIO(r.content))
+                im.load()
+                w, ht = im.size
+                s = min(1.0, MAP_MAX / max(w, ht))
+                if s < 1:
+                    im = im.resize((max(1, round(w * s)), max(1, round(ht * s))), Image.LANCZOS)
+                MAP_CACHE.mkdir(exist_ok=True)
+                tmp = path.with_suffix(".tmp")
+                im.save(tmp, "WEBP", quality=82, method=4)
+                tmp.replace(path)
+                meta.write_text(json.dumps({"w": w, "h": ht, "scale": s}), "utf-8")
+        return path, json.loads(meta.read_text("utf-8"))
+
+    def prefetch_maps(self, ids):
+        """Fetch these maps' pictures in the background, one at a time, so each step of a route
+        shows at once when you get there."""
+        def run():
+            for mid in ids:
+                try:
+                    self.map_image(mid)
+                except Exception as e:
+                    print("Map picture unavailable:", mid, e)
+        threading.Thread(target=run, daemon=True).start()
+
     def _bounds(self, mid):
         m = self.maps.get(mid, {})
         pts = [(p["x"], p["y"]) for p in self.portals.get(mid, [])]
@@ -616,6 +661,7 @@ class GameData:
                           "render": self.render_url(a)})
         steps.append({**self.map_info(goal), "portal": None, "hint": None, "to": None,
                       "render": self.render_url(goal), "arrived": True})
+        self.prefetch_maps(path)
         return steps
 
     def layout(self, mid):
