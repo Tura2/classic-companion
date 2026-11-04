@@ -9,8 +9,9 @@ Not affiliated with or endorsed by Nexon.
 ## Quick start
 **Windows app:** download `Companion.exe` from
 [the latest release](https://github.com/Tura2/classic-companion/releases/latest), put it in its own folder and run it. The dashboard opens in
-your browser at http://localhost:8765. It only listens on this PC. Keep the black window open while
-you play: closing it closes Companion. The exe isn't signed, so Windows may say "Windows protected
+your browser at http://localhost:8765. It only listens on this PC. Companion's own small window,
+with its logo, says what's running, has an Open the dashboard button and shows its messages; keep
+it open while you play: closing it closes Companion. The exe isn't signed, so Windows may say "Windows protected
 your PC": click **More info**, then **Run anyway**. Play the game in windowed or borderless mode; a
 game in exclusive full screen can't be captured.
 
