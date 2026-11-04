@@ -558,19 +558,41 @@ def _line_end(px, x, y, height):
 
 def minimap_window(frame, title, s):
     """(left, top, right, bottom) of the open mini map window, found from its frame: a thin
-    dark-blue line down each side. Only long lines count, so the map's emblem by the title doesn't.
+    dark-blue line down each side. Of every long line near it, the two sides are the pair that ends
+    on the same row, one left and one right of the title: the map's emblem, a rope in the map, or
+    the border of a window beside it (the Quest Helper's is blue too) won't pair up that way.
     None if the frame isn't there."""
     px = frame.load()
-    l, t, r, b = title
+    l, t, r, b = title                                    # the title's box: 24 px left, 40 px right of its text
+    text_l, text_r = l + 24 * s, r - 40 * s
     y = int(b + 12 * s)                                   # inside the window, under the title
     if y >= frame.height:
         return None
-    sides = [x for x in range(max(1, int(l - 140 * s)), min(frame.width - 1, int(r + 160 * s)))
-             if _frame_line(px[x, y]) and _line_end(px, x, y, frame.height) - y >= 60 * s]
-    if len(sides) < 2:
+    lines = []                                            # a line is a few columns wide: one per line
+    for x in range(max(1, int(l - 140 * s)), min(frame.width - 1, int(r + 160 * s))):
+        if _frame_line(px[x, y]):
+            if lines and x - lines[-1][-1] <= 2:
+                lines[-1].append(x)
+            else:
+                lines.append([x])
+    sides = []
+    for cols in lines:
+        x = cols[len(cols) // 2]
+        end = _line_end(px, x, y, frame.height)
+        if end - y >= 60 * s:
+            sides.append((x, end))
+    best = None
+    for lx, le in sides:
+        if lx > text_l:
+            continue
+        for rx, rend in sides:
+            if rx < text_r or abs(le - rend) > 4 * s:
+                continue
+            if best is None or rx - lx < best[1] - best[0]:
+                best = (lx, rx, max(le, rend))
+    if not best:
         return None
-    left, right = sides[0], sides[-1]
-    return [left, round(t - 30 * s), right, _line_end(px, left, y, frame.height)]
+    return [best[0], round(t - 30 * s), best[1], best[2]]
 
 
 # "Blue Sauna Robe (M) (+2)": a gender and upgrades after the name; the item is still a Blue Sauna Robe
