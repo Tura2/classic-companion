@@ -548,19 +548,41 @@ def _line_end(px, x, y, height):
 
 def minimap_window(frame, title, s):
     """(left, top, right, bottom) of the open mini map window, found from its frame: a thin
-    dark-blue line down each side. Only long lines count, so the map's emblem by the title doesn't.
+    dark-blue line down each side. Of every long line near it, the two sides are the pair that ends
+    on the same row, one left and one right of the title: the map's emblem, a rope in the map, or
+    the border of a window beside it (the Quest Helper's is blue too) won't pair up that way.
     None if the frame isn't there."""
     px = frame.load()
-    l, t, r, b = title
+    l, t, r, b = title                                    # the title's box: 24 px left, 40 px right of its text
+    text_l, text_r = l + 24 * s, r - 40 * s
     y = int(b + 12 * s)                                   # inside the window, under the title
     if y >= frame.height:
         return None
-    sides = [x for x in range(max(1, int(l - 140 * s)), min(frame.width - 1, int(r + 160 * s)))
-             if _frame_line(px[x, y]) and _line_end(px, x, y, frame.height) - y >= 60 * s]
-    if len(sides) < 2:
+    lines = []                                            # a line is a few columns wide: one per line
+    for x in range(max(1, int(l - 140 * s)), min(frame.width - 1, int(r + 160 * s))):
+        if _frame_line(px[x, y]):
+            if lines and x - lines[-1][-1] <= 2:
+                lines[-1].append(x)
+            else:
+                lines.append([x])
+    sides = []
+    for cols in lines:
+        x = cols[len(cols) // 2]
+        end = _line_end(px, x, y, frame.height)
+        if end - y >= 60 * s:
+            sides.append((x, end))
+    best = None
+    for lx, le in sides:
+        if lx > text_l:
+            continue
+        for rx, rend in sides:
+            if rx < text_r or abs(le - rend) > 4 * s:
+                continue
+            if best is None or rx - lx < best[1] - best[0]:
+                best = (lx, rx, max(le, rend))
+    if not best:
         return None
-    left, right = sides[0], sides[-1]
-    return [left, round(t - 30 * s), right, _line_end(px, left, y, frame.height)]
+    return [best[0], round(t - 30 * s), best[1], best[2]]
 
 
 # "Blue Sauna Robe (M) (+2)": a gender and upgrades after the name; the item is still a Blue Sauna Robe
@@ -578,7 +600,7 @@ def _tip_navy(p):
     return r < 130 and b - r >= 25 and b - g >= 20
 
 
-def read_tooltips(lines, frame, s, item_names):
+def read_tooltips(lines, frame, s, item_names, skip=()):
     """The item tooltips on screen, as [{"name", "box", "title", "untradable"}], left to right.
     Usually one, the item under the mouse; for an equip the game adds a second beside it, the item
     you wear, to compare. A title line starts with a dot ("• Return Scroll to Ellinia"); a box (left,
@@ -593,7 +615,11 @@ def read_tooltips(lines, frame, s, item_names):
 
     titles = []
     for ln in lines:
+        if any(a <= ln[1] <= c and b <= ln[2] <= d for a, b, c, d in skip):
+            continue        # inside the Quest Helper or Quest window: an item to collect, not a tooltip
         m = TIP_TITLE.match(ln[0])
+        if m and not m.group(1)[:1].isalpha():
+            continue        # "0/20 Broken Mirror Glass": a Quest Helper count, not a tooltip's title
         if m and navy_above(*ln):
             hit = process.extractOne(TIP_UPGRADES.sub("", m.group(1)), item_names, scorer=fuzz.ratio,
                                      processor=utils.default_process, score_cutoff=86)
@@ -667,14 +693,18 @@ def new_navy(mask, before):
     return [v * NAVY_SHRINK for v in box]
 
 
-def look_for_tooltips(frame, region, item_names):
+def look_for_tooltips(frame, region, item_names, skip=()):
     """The item tooltips in one area of the frame: read_tooltips on that area's text only, which is
     far quicker than reading the whole game."""
     l, t, r, b = (int(v) for v in region)
     l, t, r, b = max(0, l - 20), max(0, t - 20), min(frame.width, r + 20), min(frame.height, b + 20)
     if r - l < 40 or b - t < 20:
         return []
-    return read_tooltips(ocr(frame.crop((l, t, r, b)), 1, l, t), frame, frame.height / REF_HEIGHT, item_names)
+    return read_tooltips(ocr(frame.crop((l, t, r, b)), 1, l, t), frame, frame.height / REF_HEIGHT, item_names, skip)
+
+
+# where the windows that list items you don't hover sit, measured from their title, at the 1200 px UI size
+NOT_TIPS = {"helper": (-8, -4, 340, 660), "quest": (-8, -4, 350, 580)}
 
 
 def tooltip_still_up(frame, tip):
@@ -804,6 +834,15 @@ class Reader:
         from gamedata import JOBS
         self.job_names = list(JOBS)
 
+    def tip_skip(self, frame):
+        """The Quest Helper's and Quest window's areas, as last seen: item names in them aren't tooltips."""
+        s = frame.height / REF_HEIGHT
+        return [(ln[1] + a * s, ln[2] + b * s, ln[1] + c * s, ln[2] + d * s)
+                for k, (a, b, c, d) in NOT_TIPS.items() if (ln := (self.kept.get(k) or {}).get("line"))]
+
+    def look_for_tooltips(self, frame, region):
+        return look_for_tooltips(frame, region, self.item_names, self.tip_skip(frame))
+
     def set_job(self, job):
         """The quests a title can name, for this job. Four quests are called "Test of Qualification",
         one per job; and another job's quests are left out, so a half-read title can't land on one."""
@@ -855,7 +894,7 @@ class Reader:
         if name:
             seen["map"] = {"street": street, "name": name, "title": title, "collapsed": collapsed,
                            "window": None if collapsed else minimap_window(frame, title, s)}
-        tips = read_tooltips(lines, frame, s, self.item_names)
+        tips = read_tooltips(lines, frame, s, self.item_names, self.tip_skip(frame))
         if tips:
             seen["tooltips"] = tips
         if "stat" in wins:

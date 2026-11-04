@@ -208,9 +208,9 @@ def make_handler(data, state, cfg):
             try:
                 if url.path == "/":
                     return self.send(200, (RES_DIR / "web" / "index.html").read_bytes(), "text/html")
-                if url.path in ("/logo.svg", "/favicon.ico"):
-                    if url.path == "/logo.svg":
-                        return self.send(200, (RES_DIR / "web" / "logo.svg").read_bytes(), "image/svg+xml", "max-age=86400")
+                if url.path in ("/logo.png", "/favicon.ico"):   # the Maple Leaf and Steely Throwing Knives, from the game
+                    if url.path == "/logo.png":
+                        return self.send(200, (RES_DIR / "web" / "logo.png").read_bytes(), "image/png", "max-age=86400")
                     return self.send(200, (RES_DIR / "web" / "logo.ico").read_bytes(), "image/x-icon", "max-age=86400")
                 if url.path == "/api/state":
                     return self.send(200, {"profile": prof, "jobs": list(JOBS), "live": state["live"],

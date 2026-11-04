@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <title>Companion</title>
-<link rel="icon" href="/logo.svg" type="image/svg+xml">
+<link rel="icon" href="/logo.png" type="image/png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Nunito:wght@600;700;800;900&family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
@@ -62,7 +62,7 @@ button,input,select{font:inherit}
 .coin{display:flex;align-items:center;gap:6px}
 .coin::before{content:"";width:13px;height:13px;flex:none;border-radius:50%;background:#E9A923;box-shadow:inset -2px -2px 0 #B37812,0 0 0 1px #8A5A0A}
 .brand{grid-area:brand;display:flex;align-items:center;gap:8px;font:400 1.05rem "DotGothic16",sans-serif;color:var(--hud-muted);white-space:nowrap}
-.brand img{width:28px;height:28px;flex:none}
+.brand img{width:34px;height:34px;flex:none}
 /* over the whole dashboard while the game is too small to read right */
 .gate{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:16px;background:rgba(12,20,34,.82)}
 .gate[hidden]{display:none}
@@ -384,7 +384,7 @@ kbd.wide{font-size:.82rem}
     <div class="where"><span class="lbl">Map</span><div class="map" id="cmap" title="">not set</div></div>
     <div class="money"><label for="mesos">Mesos</label><div class="coin"><input id="mesos" inputmode="numeric"></div></div>
     <div class="accb"><label for="acc">ACC</label><input id="acc" type="number" min="0" inputmode="numeric" placeholder="?"></div>
-    <div class="brand"><img src="/logo.svg" alt="">Companion</div>
+    <div class="brand"><img src="/logo.png" alt="">Companion</div>
     <button class="help" id="help" type="button" aria-label="How to use Companion" title="How to use (Hebrew)">?</button>
   </header>
 
@@ -409,7 +409,7 @@ kbd.wide{font-size:.82rem}
 </div>
 
 <dialog class="setup" id="setup" dir="rtl" lang="he" aria-labelledby="setup-title">
-  <div class="stitle"><b id="setup-title" class="px" dir="ltr"><img id="setup-leaf" src="/logo.svg" alt="" width="24" height="24">Companion</b><span class="steps3" id="setup-dots" aria-hidden="true"></span></div>
+  <div class="stitle"><b id="setup-title" class="px" dir="ltr"><img id="setup-leaf" src="/logo.png" alt="" width="24" height="24">Companion</b><span class="steps3" id="setup-dots" aria-hidden="true"></span></div>
   <div class="sbody" id="setup-body"></div>
   <div class="sfoot" id="setup-foot"></div>
 </dialog>
@@ -458,7 +458,7 @@ function drawGate(){
   if (!gate.hidden && gate.dataset.key === key) return;
   gate.dataset.key = key;
   gate.innerHTML = `<div class="box" role="alertdialog" aria-modal="true" aria-labelledby="gate-t" dir="rtl" lang="he">
-    <h2 id="gate-t"><img src="/logo.svg" alt="">חלון המשחק קטן מדי לקריאה</h2>
+    <h2 id="gate-t"><img src="/logo.png" alt="">חלון המשחק קטן מדי לקריאה</h2>
     <div class="size" dir="ltr"><b>${size[0]}×${size[1]}</b> → <span>1920×1080+</span></div>
     <p style="margin:0 0 6px">${he("Companion")} קורא את המשחק רק כשאזור המשחק בגובה ${he(min)} פיקסלים ומעלה. בגודל קטן יותר הטקסט של ה-${he("Quest Helper")} ורשימת הקווסטים נקרא לא נכון, וקווסטים שלא קיימים נכנסים ל-${he("In progress")} ול-${he("Done")}.</p>
     <ol><li>בהגדרות המשחק בחרו רזולוציה ${he("1920×1080")} או גדולה יותר. הקורא כויל על ${he("1920×1200")}.</li>
