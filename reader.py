@@ -21,6 +21,7 @@ import re
 from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont, ImageOps, ImageStat
 
 from paths import APP_DIR
+from gamedata import fix_numeral, match_place
 
 DIGITS_FILE = APP_DIR / "cache" / "hud_digits.json"   # level digit shapes learned from CHARACTER STAT
 JOB_ALIASES = {"Bowman": "Archer", "Thief": "Rogue"}   # Nexon's 1st-job names -> the game data's
@@ -491,9 +492,10 @@ def read_minimap(lines, frame, s, map_names):
         crop = read_box(frame, box, s)
         if len(crop) < 2:
             continue
-        hit = process.extractOne(crop[-1][0], map_names, scorer=fuzz.ratio, score_cutoff=86)
-        if hit and (best is None or hit[1] > best[0]):
-            best = (hit[1], crop[0][0], hit[0], [round(v) for v in box])
+        name = match_place(crop[-1][0], map_names, 86)
+        score = fuzz.ratio(fix_numeral(crop[-1][0]), name) if name else 0
+        if name and (best is None or score > best[0]):
+            best = (score, crop[0][0], name, [round(v) for v in box])
     if best:
         return best[1], best[2], best[3], False
     return read_minimap_bar(lines, frame, s, map_names)
@@ -514,11 +516,11 @@ def read_minimap_bar(lines, frame, s, map_names):
         parts = BAR_SPLIT.split(" : ".join(b[0] for b in row), maxsplit=1)
         if len(parts) < 2:
             continue
-        hit = process.extractOne(parts[1], map_names, scorer=fuzz.ratio, score_cutoff=86)
+        hit = match_place(parts[1], map_names, 86)
         if hit:
             box = [round(min(b[1] for b in row)), round(min(b[2] for b in row)),
                    round(max(b[1] + b[3] for b in row)), round(max(b[2] + b[4] for b in row))]
-            return parts[0], hit[0], box, True
+            return parts[0], hit, box, True
     return None, None, None, None
 
 

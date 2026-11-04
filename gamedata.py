@@ -124,6 +124,39 @@ def fetch_json(url, name, max_age):
         raise SystemExit(f"No data for {name} yet. Connect to the internet and start again.")
 
 
+# ---------------------------------------------------------------- map names as read
+# Half the maps end in a number: "Ant Tunnel II", "Line 1 <Area 3>". OCR reads the I of a Roman
+# numeral as l, 1, | or !, and a plain best match then lands on the map next door ("Ant Tunnel Il"
+# scores higher against Ant Tunnel I than Ant Tunnel II). So the number is fixed up, then must match.
+ROMAN_READ = re.compile(r"(?<=\s)([IVXl1|!]*[IVXl|!][IVXl1|!]*)\s*$")
+NUMBER = re.compile(r"(?:(?<=\s)([IVX]+)|(<[^>]*>))\s*$")
+
+
+def fix_numeral(text):
+    """"Ant Tunnel Il" -> "Ant Tunnel II": a last word made only of I-like strokes, V and X."""
+    return ROMAN_READ.sub(lambda m: m.group(1).translate(str.maketrans("l1|!", "IIII")), text.strip())
+
+
+def name_number(name):
+    """A map name's number ("II", "<Area 3>"), or None."""
+    m = NUMBER.search(name or "")
+    return re.sub(r"\s+", " ", m.group(1) or m.group(2)) if m else None
+
+
+def match_place(text, names, cutoff):
+    """The name in names the text is, or None: the closest one with the same number as the text.
+    A text whose number doesn't match any close name is left unread, never read as the next map."""
+    from rapidfuzz import fuzz, process
+    text = fix_numeral(text or "")
+    if len(text) < 3:
+        return None
+    want = name_number(text)
+    for name, _, _ in process.extract(text, names, scorer=fuzz.ratio, score_cutoff=cutoff, limit=8):
+        if name_number(name) == want:
+            return name
+    return None
+
+
 # ---------------------------------------------------------------- market prices
 class Market:
     def __init__(self, force=False):
@@ -538,20 +571,16 @@ class GameData:
         return [self.map_info(self.map_labels[h[0]]) for h in hits]
 
     def match_map_name(self, text, prefer=()):
-        """Match OCR text from the in-game minimap title to a map id."""
-        from rapidfuzz import fuzz, process
-        text = (text or "").strip()
-        if len(text) < 3:
-            return None
+        """Match OCR text from the in-game minimap title to a map id: the route's maps first."""
         pool = {self.maps[i]["name"]: i for i in prefer if i in self.maps}
-        hit = process.extractOne(text, list(pool), scorer=fuzz.ratio, score_cutoff=80) if pool else None
+        hit = match_place(text, list(pool), 80) if pool else None
         if hit:
-            return pool[hit[0]]
+            return pool[hit]
         names = {}
         for i, m in self.maps.items():
             names.setdefault(m["name"], i)
-        hit = process.extractOne(text, list(names), scorer=fuzz.ratio, score_cutoff=90)
-        return names[hit[0]] if hit else None
+        hit = match_place(text, list(names), 90)
+        return names[hit] if hit else None
 
     def render_url(self, mid):
         h = self.renders.get(f"{mid:09d}")
