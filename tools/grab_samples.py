@@ -11,12 +11,25 @@ drawing area, without the window's title bar, saved as PNG with its size in the 
 sent anywhere: the pictures stay in samples/raw/ until you choose to share them.
 """
 import argparse
+import ctypes
 import sys
 import time
 from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+# On a screen scaled above 100%, Windows otherwise reports the game window in scaled pixels, and
+# the picture comes out as the window's top-left corner, title bar and all, instead of the whole
+# game: the same pixels Companion uses come only with the same DPI awareness it sets
+if sys.platform == "win32":
+    try:
+        ctypes.windll.shcore.SetProcessDpiAwareness(2)
+    except Exception:
+        try:
+            ctypes.windll.user32.SetProcessDPIAware()
+        except Exception:
+            pass
 
 from capture import GameCapture          # noqa: E402
 from paths import APP_DIR, load_json     # noqa: E402
