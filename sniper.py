@@ -761,7 +761,9 @@ class App:
                 return
             self.black = 0
             if frame.height < reader.MIN_HEIGHT:
-                # too small to read right: reading anyway would fill Quests with misread titles
+                # too small to read right: reading anyway would fill Quests with misread titles. No
+                # shop is read either, so back to the slow pace, not a shop's three looks a second
+                self.shop_anchor = None
                 self.q.put(("seen", {"error": f"The game area is {frame.width}×{frame.height}. Companion reads the game "
                                               f"only at {reader.MIN_HEIGHT} px tall or more: set the game to 1920×1080 or larger.",
                                      "too_small": [frame.width, frame.height]}, None))
