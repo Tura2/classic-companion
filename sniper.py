@@ -887,13 +887,15 @@ class App:
             put("sp", sk.get("sp"))
         if (qw := seen.get("quest")) and qw.get("quests"):
             lv = int(prof.get("level") or 200)
+            # the names this read was matched against: the reader's list changes with your job, and
+            # a job change between the read and now may have taken a name out of it
+            byname = self.reader.quests_by_name
+            found = [(x, byname[x["quest"]]) for x in qw["quests"] if x["quest"] in byname]
             # a quest above your level can't be taken yet, let alone done: that's a misread title
-            seen_ids = [str(q["id"]) for x in qw["quests"] if x["quest"]
-                        for q in [self.reader.quests_by_name[x["quest"]]] if (q.get("level_min") or 0) <= lv]
+            seen_ids = [str(q["id"]) for _, q in found if (q.get("level_min") or 0) <= lv]
             sure = self.agree.update("tab:" + qw["tab"], seen_ids)
             ids = [i for i in dict.fromkeys(seen_ids) if i in sure]
-            qw = {**qw, "quests": [x for x in qw["quests"] if x["quest"] and
-                                   str(self.reader.quests_by_name[x["quest"]]["id"]) in sure]}
+            qw = {**qw, "quests": [{**x, "id": str(q["id"])} for x, q in found if str(q["id"]) in sure]}
             if ids and qw["tab"] == "completed":
                 put("quests_done", sorted(set(map(str, prof.get("quests_done", []))) | set(ids)))
                 put("quests_active", [a for a in prof.get("quests_active", []) if str(a.get("id")) not in ids])
@@ -901,8 +903,7 @@ class App:
                 # added to what's known: the window shows one page of the list, and a quest scrolled
                 # out of sight is still in progress. Finished ones leave through quests_done
                 have = {(a.get("id"), a.get("name")) for a in prof.get("quests_active", [])}
-                new = [{"name": q["quest"], "id": str(self.reader.quests_by_name[q["quest"]]["id"])}
-                       for q in qw["quests"]]
+                new = [{"name": q["quest"], "id": q["id"]} for q in qw["quests"]]
                 new = [a for a in new if (a["id"], a["name"]) not in have]
                 if new:
                     put("quests_active", prof.get("quests_active", []) + new)
