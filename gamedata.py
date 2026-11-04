@@ -588,16 +588,31 @@ class GameData:
                 meta.write_text(json.dumps({"w": w, "h": ht, "scale": s}), "utf-8")
         return path, json.loads(meta.read_text("utf-8"))
 
+    _prefetch_todo, _prefetch_busy = [], False
+
     def prefetch_maps(self, ids):
         """Fetch these maps' pictures in the background, one at a time, so each step of a route
-        shows at once when you get there."""
-        def run():
-            for mid in ids:
-                try:
-                    self.map_image(mid)
-                except Exception as e:
-                    print("Map picture unavailable:", mid, e)
-        threading.Thread(target=run, daemon=True).start()
+        shows at once when you get there. One fetch runs at a time for every route: wandering off a
+        route re-plans it on every map, and the newest route's maps go first, each fetched once."""
+        ids = list(dict.fromkeys(ids))
+        with self._map_guard:
+            self._prefetch_todo = ids + [m for m in self._prefetch_todo if m not in ids]
+            if self._prefetch_busy:
+                return
+            self._prefetch_busy = True
+        threading.Thread(target=self._prefetch_run, daemon=True).start()
+
+    def _prefetch_run(self):
+        while True:
+            with self._map_guard:
+                if not self._prefetch_todo:
+                    self._prefetch_busy = False
+                    return
+                mid = self._prefetch_todo.pop(0)
+            try:
+                self.map_image(mid)
+            except Exception as e:
+                print("Map picture unavailable:", mid, e)
 
     def _bounds(self, mid):
         m = self.maps.get(mid, {})
