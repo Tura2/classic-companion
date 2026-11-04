@@ -596,10 +596,13 @@ def read_tooltips(lines, frame, s, item_names, skip=()):
         if any(a <= ln[1] <= c and b <= ln[2] <= d for a, b, c, d in skip):
             continue        # inside the Quest Helper or Quest window: an item to collect, not a tooltip
         m = TIP_TITLE.match(ln[0])
+        names = item_names
         if m and not m.group(1)[:1].isalpha():
-            continue        # "0/20 Broken Mirror Glass": a Quest Helper count, not a tooltip's title
-        if m and navy_above(*ln):
-            hit = process.extractOne(TIP_UPGRADES.sub("", m.group(1)), item_names, scorer=fuzz.ratio,
+            # a title starting with a number is one of the few items named so ("10,000 Meso Pouch",
+            # "2x EXP Coupon"), never "0/20 Broken Mirror Glass", a Quest Helper count
+            names = [n for n in item_names if n[:1].isdigit()]
+        if m and names and navy_above(*ln):
+            hit = process.extractOne(TIP_UPGRADES.sub("", m.group(1)), names, scorer=fuzz.ratio,
                                      processor=utils.default_process, score_cutoff=86)
             if hit:
                 titles.append((hit[0], ln))
