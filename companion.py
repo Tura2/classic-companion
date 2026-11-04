@@ -69,10 +69,10 @@ def set_current(data, state, mid):
 
 
 def guide_plan(data, state):
-    """The quest guide: where to go for the guided quest's next step. Hunt the quest's monsters
-    where most of them live (quest items usually drop from those) until the Quest Helper shows every
-    count done, then go back to the quest's NPC. Sets the route, which the route card on the game
-    and the Go to tab show, with the quest's counts on top."""
+    """The quest guide: the quest step by step (take it, hunt and collect, see anyone on the way,
+    bring it back), and a route to where the first step not done yet happens. A step is done when
+    the game's Quest Helper shows its count reached, or when you tick it in the dashboard. The
+    route card on the game and the Go to tab show the route, with the step on top."""
     g = state.get("guide")
     if not g:
         return
@@ -85,47 +85,27 @@ def guide_plan(data, state):
             state["nav"] = None
             state["queue"].put(("nav",))
         return
-    reqs = [r for r in q.get("requirements_list") or [] if r.get("type") in ("mob", "item") and r.get("count")]
+    prof = state["profile"]
     helper = next((h for h in (state.get("game") or {}).get("helper") or [] if h.get("id") == g["id"]), None)
     have = {n["what"]: n["have"] for n in (helper or {}).get("needs", [])}
-    needs = [{"what": r["name"], "have": have.get(r["name"]), "need": r["count"], "kind": r["type"]} for r in reqs]
-    left = [n for n in needs if n["have"] is None or n["have"] < n["need"]]
-    target, npc = None, None
-    turn_name = q["npc_name"]
-    if left:
-        mobs = [r for r in reqs if r["type"] == "mob"]
-        hunt = next((r for r in mobs if r["name"] in {n["what"] for n in left}), mobs[0] if mobs else None)
-        first = left[0]
-        drops = data.drops.get(first["what"], []) if first["kind"] == "item" else []
-        if first["kind"] == "item" and drops and not (hunt and hunt["name"] in {d["monster"] for d in drops}):
-            # the item drops from a known monster: hunt that one where it lives
-            hunt = {"name": drops[0]["monster"], "id": data.mob_ids.get(drops[0]["monster"])}
-        where = data.mob_maps.get(hunt["id"]) if hunt else None
-        target = where["map"] if where else None
-        if first["kind"] == "mob":
-            goal = f"Hunt {first['what']}"
-        elif hunt:
-            goal = f"Collect {first['what']} from {hunt['name']}"
-        else:
-            goal = f"Collect {first['what']}"
-        if target is None:     # nothing to hunt for it: an item an NPC hands you, to deliver
-            turn_name, _, npc = data.turn_in(q)
-            target = npc["id"] if npc else None
-            goal = f"Bring it to {turn_name}" if npc else goal
-    else:
-        turn_name, _, npc = data.turn_in(q)    # often someone other than who gave the quest
-        target = npc["id"] if npc else None
-        goal = f"Bring it to {turn_name}"
-    info = {"id": g["id"], "name": q["name"], "goal": goal, "needs": needs, "done": not left,
-            "tracked": helper is not None, "where": data.map_info(target) if target else None}
+    accepted = helper is not None or str(g["id"]) in {str(a.get("id")) for a in prof.get("quests_active", [])}
+    steps = data.guide_steps(q, have, accepted, set(g.get("checked", [])), prof.get("current_map"), int(prof["level"]))
+    i = next((k for k, st in enumerate(steps) if not st["done"]), len(steps) - 1)
+    cur = steps[i]
+    target = cur["where"]["id"] if cur.get("where") else None
+    needs = [{"what": st["name"], "have": st.get("have"), "need": st["need"], "kind": st["kind"]}
+             for st in steps if st["kind"] in ("mob", "item")]
+    info = {"id": g["id"], "name": q["name"], "goal": cur["goal"], "text": cur["text"], "task": data.quest_text(q)[1],
+            "steps": steps, "step": i, "needs": needs, "done": cur["kind"] == "back",
+            "tracked": helper is not None, "where": cur.get("where"), "checked": sorted(g.get("checked", []))}
     g["info"] = info
-    cur, nav = state["profile"].get("current_map"), state.get("nav")
-    if target and cur in data.maps and (not nav or nav.get("guide_to") != target):
-        steps = data.route(cur, target)
-        if steps:
-            if npc and npc["id"] == steps[-1]["id"]:
-                steps[-1]["npc"] = {"x": npc["x"], "y": npc["y"], "name": turn_name}
-            state["nav"] = {"steps": steps, "i": 0, "to": data.map_info(target), "guide_to": target}
+    cur_map, nav = prof.get("current_map"), state.get("nav")
+    if target and cur_map in data.maps and (not nav or nav.get("guide_to") != target):
+        route = data.route(cur_map, target)
+        if route:
+            if cur.get("npc"):
+                route[-1]["npc"] = cur["npc"]
+            state["nav"] = {"steps": route, "i": 0, "to": data.map_info(target), "guide_to": target}
     if state.get("nav") and state["nav"].get("guide_to") == target:
         state["nav"]["quest"] = info
     state["queue"].put(("nav",))
@@ -351,6 +331,13 @@ def make_handler(data, state, cfg):
                     return self.send(200, {})
                 if not state["profile"].get("current_map"):
                     return self.send(400, {"error": "Set where you are first, under Go to → Change where you are."})
+                if body.get("check") is not None and (state.get("guide") or {}).get("id") == str(body["id"]):
+                    # a step ticked (or unticked) by hand: talked to someone, or no screen reading
+                    checked = set(state["guide"].get("checked", []))
+                    (checked.add if body.get("on", True) else checked.discard)(str(body["check"]))
+                    state["guide"]["checked"] = sorted(checked)
+                    guide_plan(data, state)
+                    return self.send(200, state["guide"].get("info") or {})
                 state["guide"] = {"id": str(body["id"])}
                 if state.get("nav"):
                     state["nav"].pop("guide_to", None)

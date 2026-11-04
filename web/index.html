@@ -206,6 +206,17 @@ img.icon{width:36px;height:36px;object-fit:contain;image-rendering:pixelated;fle
 .okc{color:var(--good)}
 .qsteps{margin:0;padding-left:22px;display:grid;gap:3px;font-weight:700}
 .qsteps li::marker{font-family:"DotGothic16",sans-serif;color:var(--muted)}
+.task{margin:12px 0 0;padding:10px 12px;border-left:4px solid var(--blue);background:var(--cell);border-radius:0 6px 6px 0;font-weight:700}
+.task b{display:block;font:400 .95rem "DotGothic16",sans-serif;color:var(--muted);margin-bottom:2px}
+/* the quest guide's steps: done, the one to do now, and what comes after */
+.gsteps{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:5px}
+.gsteps li{display:grid;grid-template-columns:26px minmax(0,1fr) auto;gap:2px 8px;align-items:start;padding:7px 8px;border-radius:6px;background:var(--cell);font-weight:800}
+.gsteps .mark{font:400 1rem/1.4 "DotGothic16",sans-serif;text-align:center;color:var(--muted)}
+.gsteps .ghow{grid-column:2 / -1;font-size:.85rem;color:var(--muted);font-weight:700}
+.gsteps .cnt{white-space:nowrap}
+.gsteps li.done{opacity:.6} .gsteps li.done .mark{color:var(--good)}
+.gsteps li.now{background:var(--warnbg);box-shadow:inset 4px 0 0 var(--warn)} .gsteps li.now .mark{color:var(--warn)}
+.gsteps .tick{grid-column:2 / -1;justify-self:start;margin-top:4px}
 .btable td{vertical-align:middle} .btable tr.done td{opacity:.6}
 .btable tr.cur td{background:var(--warnbg)} .btable td:first-child{width:auto;white-space:nowrap;font:400 1rem "DotGothic16",sans-serif}
 .kv2{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:10px 0 0}
@@ -727,13 +738,23 @@ function wirePicture(step){
 }
 
 function guideBox(gd){
-  const needs = gd.needs.map(n => n.have != null ? progress({what: n.what, have: n.have, need: n.need})
-    : `<div class="prog"><div class="lbl"><span>${pretty(n.what)}</span><span class="sub">? / ${n.need}</span></div></div>`).join("");
+  // each step: ✓ done, ▶ now, then what comes after. The step to do now says where and how, and can
+  // be ticked by hand (talked to someone, or no screen reading to see the counts)
+  const steps = (gd.steps || []).map((st, i) => {
+    const now = i === gd.step, cnt = st.need ? `${st.have != null ? st.have : "?"} / ${st.need}` : "";
+    return `<li class="${st.done ? "done" : now ? "now" : ""}"${now ? ' aria-current="step"' : ""}>
+      <span class="mark" aria-hidden="true">${st.done ? "✓" : now ? "▶" : i + 1}</span>
+      <span>${pretty(st.text)}</span><span class="cnt${st.have != null && st.have >= st.need ? " okc" : ""}">${cnt}</span>
+      ${(now || !st.done) && st.how ? `<span class="ghow">${pretty(st.how.charAt(0).toUpperCase() + st.how.slice(1))}</span>` : ""}
+      ${st.kind !== "back" && (now || (gd.checked || []).includes(st.key)) ? `<button class="btn small tick" data-check="${esc(st.key)}" data-on="${st.done ? "" : "1"}">${st.done ? "Not done yet" : "Done this step"}</button>` : ""}
+    </li>`;
+  }).join("");
   return win("Quest guide", `<div class="body">
       <div class="sub">${pretty(gd.name)}</div>
-      <h3 style="color:${gd.done ? "var(--good)" : "var(--warn)"};margin:2px 0 4px">${pretty(gd.goal)}</h3>
-      ${needs}
-      ${gd.tracked ? "" : `<p class="sub" style="margin:8px 0 0">Track this quest in the game’s Quest Helper so Companion can follow your counts.</p>`}
+      <h3 style="color:${gd.done ? "var(--good)" : "var(--warn)"};margin:2px 0 4px">${pretty(gd.text || gd.goal)}</h3>
+      ${gd.task ? `<p class="sub" style="margin:0">${pretty(gd.task)}</p>` : ""}
+      <ol class="gsteps">${steps}</ol>
+      ${gd.tracked ? "" : `<p class="sub" style="margin:8px 0 0">Track this quest in the game’s Quest Helper so Companion can follow your counts, or tick each step as you go.</p>`}
       <div class="btns" style="margin:10px 0 0"><button class="btn" id="stopguide">Stop the guide</button></div></div>`,
     gd.where ? `to ${pretty(gd.where.name)}` : "");
 }
@@ -771,6 +792,8 @@ async function renderNav(force){
   $("#view").innerHTML = `<div class="md"><div class="master" style="background:none;border:0;box-shadow:none;padding:0">${left}</div><div class="detail">${right}</div></div>`;
   wireSearch("here", async id => { await api("/api/here", {id}); if (pendingTo){ const t = pendingTo; pendingTo = null; await goTo(t.id, t.name, t.npc); } else renderNav(true); });
   const sg = $("#stopguide"); if (sg) sg.addEventListener("click", async () => { await api("/api/guide", {stop:true}); renderNav(true); });
+  document.querySelectorAll("#view [data-check]").forEach(b => b.addEventListener("click", async () => {
+    await api("/api/guide", {id: state.guide.id, check: b.dataset.check, on: !!b.dataset.on}); renderNav(true); }));
   if (!nav) wireSearch("dest", async (id, name) => { pendingTo = null; const r = await api("/api/nav", {to:id, from: state.current && state.current.id}); if (r.error){ alert(r.error); } renderNav(true); });
   else {
     wirePicture(nav.steps[nav.i]);
@@ -816,13 +839,14 @@ function questDetail(q, h, kind){
   return win(pretty(q.name), `<div class="body">
       <div class="row">${slot(q.npc_img, 48)}<div class="grow"><div class="sub">From</div><b>${pretty(q.npc)}</b>${q.where ? `<div class="sub">${pretty(q.where.name)}</div>` : ""}</div></div>
       <ul class="chips">${tags}</ul>
+      ${q.task ? `<div class="task"><b>What to do</b>${pretty(q.task)}</div>` : ""}
       ${kind === "locked" ? `<p class="risk" style="margin:10px 0 0">Do first: ${q.needs.map(pretty).join(", ")}</p>` : ""}
       ${steps ? `<h2 style="margin:14px 0 4px">Steps</h2><ol class="qsteps">${steps}</ol>` : ""}
       ${back ? `<p class="risk" style="margin:8px 0 0">Bring it back to <b>${pretty(back.npc)}</b>${back.where ? ` in ${pretty(back.where.name)}` : ""}, not to ${pretty(q.npc)}.</p>` : ""}
-      ${todo ? `<h2 style="margin:14px 0 4px">What to do</h2><div class="mobs" style="margin:0">${todo}</div>` : ""}
+      ${todo ? `<h2 style="margin:14px 0 4px">What you need</h2><div class="mobs" style="margin:0">${todo}</div>` : ""}
       ${rewards ? `<h2 style="margin:14px 0 4px">Rewards</h2><ul class="chips" style="margin:0">${rewards}</ul>` : ""}
       ${q.next ? `<p class="sub" style="margin:8px 0 0">Leads to: ${pretty(q.next)}</p>` : ""}
-      ${q.desc ? `<p class="sub" style="margin:10px 0 0">${pretty(q.desc)}</p>` : ""}
+      ${q.intro ? `<p class="sub" style="margin:10px 0 0">${pretty(q.intro)}</p>` : ""}
       ${q.wiki ? `<p class="sub" style="margin:10px 0 0;font-size:.78rem">Steps and drops: <a href="https://classicmaple.wiki" target="_blank" rel="noopener">Classic Maple Wiki</a> contributors, from <a href="${esc(q.wiki)}" target="_blank" rel="noopener">MapleClassic Wiki</a>, CC BY-NC-SA 4.0, reformatted.</p>` : ""}
       <div class="btns" style="margin:14px 0 0">${actions}</div></div>`, kind === "active" ? "in progress" : "");
 }

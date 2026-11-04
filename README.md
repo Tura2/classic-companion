@@ -44,9 +44,13 @@ in this mode:
   go. The SP order comes from the class guide for each job (`builds.json`, made by
   `tools/make_builds.py`); AP goes into your secondary stat while a weapon you'll want soon needs
   it, otherwise into your main stat.
-- **Quest guide**: pick a quest and tap Guide me in game. The route strip by the mini map says what
-  to do now and takes you to where its monsters live, then back to the NPC once every count in the
-  game's Quest Helper is done.
+- **Quest guide**: pick a quest and tap Guide me in game. Each quest shows the game's own "what to
+  do" text, and the guide lays it out step by step: take the quest, each monster to hunt (its level,
+  HP and ACC needed, at the nearest map with plenty of it) and item to collect (what drops it, how
+  often, about how many kills, or what it costs to buy), anyone to see on the way, and who to bring
+  it back to. A step is done when the game's Quest Helper shows its count reached, or when you tick
+  it, so it works without screen reading too. The route strip by the mini map says what to do now
+  and takes you where the step happens.
 
 Set your job, level and mesos at the top of the dashboard.
 
