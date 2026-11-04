@@ -79,6 +79,13 @@ Settings has two separate switches, both off by default:
      can't be read, the app saves a picture of it to `debug/samples/` so the reader can be fixed
      (the newest 30 are kept).
 
+   The game area has to be at least 1000 px tall (a 1920×1080 game or larger; the reader was
+   measured at 1920×1200). Smaller, its text reads wrong, so reading pauses and the dashboard says
+   so until the game is made bigger. A quest joins In progress or Done only once three reads in a
+   row agree on it, and a Quest Helper count changes once two reads agree, so one misread doesn't
+   end up in your quests; a quest put in In progress by mistake has a Not in progress button.
+   Windows are looked for again on every read, wherever you dragged them; a window whose title
+   didn't read this time still counts if its title is pixel for pixel where it was.
    The game scales its UI with the size of its window, and the reader scales with it. The HUD's
    orange level digits are learned the first time CHARACTER STAT shows your level.
 2. **Draw on game**: a label pointing at each shop row (SNIPE / NPC FLIP / FAIR / PRICEY /

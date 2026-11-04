@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <title>Companion</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23C8620A'/%3E%3Ctext x='16' y='23' font-family='Segoe UI' font-weight='700' font-size='19' text-anchor='middle' fill='white'%3ELV%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="/logo.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Nunito:wght@600;700;800;900&family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
@@ -61,7 +61,17 @@ button,input,select{font:inherit}
 .where .map{font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.9}
 .coin{display:flex;align-items:center;gap:6px}
 .coin::before{content:"";width:13px;height:13px;flex:none;border-radius:50%;background:#E9A923;box-shadow:inset -2px -2px 0 #B37812,0 0 0 1px #8A5A0A}
-.brand{grid-area:brand;font:400 1.05rem "DotGothic16",sans-serif;color:var(--hud-muted);white-space:nowrap}
+.brand{grid-area:brand;display:flex;align-items:center;gap:8px;font:400 1.05rem "DotGothic16",sans-serif;color:var(--hud-muted);white-space:nowrap}
+.brand img{width:28px;height:28px;flex:none}
+/* over the whole dashboard while the game is too small to read right */
+.gate{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:16px;background:rgba(12,20,34,.82)}
+.gate[hidden]{display:none}
+.gate .box{width:min(560px,100%);background:var(--win);color:var(--ink);border:2px solid var(--bad);border-radius:12px;padding:20px 22px;box-shadow:0 12px 40px rgba(0,0,0,.4)}
+.gate h2{display:flex;align-items:center;gap:10px;margin:0 0 8px;color:var(--bad);font-size:1.25rem}
+.gate h2 img{width:34px;height:34px}
+.gate .size{font:400 1.6rem/1.2 "DotGothic16",sans-serif;margin:6px 0 10px}
+.gate .size b{color:var(--bad)} .gate .size span{color:var(--good)}
+.gate ol{margin:6px 0 14px;padding-inline-start:22px}
 .help{grid-area:help;width:38px;height:38px;border-radius:50%;border:1px solid var(--hud-rim);background:transparent;color:var(--hud-ink);
   font:400 1.2rem/1 "DotGothic16",sans-serif;cursor:pointer}
 .help:hover{background:rgba(255,255,255,.1)}
@@ -374,7 +384,7 @@ kbd.wide{font-size:.82rem}
     <div class="where"><span class="lbl">Map</span><div class="map" id="cmap" title="">not set</div></div>
     <div class="money"><label for="mesos">Mesos</label><div class="coin"><input id="mesos" inputmode="numeric"></div></div>
     <div class="accb"><label for="acc">ACC</label><input id="acc" type="number" min="0" inputmode="numeric" placeholder="?"></div>
-    <div class="brand">Companion</div>
+    <div class="brand"><img src="/logo.svg" alt="">Companion</div>
     <button class="help" id="help" type="button" aria-label="How to use Companion" title="How to use (Hebrew)">?</button>
   </header>
 
@@ -389,6 +399,7 @@ kbd.wide{font-size:.82rem}
     <button role="tab" data-tab="settings" aria-selected="false">Settings</button>
   </nav>
   <main id="view"></main>
+  <div class="gate" id="gate" hidden></div>
 
   <div class="foot">
     Game data: <a href="https://github.com/ohmi69/osms_datamine_dashboard" target="_blank" rel="noopener">OSMS Data Explorer</a>.
@@ -398,7 +409,7 @@ kbd.wide{font-size:.82rem}
 </div>
 
 <dialog class="setup" id="setup" dir="rtl" lang="he" aria-labelledby="setup-title">
-  <div class="stitle"><b id="setup-title" class="px" dir="ltr"><img id="setup-leaf" alt="" width="22" height="24">Companion</b><span class="steps3" id="setup-dots" aria-hidden="true"></span></div>
+  <div class="stitle"><b id="setup-title" class="px" dir="ltr"><img id="setup-leaf" src="/logo.svg" alt="" width="24" height="24">Companion</b><span class="steps3" id="setup-dots" aria-hidden="true"></span></div>
   <div class="sbody" id="setup-body"></div>
   <div class="sfoot" id="setup-foot"></div>
 </dialog>
@@ -432,7 +443,30 @@ async function loadState(){
     : cz.stale ? `. Cozy Market’s prices are over two weeks old and left out` : "";
   $("#cmap").textContent = $("#cmap").title = state.current ? state.current.name.replace(/'/g, "’") : "not set";
   $("#cname").textContent = state.profile.name || "Job";
+  drawGate();
   return state;
+}
+
+// The reader is only trusted on a game area at least min_height tall: smaller, its text reads wrong
+// and misread titles would land in Quests. Then reading pauses and this covers the dashboard.
+function drawGate(){
+  const g = state.game || {}, gs = state.game_size, min = state.min_height || 1000;
+  const size = g.too_small || (gs && gs[1] >= 200 && gs[1] < min ? gs : null);
+  const gate = $("#gate");
+  if (!(state.screen && state.screen.reading && size)){ gate.hidden = true; return; }
+  const key = size.join("x");
+  if (!gate.hidden && gate.dataset.key === key) return;
+  gate.dataset.key = key;
+  gate.innerHTML = `<div class="box" role="alertdialog" aria-modal="true" aria-labelledby="gate-t" dir="rtl" lang="he">
+    <h2 id="gate-t"><img src="/logo.svg" alt="">חלון המשחק קטן מדי לקריאה</h2>
+    <div class="size" dir="ltr"><b>${size[0]}×${size[1]}</b> → <span>1920×1080+</span></div>
+    <p style="margin:0 0 6px">${he("Companion")} קורא את המשחק רק כשאזור המשחק בגובה ${he(min)} פיקסלים ומעלה. בגודל קטן יותר הטקסט של ה-${he("Quest Helper")} ורשימת הקווסטים נקרא לא נכון, וקווסטים שלא קיימים נכנסים ל-${he("In progress")} ול-${he("Done")}.</p>
+    <ol><li>בהגדרות המשחק בחרו רזולוציה ${he("1920×1080")} או גדולה יותר. הקורא כויל על ${he("1920×1200")}.</li>
+      <li>שחקו בחלון (${he("Windowed")}) או בחלון בלי מסגרת (${he("Borderless")}), לא במסך מלא.</li>
+      <li>החלון הזה נעלם לבד כשהגודל מתאים. עד אז הקריאה עוצרת, אז שום דבר לא משתבש.</li></ol>
+    <div class="btns"><button class="btn" id="gate-off">כבו קריאת מסך והמשיכו בלעדיה</button></div></div>`;
+  gate.hidden = false;
+  $("#gate-off").addEventListener("click", async () => { await api("/api/settings", {screen_reading:false}); await loadState(); render(); });
 }
 
 function fillProfile(p){
@@ -900,6 +934,9 @@ function questDetail(q, h, kind){
   const guiding = state.guide && state.guide.id === q.id;
   const actions = kind === "done"
     ? `<button class="btn" data-undone="${esc(q.id)}">Not done</button>`
+    : kind === "active" ? `<button class="btn primary" data-guide="${esc(q.id)}">${guiding ? "Guiding it now" : "Guide me in game"}</button>
+       <button class="btn" data-done="${esc(q.id)}">Done</button>
+       <button class="btn" data-inactive="${esc(q.id)}" title="Not in your quest log: the game was misread, or you dropped it">Not in progress</button>`
     : `${q.todo.length || q.where ? `<button class="btn primary" data-guide="${esc(q.id)}">${guiding ? "Guiding it now" : "Guide me in game"}</button>` : ""}
        ${q.where ? `<button class="btn" data-npc="${q.npc_id}" data-npcname="${esc(q.npc)}" data-map="${q.where.id}" data-mapname="${esc(q.where.name)}">Take me to ${pretty(q.npc)}</button>` : ""}
        ${back && back.where ? `<button class="btn" data-hunt="${back.where.id}" data-name="${esc(back.where.name)}">Take me to ${pretty(back.npc)}</button>` : ""}
@@ -944,6 +981,7 @@ async function renderQuests(){
   const isl = $("#island");
   if (isl) isl.addEventListener("change", async () => { await api("/api/profile", {island:isl.checked}); await loadState(); renderQuests(); });
   document.querySelectorAll("[data-done]").forEach(b => b.addEventListener("click", async () => { await api("/api/quest_done", {id:b.dataset.done, done:true}); qPick = null; renderQuests(); }));
+  document.querySelectorAll("[data-inactive]").forEach(b => b.addEventListener("click", async () => { await api("/api/quest_active", {id:b.dataset.inactive}); qPick = null; renderQuests(); }));
   document.querySelectorAll("[data-undone]").forEach(b => b.addEventListener("click", async () => { await api("/api/quest_done", {id:b.dataset.undone, done:false}); qPick = null; renderQuests(); }));
   document.querySelectorAll("[data-guide]").forEach(b => b.addEventListener("click", async () => {
     const r = await api("/api/guide", {id:b.dataset.guide});
@@ -1284,9 +1322,9 @@ function setupChecks(c){
   const size = c.game_size, rows = [];
   rows.push(c.game_found ? `<div class="check ok">חלון המשחק נמצא${size ? `: ${he(size[0] + "×" + size[1])}` : ""}</div>`
     : `<div class="check warn">לא נמצא חלון עם ${he(esc(c.game_title))} בכותרת. פתחו את המשחק, הבדיקה מתעדכנת לבד.</div>`);
-  if (c.game_found && size) rows.push(size[1] >= 1000 ? `<div class="check ok">רזולוציה טובה לקריאה</div>`
-    : size[1] >= 700 ? `<div class="check warn">זה עובד, אבל ב-${he("1920×1080")} ומעלה הקריאה מדויקת יותר</div>`
-    : `<div class="check warn">החלון קטן מדי לקריאה טובה. הגדילו אותו ל-${he("1920×1080")} אם אפשר</div>`);
+  const min = state.min_height || 1000;
+  if (c.game_found && size) rows.push(size[1] >= min ? `<div class="check ok">רזולוציה טובה לקריאה${size[1] >= 1200 ? "" : `. הכי מדויק: ${he("1920×1200")}`}</div>`
+    : `<div class="check warn">החלון קטן מדי: הקריאה עוצרת עד שהמשחק יהיה ${he("1920×1080")} או גדול יותר</div>`);
   return rows.join("");
 }
 function setupScreen(c){
@@ -1330,7 +1368,7 @@ function setupHowTo(){
     <h3>כדי שהקריאה תעבוד טוב</h3>
     <ul class="tips">
       <li><span class="keys" dir="ltr"><kbd>S</kbd><kbd>K</kbd><kbd>Q</kbd></span><span>פתחו פעם אחת ${he("Character Stat")}, ${he("Skills")} ו-${he("Quest")}. ככה ${he("Companion")} לומד את הרמה, הסקילים והקווסטים שסיימתם.</span></li>
-      <li><span class="keys" dir="ltr"><kbd class="wide">1920×1080</kbd></span><span>רזולוציה מומלצת, ומעלה. קטנה יותר עובדת, אבל פחות מדויק.</span></li>
+      <li><span class="keys" dir="ltr"><kbd class="wide">1920×1080</kbd></span><span>הרזולוציה הכי קטנה שהקריאה עובדת בה. ${he("1920×1200")} הכי מדויק. בפחות מזה הקריאה עוצרת.</span></li>
       <li><span class="keys" dir="ltr"><kbd>?</kbd></span><span>פותח את ההסבר הזה שוב, מכל לשונית.</span></li>
     </ul>`;
 }
@@ -1378,7 +1416,6 @@ setupDlg.addEventListener("close", async () => {
   liveKey = ""; render();
 });
 $("#help").addEventListener("click", () => openSetup(2));
-$("#setup-leaf").src = ICON.leaf;
 
 loadState().then(async s => {
   profRev = s.profile.rev; fillProfile(s.profile);

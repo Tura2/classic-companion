@@ -80,6 +80,51 @@ SHOP_EVERY = 0.3          # seconds between quick re-reads of an open shop's ite
 PREVIEW_W = 960           # width of the live picture of the game in the dashboard
 SAMPLE_EVERY = 60         # seconds between saved pictures of a shop window (to tune the shop reader)
 SAMPLES_KEPT = 30         # the newest pictures of shops that couldn't be read; older ones are deleted
+CONFIRM_READS = 3         # a quest joins In progress or Done only after this many reads in a row agree
+
+
+class Agree:
+    """What a read says counts only once it says it CONFIRM_READS times in a row: one misread title
+    (or a tab taken for another) would otherwise put a quest you never took into In progress or Done."""
+
+    def __init__(self, need=CONFIRM_READS):
+        self.need, self.runs = need, {}
+
+    def update(self, scope, keys):
+        """keys: what this read saw in scope (a quest tab, the Quest Helper). Returns the ones it has
+        now seen need reads in a row. Something missing from a read of that scope starts over."""
+        runs = self.runs.setdefault(scope, {})
+        keys = set(keys)
+        for k in list(runs):
+            if k not in keys:
+                del runs[k]
+        for k in keys:
+            runs[k] = runs.get(k, 0) + 1
+        return {k for k, n in runs.items() if n >= self.need}
+
+
+class SteadyCounts:
+    """Quest Helper counts as shown: a new count is taken once two reads in a row agree on it, so a
+    3 read as 30 doesn't send you back to the NPC."""
+
+    def __init__(self):
+        self.raw, self.shown = {}, {}
+
+    def update(self, quests):
+        raw = {}
+        for q in quests or []:
+            for n in q.get("needs", []):
+                k = (q.get("id"), n["what"])
+                raw[k] = n["have"]
+                if self.raw.get(k) == n["have"] or k not in self.shown and n["have"] == 0:
+                    self.shown[k] = n["have"]
+        self.raw = raw
+        out = []
+        for q in quests or []:
+            needs = [{**n, "have": self.shown[(q.get("id"), n["what"])]} for n in q.get("needs", [])
+                     if (q.get("id"), n["what"]) in self.shown]
+            out.append({**q, "needs": needs})
+        return out
 
 
 def fmt(n):
@@ -536,6 +581,7 @@ class App:
         self.tip_busy = False       # a quick look is in progress
         self.capture = GameCapture(lambda: self.cfg["game_title"])
         self.reader = reader.Reader(data)
+        self.agree, self.notice, self.counts = Agree(), Agree(2), SteadyCounts()
         self.shop_rows = []         # verdicts for the shop window open in the game (found by the reader)
         self.last_listings = set()  # listings in the previous read: a deal is announced once two reads agree
         self.announced = set()      # deals already announced this session
@@ -714,6 +760,13 @@ class App:
                                                   "can't be captured: set the game to windowed mode."}, None))
                 return
             self.black = 0
+            if frame.height < reader.MIN_HEIGHT:
+                # too small to read right: reading anyway would fill Quests with misread titles
+                self.q.put(("seen", {"error": f"The game area is {frame.width}×{frame.height}. Companion reads the game "
+                                              f"only at {reader.MIN_HEIGHT} px tall or more: set the game to 1920×1080 or larger.",
+                                     "too_small": [frame.width, frame.height]}, None))
+                return
+            self.reader.set_job(self.state["profile"].get("job"))
             seen = None
             if self.shop_anchor:
                 seen = self.reader.read_shop_only(frame, self.shop_anchor)
@@ -789,8 +842,18 @@ class App:
             self.state["frame"] = picture
         if seen is None or seen.get("error"):
             game.update(error=(seen or {}).get("error") or self.capture.error or "Can't see the game window.",
-                        ts=time.time())
+                        ts=time.time(), too_small=(seen or {}).get("too_small"))
             return
+        game["too_small"] = None
+        if not seen.get("quick"):
+            # "in a row" means in reads that could have seen it: a closed window starts its quests over
+            if not seen.get("quest"):
+                for scope in [k for k in self.agree.runs if k.startswith("tab:")]:
+                    self.agree.update(scope, [])
+            if seen.get("helper") is None:
+                self.agree.update("helper", [])
+            if not seen.get("quest_complete"):
+                self.notice.update("complete", [])
         prof, changed = self.state["profile"], False
 
         def put(key, value):
@@ -821,16 +884,22 @@ class App:
             put("skills_now", now)
             put("sp", sk.get("sp"))
         if (qw := seen.get("quest")) and qw.get("quests"):
-            ids = [str(self.reader.quests_by_name[q["quest"]]["id"]) for q in qw["quests"] if q["quest"]]
-            if qw["tab"] == "completed":
+            lv = int(prof.get("level") or 200)
+            # a quest above your level can't be taken yet, let alone done: that's a misread title
+            seen_ids = [str(q["id"]) for x in qw["quests"] if x["quest"]
+                        for q in [self.reader.quests_by_name[x["quest"]]] if (q.get("level_min") or 0) <= lv]
+            sure = self.agree.update("tab:" + qw["tab"], seen_ids)
+            ids = [i for i in dict.fromkeys(seen_ids) if i in sure]
+            qw = {**qw, "quests": [x for x in qw["quests"] if x["quest"] and
+                                   str(self.reader.quests_by_name[x["quest"]]["id"]) in sure]}
+            if ids and qw["tab"] == "completed":
                 put("quests_done", sorted(set(map(str, prof.get("quests_done", []))) | set(ids)))
                 put("quests_active", [a for a in prof.get("quests_active", []) if str(a.get("id")) not in ids])
-            elif qw["tab"] == "in_progress":
+            elif ids and qw["tab"] == "in_progress":
                 # added to what's known: the window shows one page of the list, and a quest scrolled
                 # out of sight is still in progress. Finished ones leave through quests_done
                 have = {(a.get("id"), a.get("name")) for a in prof.get("quests_active", [])}
-                new = [{"name": q["quest"] or q["text"],
-                        "id": str(self.reader.quests_by_name[q["quest"]]["id"]) if q["quest"] else None}
+                new = [{"name": q["quest"], "id": str(self.reader.quests_by_name[q["quest"]]["id"])}
                        for q in qw["quests"]]
                 new = [a for a in new if (a["id"], a["name"]) not in have]
                 if new:
@@ -839,16 +908,22 @@ class App:
         # game says it's done, not only while a read happens to catch it
         done = set(map(str, prof.get("quests_done", [])))
         known = {str(a.get("id")) for a in prof.get("quests_active", []) if a.get("id")} | done
+        helper_seen = seen.get("helper") is not None
+        sure = self.agree.update("helper", [str(q["id"]) for q in (seen.get("helper") or {}).get("quests", [])
+                                            if q.get("id")]) if helper_seen else set()
         tracked = [{"name": q["quest"], "id": str(q["id"])} for q in (seen.get("helper") or {}).get("quests", [])
-                   if q.get("id") and str(q["id"]) not in known]
+                   if q.get("id") and str(q["id"]) in sure and str(q["id"]) not in known]
         if tracked:
             put("quests_active", prof.get("quests_active", []) + tracked)
         if (qc := seen.get("quest_complete")):
             # "Quest Complete!": the notice cuts long names, so prefer a quest you have in progress
             cut = qc["text"].lower()
             going = [a["name"] for a in prof.get("quests_active", [])] + [h["quest"] for h in game.get("helper") or [] if h.get("quest")]
-            name = next((n for n in going if n and n.lower().startswith(cut[:max(6, len(cut) - 1)])), None) or qc["quest"]
-            q = self.reader.quests_by_name.get(name)
+            name = next((n for n in going if n and n.lower().startswith(cut[:max(6, len(cut) - 1)])), None)
+            if name is None and qc["quest"]:
+                # not one you're known to have going: believe it once two reads agree (the notice stays a few seconds)
+                name = qc["quest"] if qc["quest"] in self.notice.update("complete", [qc["quest"]]) else None
+            q = self.reader.quests_by_name.get(name) if name else None
             if q and str(q["id"]) not in map(str, prof.get("quests_done", [])):
                 put("quests_done", sorted(set(map(str, prof.get("quests_done", []))) | {str(q["id"])}))
                 put("quests_active", [a for a in prof.get("quests_active", []) if a.get("name") != name])
@@ -916,7 +991,8 @@ class App:
             # meanwhile; the quick tooltip check is what takes them away
             self.set_tips(seen["tooltips"])
         game.update(error="", ts=time.time(), windows=seen.get("windows", {}), level_hint=hint,
-                    stat=stat or game.get("stat"), helper=(seen.get("helper") or {}).get("quests", game.get("helper")),
+                    stat=stat or game.get("stat"),
+                    helper=self.counts.update(seen["helper"]["quests"]) if helper_seen else game.get("helper"),
                     map={**seen["map"], "id": mid} if seen.get("map") else game.get("map"),
                     skills=seen.get("skills") or game.get("skills"))
         if self.state.get("guide") and self.state.get("guide_tick"):
