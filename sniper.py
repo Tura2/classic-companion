@@ -553,7 +553,9 @@ def select_region(root, done):
 class App:
     """On-game windows and screen reading. Shares `state` and the command queue with the web dashboard."""
 
-    def __init__(self, data, state, cfg):
+    def __init__(self, data, state, cfg, root=None):
+        """root: Companion's own window, whose Tk the on-game windows share; without one, a hidden
+        root of their own."""
         self.data = data            # gamedata.GameData (has .market)
         self.state = state          # dict shared with the web server
         self.cfg = cfg              # shared with the web server's Settings tab
@@ -565,8 +567,10 @@ class App:
             self.note = "Ready to scan"
         DEBUG.mkdir(exist_ok=True)
 
-        self.root = tk.Tk()
-        self.root.withdraw()
+        self.root = root
+        if root is None:
+            self.root = tk.Tk()
+            self.root.withdraw()
         self.overlay = Overlay(self.root, self.cfg)
         self.strip = Card(self.root, STRIP_ALPHA)      # the route (and quest step): by the mini map
         self.scale = self.overlay.scale = art.dpi_scale()   # refined to the game's monitor once it's found
@@ -595,13 +599,17 @@ class App:
         self.game_hwnd = None       # the game window, looked up every 3 s
         self.apply_settings()
 
-    def run(self):
+    def start(self):
+        """Begin looking at the game and drawing on it, on the Tk loop already running."""
         self.publish()
         self.root.after(50, self.pump)
         self.root.after(30 * 60 * 1000, self.refresh_prices)
         self.root.after(1000, self.watch_loop)
         self.root.after(1200, self.tip_loop)
         self.root.after(500, self.focus_loop)
+
+    def run(self):
+        self.start()
         self.root.mainloop()
 
     @property

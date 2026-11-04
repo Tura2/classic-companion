@@ -3,7 +3,8 @@ Companion for MapleStory Classic World.
 
   Companion.exe  (or: python companion.py)
 
-Opens a dashboard in your browser on this PC (localhost only).
+Opens Companion's own window (closing it quits) and a dashboard in your browser on this PC
+(localhost only).
 Out of the box it only uses public game data and prices: it doesn't touch the game or your screen.
 Screen reading and on-game drawing are optional and switched on in the Settings tab.
 
@@ -16,6 +17,7 @@ import queue
 import sys
 import threading
 import time
+import traceback
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
@@ -397,7 +399,36 @@ def main():
         from sniper import report
         report()
         return
+    try:   # Companion's own window, with its logo, open from the first second
+        from window import Window
+        win = Window()
+    except Exception as e:     # no Tk at all: the console is all there is, as before
+        print("Companion's window is unavailable:", e)
+        serve(None, {})
+        return
+    started = {}
+    threading.Thread(target=serve, args=(win, started), daemon=True).start()
+    win.run()                  # until the window is closed
+    if started.get("server"):
+        started["server"].shutdown()
 
+
+def serve(win, started):
+    """Load the game data, start the dashboard, then the screen features. With Companion's window,
+    the on-game windows are made on its thread and this returns; without one, it runs until quit."""
+    try:
+        start(win, started)
+    except SystemExit as e:    # no game data and no internet, or every port busy: said in words
+        print(e)
+        if win:
+            win.failed(str(e))
+    except Exception as e:
+        traceback.print_exc()
+        if win:
+            win.failed(f"Companion couldn't start: {e}")
+
+
+def start(win, started):
     print("Companion: loading game data and prices...")
     data = GameData(force="--refresh" in sys.argv)
     # Cozy Market's prices: brought up to date now and kept that way, in the background
@@ -420,12 +451,25 @@ def main():
     state["guide_tick"] = lambda: guide_plan(data, state)     # the screen reader calls it after each look
 
     server, port = start_server(make_handler(data, state, cfg))
+    started["server"] = server
     threading.Thread(target=server.serve_forever, daemon=True).start()
     local = f"http://localhost:{port}"
     print(f"\nDashboard: {local}\nClose this window to quit.\n")
+    if win:
+        win.ready(local)
     if "--no-browser" not in sys.argv:
         webbrowser.open(local)
 
+    if win:
+        if screen_ok:
+            def begin():          # Tk lives on the window's thread, and so do the on-game windows
+                try:
+                    sniper.App(data, state, cfg, root=win.root).start()
+                except Exception as e:      # no on-game windows: the dashboard still works
+                    print("Screen features unavailable:", e)
+                    state["overlay"] = False
+            win.call(begin)
+        return
     if not screen_ok:
         try:
             threading.Event().wait()
