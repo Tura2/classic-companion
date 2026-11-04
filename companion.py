@@ -101,13 +101,16 @@ def guide_plan(data, state):
             "tracked": helper is not None, "where": cur.get("where"), "checked": sorted(g.get("checked", []))}
     g["info"] = info
     cur_map, nav = prof.get("current_map"), state.get("nav")
-    if target and cur_map in data.maps and (not nav or nav.get("guide_to") != target):
-        route = data.route(cur_map, target)
+    # a step with no map to go to (an item no one knows where it drops) stays where you are, so the
+    # card on the game shows that step, not the route and step before it
+    dest = target or cur_map
+    if dest and cur_map in data.maps and (not nav or nav.get("guide_to") != dest):
+        route = data.route(cur_map, dest)
         if route:
-            if cur.get("npc"):
+            if cur.get("npc") and target:
                 route[-1]["npc"] = cur["npc"]
-            state["nav"] = {"steps": route, "i": 0, "to": data.map_info(target), "guide_to": target}
-    if state.get("nav") and state["nav"].get("guide_to") == target:
+            state["nav"] = {"steps": route, "i": 0, "to": data.map_info(dest), "guide_to": dest}
+    if state.get("nav") and state["nav"].get("guide_to") == dest:
         state["nav"]["quest"] = info
     state["queue"].put(("nav",))
 
