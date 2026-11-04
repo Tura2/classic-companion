@@ -14,3 +14,6 @@ build/
 dist/
 *.spec
 *.exe
+
+# Pictures of the game, until cropped and cleared for sharing
+samples/raw/
