@@ -71,6 +71,7 @@ KEY = "#%02x%02x%02x" % art.KEY   # the overlay windows' see-through color
 WINDOW_ALPHA = 0.96       # the on-game windows let a hint of the game through
 STRIP_ALPHA = 0.80        # the route strip lets more of it through: it sits on the game itself
 MINI_SECONDS = 6          # the strip sits under the mini map while it was seen this recently
+STRIP_RANK = {"window": 2, "bar": 2, "title": 1}   # how sure a read of the mini map's place is
 TIP_EVERY = 0.143         # quick looks for item tooltips, at the capture's seven frames a second
 TIP_SECONDS = 1.0         # a tooltip's prices go away this long after it was last seen
 SHOP_LABEL_SECONDS = 8    # labels disappear this long after the last scan that found shop rows
@@ -526,6 +527,7 @@ class App:
         self.scale = self.overlay.scale = art.dpi_scale()   # refined to the game's monitor once it's found
         self.bounds = None          # the game window (left, top, right, bottom), for the corner
         self.mini = None            # where the route strip goes under the mini map, as last seen
+        self.mini_next = None       # a new place for it, waiting for a second read to agree
         self.strip_key = None       # what the route strip was last drawn for
         # prices under the game's item tooltips: two, since an equip's comes with the one you wear
         self.tip_cards = [Card(self.root, STRIP_ALPHA), Card(self.root, STRIP_ALPHA)]
@@ -869,22 +871,23 @@ class App:
             if at:
                 m, name = self.mini, seen["map"]["name"]
                 kind = "window" if seen["map"].get("window") else "bar" if seen["map"].get("collapsed") else "title"
+                near = lambda o: abs(o["x"] - at[0]) <= 4 and abs(o["y"] - at[1]) <= 4 and abs((o["w"] or 0) - (at[2] or 0)) <= 6
                 same = m and m["map"] == name and m["bounds"] == self.bounds
-                if same and (m["kind"] == "window" and kind == "title"
-                             or m["kind"] == kind and abs(m["x"] - at[0]) <= 4 and abs(m["y"] - at[1]) <= 4):
-                    # the same mini map, where it was: a read that didn't make out its frame, or one a
-                    # pixel or two off, leaves the strip still
-                    m["ts"] = time.time()
-                else:
-                    # kept for as long as the game window stays where it was: the mini map doesn't
-                    # move by itself, so a read that misses it doesn't send the strip to the corner
+                if same and (m["kind"] == kind and near(m) or STRIP_RANK[kind] < STRIP_RANK[m["kind"]]):
+                    # the same mini map, where it was: a read a pixel or two off, or one that only made
+                    # out its title, leaves the strip still
+                    m["ts"], self.mini_next = time.time(), None
+                elif (p := self.mini_next) and p["kind"] == kind and p["map"] == name and near(p):
+                    # a new place, read the same way twice in a row: the strip moves there. One odd read
+                    # (another window's border taken for the mini map's) doesn't move it
                     width = m and m["w"]
-                    self.mini = {"x": at[0], "y": at[1], "w": at[2], "ts": time.time(), "bounds": self.bounds,
-                                 "map": name, "kind": kind}
+                    self.mini, self.mini_next = {**p, "ts": time.time(), "bounds": self.bounds}, None
                     if self.drawing() and at[2] != width:
                         self.redraw()              # no wider than this mini map
                     else:
                         self.layout()
+                else:
+                    self.mini_next = {"x": at[0], "y": at[1], "w": at[2], "map": name, "kind": kind}
         if changed:
             self.state["save_profile"]()
             print(f"Character: {prof.get('name') or '?'}, {prof['job']} level {prof['level']}")
