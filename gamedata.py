@@ -351,11 +351,147 @@ class GameData:
         return {"steps": steps, "turn_in": turn, "source": q.get("source_page")}
 
     def turn_in(self, q):
-        """Who takes the quest back and where they stand: the wiki's turn-in NPC, else the giver."""
+        """Who takes the quest back and where they stand: the wiki's turn-in NPC, else the one the
+        quest's own words send you to ("deliver a letter to Lucas"), else the giver."""
         w = self.wiki_quest(q["name"])
-        name = (w or {}).get("turn_in") or q.get("npc_name")
+        name = (w or {}).get("turn_in") or self.sent_to(q) or q.get("npc_name")
         npc_id = self.npc_ids.get(name, q.get("npc_id") if name == q.get("npc_name") else None)
         return name, npc_id, self.npc_place(npc_id) if npc_id is not None else None
+
+    def sent_to(self, q):
+        """The NPC the quest's what-to-do line sends you to ("take it to Heena"), if it names one
+        with a place on a map; None otherwise."""
+        task = self.quest_text(q)[1] or ""
+        for m in re.finditer(r"\b(?:to|back to|bring it to|give it to)\s+([A-Z][\w'.]*(?:\s+[A-Z][\w'.]*){0,3})", task):
+            words = m.group(1).split()
+            for n in range(len(words), 0, -1):      # "Lucas in Amherst" -> "Lucas"
+                name = " ".join(words[:n]).rstrip(".,")
+                if name != q.get("npc_name") and self.npc_ids.get(name) is not None and self.npc_place(self.npc_ids[name]):
+                    return name
+        return None
+
+    @staticmethod
+    def quest_text(q):
+        """(what the quest is about, what to do), from the game's own description. Most have three
+        lines: a teaser before you take it, what to do while it's going, and how it ended. Two-line
+        ones skip the teaser."""
+        lines = [ln.strip() for ln in (q.get("description") or "").split("\n") if ln.strip()]
+        if len(lines) >= 3:
+            return lines[0], lines[1]
+        return None, lines[0] if lines else None
+
+    def hops_from(self, start):
+        """{map id: portals to walk through from start}, for every map you can reach."""
+        if getattr(self, "_hops", (None,))[0] == start:
+            return self._hops[1]
+        from collections import deque
+        dist, todo = {start: 0}, deque([start])
+        while todo:
+            u = todo.popleft()
+            for v in self.graph.get(u, {}):
+                if v not in dist:
+                    dist[v] = dist[u] + 1
+                    todo.append(v)
+        self._hops = (start, dist)
+        return dist
+
+    def hunt_spot(self, mob_id, start=None):
+        """Where to hunt a monster: {"map", "name", "count", "hops"}. Of the maps with at least half
+        as many of it as the busiest, the nearest from where you are; the busiest if that's unknown.
+        None if it isn't known to spawn anywhere."""
+        if not hasattr(self, "_mob_by_id"):
+            self._mob_by_id = {m.get("id"): m for m in self.monsters}
+        spots = [x for x in (self._mob_by_id.get(mob_id) or {}).get("maps") or [] if x["id"] in self.maps and x.get("count")]
+        if not spots:
+            return None
+        dist = self.hops_from(start) if start in self.maps else {}
+        top = max(x["count"] for x in spots)
+        best = min(spots, key=lambda x: (x["count"] < top / 2, dist.get(x["id"], 999) if dist else 0, -x["count"]))
+        return {"map": best["id"], "name": best["name"], "count": best["count"], "hops": dist.get(best["id"]) if dist else None}
+
+    def mob_line(self, mob_id, level):
+        """"Lv 20, 296 HP, ~99 ACC to always hit": how hard a monster is for you."""
+        if not hasattr(self, "_mob_by_id"):
+            self._mob_by_id = {m.get("id"): m for m in self.monsters}
+        m = self._mob_by_id.get(mob_id)
+        if not m:
+            return ""
+        acc = acc_needed(m.get("eva") or 0, (m.get("level") or 0) - level)
+        return f"Lv {m.get('level')}, {m.get('hp'):,} HP" + (f", ~{acc} ACC to always hit" if acc else "")
+
+    def guide_steps(self, q, have, accepted, checked, start, level):
+        """The quest, step by step: take it, each monster to hunt and item to collect, anyone the
+        wiki says to see on the way, and who to bring it back to. Each step: key, kind, text (what
+        to do), goal (short, for the strip on the game), how (where and how hard), where (the map to
+        go to), npc (who to circle there), have / need, done. A step is done when the game's Quest
+        Helper shows its count reached, or when you tick it (checked)."""
+        given = {r.get("name") for r in q.get("start_items") or []}
+        steps = []
+        place = self.npc_place(q.get("npc_id")) if q.get("npc_id") is not None else None
+        steps.append({"key": "take", "kind": "take", "text": f"Take the quest from {q['npc_name']}",
+                      "goal": f"Talk to {q['npc_name']}", "how": f"in {place['name']}" if place else "",
+                      "where": self.map_info(place["id"]) if place else None,
+                      "npc": {"x": place["x"], "y": place["y"], "name": q["npc_name"]} if place else None,
+                      "done": accepted or "take" in checked})
+        reqs = [r for r in q.get("requirements_list") or [] if r.get("type") in ("mob", "item") and r.get("count")]
+        hunted = [r for r in reqs if r["type"] == "mob"]
+        for r in reqs:
+            if r["type"] == "item" and r["name"] in given:
+                continue        # handed to you when you take the quest: you only carry it
+            key, got, need = "req:" + r["name"], have.get(r["name"]), r["count"]
+            step = {"key": key, "kind": r["type"], "name": r["name"], "have": got, "need": need, "npc": None, "where": None}
+            if r["type"] == "mob":
+                spot = self.hunt_spot(r.get("id"), start)
+                step.update(text=f"Defeat {need} {r['name']}", goal=f"Hunt {r['name']}",
+                            how=", ".join(x for x in (self.mob_line(r.get("id"), level),
+                                                      f"most at {spot['name']}" if spot else "") if x))
+            else:
+                drops = self.drops.get(r["name"], [])
+                src = drops[0] if drops else None
+                mob_id = self.mob_ids.get(src["monster"]) if src else None
+                if src is None and len(hunted) == 1:
+                    mob_id = hunted[0].get("id")    # quest items mostly drop from the quest's own monster
+                spot = self.hunt_spot(mob_id, start) if mob_id is not None else None
+                price = self.market.items.get(r["name"], {})
+                buy = f"or buy all {need} for about {math.floor(price['p25']) * need:,} mesos" if price else ""
+                if src:
+                    kills = math.ceil(need / (src["rate"] / 100)) if src["rate"] else None
+                    how = [f"drops from {src['monster']} ({src['rate']:g}%" + (f", about {kills:,} kills)" if kills else ")"),
+                           f"most at {spot['name']}" if spot else "", buy]
+                    goal = f"Collect {r['name']} from {src['monster']}"
+                elif spot:
+                    how = [f"likely drops from {hunted[0]['name']}, the monster this quest has you hunt",
+                           f"most at {spot['name']}", buy]
+                    goal = f"Collect {r['name']} from {hunted[0]['name']}"
+                else:
+                    how = ["where it drops isn't known", buy]
+                    goal = f"Collect {r['name']}"
+                step.update(text=f"Collect {need} {r['name']}", goal=goal, how="; ".join(x for x in how if x))
+            if spot:
+                step["where"] = self.map_info(spot["map"])
+            step["done"] = (got is not None and got >= need) or key in checked
+            steps.append(step)
+        turn_name, _, turn_place = self.turn_in(q)
+        wiki = self.wiki_quest(q["name"]) or {}
+        npcs = [x for x in wiki.get("steps", []) if x["kind"] == "npc"]
+        for x in npcs[1:-1]:        # the first is who gives it, the last who takes it back
+            if x["name"] in (q["npc_name"], turn_name):
+                continue
+            nid = self.npc_ids.get(x["name"])
+            at = self.npc_place(nid) if nid is not None else None
+            key = "see:" + x["name"]
+            steps.append({"key": key, "kind": "see", "text": f"See {x['name']}" + (f" in {x['map']}" if x.get("map") else ""),
+                          "goal": f"See {x['name']}", "how": "tick it once you've talked to them",
+                          "where": self.map_info(at["id"]) if at else None,
+                          "npc": {"x": at["x"], "y": at["y"], "name": x["name"]} if at else None, "done": key in checked})
+        carry = [r["name"] for r in reqs if r["type"] == "item"]
+        steps.append({"key": "back", "kind": "back",
+                      "text": f"Bring {', '.join(carry)} to {turn_name}" if carry else f"Talk to {turn_name}",
+                      "goal": f"Bring it to {turn_name}", "how": f"in {turn_place['name']}" if turn_place else "",
+                      "where": self.map_info(turn_place["id"]) if turn_place else None,
+                      "npc": {"x": turn_place["x"], "y": turn_place["y"], "name": turn_name} if turn_place else None,
+                      "done": False})
+        return steps
 
     def refresh_market(self):
         self.market = Market(force=True)
@@ -833,8 +969,8 @@ class GameData:
             "todo": todo, "daily": bool(q.get("is_daily")), "weekly": bool(q.get("is_weekly")),
             "job_quest": q["region"] == own_job_region, "chain": q.get("parent"),
             "next": q.get("next_quest_name"), "needs": missing,
-            "desc": (q.get("description") or "").split("\n")[0][:220],
         }
+        entry["intro"], entry["task"] = self.quest_text(q)
         wiki = self.wiki_quest(q["name"])
         if wiki:
             entry["steps"], entry["wiki"] = wiki["steps"], wiki["source"]
