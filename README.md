@@ -38,7 +38,10 @@ in this mode:
 - **Quests**: what you can take now, where the NPC stands, what to kill and where, items you
   can buy instead of farming, and rewards with their market value. Tap Done to unlock chains.
 - **Go to**: routes between maps, with the next portal circled on the real map picture.
-  Tap "I went through" after each portal.
+  Tap "I went through" after each portal. The picture opens zoomed on the circled portal or NPC;
+  drag it, zoom with the wheel or +/-, or see the whole map. Each map's picture is downloaded once,
+  shrunk to 4096 px on its longest side and kept in `cache/maps/`, and a route's maps are fetched
+  ahead one at a time, so each step's map is there when you reach it.
 - **Gear**: best equips for your job and level, with snipe and median market prices.
 - **Skills**: what each skill does at level 1 and at max, your plan, and where your next SP and AP
   go. The SP order comes from the class guide for each job (`builds.json`, made by
