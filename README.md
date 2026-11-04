@@ -61,7 +61,9 @@ Settings has two separate switches, both off by default:
    between. Nothing to select. The **Now** tab shows what it read; its "What Companion sees" opens
    the picture.
    - HUD: level and job. Mini map: the map you're on, so routes move along by themselves.
-   - Quest Helper: the quests you track and their kill / collect counts.
+   - Quest Helper: the quests you track and their kill / collect counts. Over a busy map a count
+     is often half read; when only its goal comes through ("25" of "3 / 25 Axe Stump"), the count
+     is left unread rather than taken as reached.
    - CHARACTER STAT (S): level, EXP, stats, and ACC with Detail open. ITEM INVENTORY (I): mesos.
    - SKILL INVENTORY (K): your skill levels and SP left. QUEST (Q): the quests in the open tab;
      open Completed once and those quests are marked Done.

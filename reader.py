@@ -412,6 +412,10 @@ def _have(nums, need):
             have, sep, tail = digits[:i], digits[i], digits[i + 1:]
             if have.isdigit() and sep in SLASHES and (tail == "" or n.startswith(tail)) and int(have) <= need * 5:
                 return int(have)
+    if n and digits == n:
+        # only the goal read: "3 / 25" over a busy map often comes out as "25", and taking that as
+        # the count would say the quest is done and send you back to the NPC
+        return None
     first = re.match(r"\d+", digits)
     if first and (not need or int(first.group()) <= need * 5) and len(first.group()) <= 4:
         return int(first.group())
