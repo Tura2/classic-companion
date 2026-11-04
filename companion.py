@@ -179,7 +179,7 @@ def make_handler(data, state, cfg):
                 return (self.headers.get("Content-Type") or "").startswith("application/json")
             return origin is None or origin.removeprefix("http://") in ok
 
-        def send(self, code, body, ctype="application/json"):
+        def send(self, code, body, ctype="application/json", cache="no-store"):
             if isinstance(body, bytes):
                 raw = body
             else:
@@ -192,8 +192,8 @@ def make_handler(data, state, cfg):
                             raise
                         time.sleep(0.02)
             self.send_response(code)
-            self.send_header("Content-Type", ctype + "; charset=utf-8")
-            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Type", ctype + ("; charset=utf-8" if ctype.startswith(("text/", "application/json")) else ""))
+            self.send_header("Cache-Control", cache)
             self.send_header("Content-Length", str(len(raw)))
             self.end_headers()
             self.wfile.write(raw)
@@ -244,6 +244,14 @@ def make_handler(data, state, cfg):
                                            "capture_error": (state.get("live") or {}).get("capture_error", "")})
                 if url.path == "/api/maps":
                     return self.send(200, data.find_maps(q.get("q", "")))
+                if url.path in ("/api/mapimg", "/api/mapsize"):   # a map's picture, kept on disk after the first time
+                    got = data.map_image(int(q["id"]))
+                    if not got:
+                        return self.send(404, {"error": "no picture of this map"})
+                    path, meta = got
+                    if url.path == "/api/mapsize":
+                        return self.send(200, meta)
+                    return self.send(200, path.read_bytes(), "image/webp", "max-age=86400")
                 if url.path == "/api/layout":
                     return self.send(200, data.layout(int(q["id"])))
                 if url.path == "/api/nav":

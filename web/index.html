@@ -180,7 +180,6 @@ img.icon{width:36px;height:36px;object-fit:contain;image-rendering:pixelated;fle
 .vtab .lv{text-align:right;font-weight:900;white-space:nowrap}
 .vtab .lv small{display:inline;color:var(--muted)}
 .vgroup{font:400 .95rem "DotGothic16",sans-serif;color:var(--muted);padding:8px 8px 2px}
-.mapshot{display:block;width:100%;height:180px;object-fit:cover;background:#000;border-bottom:1px solid var(--rim-soft)}
 .mobtable{width:100%;border-collapse:separate;border-spacing:0 3px;margin-top:8px;font-size:.93rem}
 .mobtable th{font-size:.78rem;color:var(--muted);text-align:left;font-weight:800;padding:0 8px}
 .mobtable td{background:var(--cell);padding:3px 8px;font-weight:700}
@@ -257,10 +256,19 @@ img.icon{width:36px;height:36px;object-fit:contain;image-rendering:pixelated;fle
 .filters button[aria-pressed="true"]{color:#fff;background:var(--tab-on);border-color:var(--tab-on)}
 
 /* routes and search */
-.mapwrap{position:relative;overflow-x:auto;border:1px solid var(--rim);border-radius:6px;margin-top:10px;background:#000}
-.mapwrap .inner{position:relative;height:200px;width:max-content}
-.mapwrap img{height:200px;display:block}
-.mapwrap svg{position:absolute;inset:0;height:200px;width:100%}
+/* a map picture of any shape (5x wider than tall, or 4x taller than wide) in a box of one size */
+.mapview{position:relative;height:clamp(240px,44vh,540px);overflow:hidden;border:1px solid var(--rim);border-radius:6px;margin-top:10px;background:#000;touch-action:none;cursor:grab;user-select:none}
+.mapview.drag{cursor:grabbing}
+.mapview .stage{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform}
+.mapview img{display:block;max-width:none;pointer-events:none}
+.mapview svg{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
+.mapview .stage,.mapview .mapctl{opacity:0;transition:opacity .2s}
+.mapview.ready .stage,.mapview.ready .mapctl{opacity:1}
+.mapview .maploading{position:absolute;inset:0;display:grid;place-items:center;color:#aaa;font-weight:700}
+.mapview.ready .maploading{display:none}
+.mapctl{position:absolute;right:6px;bottom:6px;display:flex;gap:4px}
+.mapctl button{min-width:34px;height:34px;padding:0 10px;font-weight:900;color:#fff;background:rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.35);border-radius:6px;cursor:pointer}
+.mapctl button:hover{border-color:#fff}
 .ring{fill:none;stroke:#2EE59D;stroke-width:4px}
 @media (prefers-reduced-motion:no-preference){.ring{animation:pulse 1.2s ease-in-out infinite}@keyframes pulse{50%{stroke-width:9px;opacity:.6}}}
 .big{font:400 2.4rem/1 "DotGothic16",sans-serif;color:var(--good)}
@@ -665,8 +673,7 @@ async function renderTrain(){
       <td><b>${pretty(x.name)}</b>${x.weak.length ? `<small>weak to ${esc(x.weak.join(", "))}</small>` : ""}</td>
       <td>${x.level}</td><td>${fmt(x.hp)}</td><td>${fmt(x.exp)}</td><td>${x.need_acc}</td><td><b>×${x.count}</b></td></tr>`).join("");
   const short = p.acc && !m.hittable;
-  const detail = win(pretty(m.name), `${m.render ? `<img class="mapshot" src="${esc(m.render)}" alt="Map of ${esc(m.name)}" loading="lazy" onerror="this.remove()">` : ""}
-    <div class="body">
+  const detail = win(pretty(m.name), `<div class="body">${m.render ? `<div style="margin:-10px 0 12px">${mapBox(m.id, m.render, m.name, null)}</div>` : ""}
       <ul class="chips" style="margin:0"><li>${fmt(m.count)} monsters</li><li>${fmt(m.exp)} EXP per full clear</li>
         <li class="good">${(m.eff * 100).toFixed(1)} EXP per 100 HP</li>
         <li class="${short ? "bad" : ""}">~${m.need_acc} ACC to always hit${short ? `, you have ${p.acc}` : ""}</li></ul>
@@ -676,6 +683,7 @@ async function renderTrain(){
   $("#view").innerHTML = note + `<div class="md"><div class="master" role="tablist" aria-label="Training maps">${list}</div><div class="detail">${detail}</div></div>`;
   document.querySelectorAll(".vtab[data-i]").forEach(b => b.addEventListener("click", () => { trainPick = +b.dataset.i; renderTrain(); }));
   $("#go").addEventListener("click", () => goTo(m.id, m.name));
+  wireMaps();
   fitPanes();
 }
 
@@ -707,23 +715,105 @@ function wireSearch(id, onPick){
   });
 }
 
-function mapPicture(step){
-  if (!step.render) return "";
-  const p = step.portal || step.npc;
-  return `<div class="mapwrap" id="mapwrap"><div class="inner"><img src="${esc(step.render)}" alt="Map of ${esc(step.name)}" id="mapimg">
-    <svg id="mapsvg" preserveAspectRatio="none">${p ? `<circle class="ring" vector-effect="non-scaling-stroke" cx="${p.x}" cy="${p.y}" r="70"/>` : ""}</svg></div></div>`;
+// Map pictures come in every shape, so each sits in a box of one size: zoomed in on the portal or
+// NPC to look for, or the whole map when there's nothing to circle. Drag to look around, wheel or
+// +/- to zoom. The picture comes from Companion's own copy (fetched once, shrunk), else from OSMS.
+const FOCUS_SPAN = 1100;          // map pixels across the box's shorter side when zoomed on a target
+const mapViews = new Map();       // kept between redraws, so a poll doesn't reload the picture or undo your zoom
+function mapBox(id, remote, name, target){
+  if (!id) return "";
+  const key = `${id}:${target ? target.x + "," + target.y : ""}`;
+  return `<div class="mapview" data-mapview="${esc(key)}" data-id="${id}" data-remote="${esc(remote || "")}" data-name="${esc(name || "")}"${target ? ` data-x="${target.x}" data-y="${target.y}"` : ""}></div>`;
 }
-function wirePicture(step){
-  const img = $("#mapimg"); if (!img) return;
-  const fit = () => {
-    const svg = $("#mapsvg");
-    svg.setAttribute("viewBox", `0 0 ${img.naturalWidth} ${img.naturalHeight}`);
-    const ring = svg.querySelector(".ring"); if (ring) ring.setAttribute("r", Math.max(60, img.naturalHeight * 0.09));
-    svg.style.width = img.clientWidth + "px";
-    const t = step.portal || step.npc;
-    if (t){ const wrap = $("#mapwrap"); wrap.scrollLeft = t.x / img.naturalWidth * img.clientWidth - wrap.clientWidth / 2; }
-  };
-  img.complete ? fit() : img.addEventListener("load", fit);
+function wireMaps(){
+  document.querySelectorAll("#view [data-mapview]").forEach(ph => {
+    const key = ph.dataset.mapview, kept = mapViews.get(key);
+    if (kept && kept !== ph){ ph.replaceWith(kept); kept._refit(); return; }
+    mapViews.set(key, ph);
+    if (mapViews.size > 12) mapViews.delete(mapViews.keys().next().value);
+    buildMap(ph);
+  });
+}
+function preloadMap(id){ if (id) new Image().src = "/api/mapimg?id=" + id; }
+function buildMap(el){
+  const d = el.dataset, target = d.x != null ? {x:+d.x, y:+d.y} : null;
+  el.innerHTML = `<div class="stage"><img alt="Map of ${esc(d.name)}" draggable="false"><svg preserveAspectRatio="none"></svg></div>
+    <div class="maploading">Loading the map…</div>
+    <div class="mapctl"><button type="button" data-z="in" aria-label="Zoom in">+</button><button type="button" data-z="out" aria-label="Zoom out">−</button>
+      ${target ? `<button type="button" data-z="focus">Circled spot</button>` : ""}<button type="button" data-z="fit">Whole map</button></div>`;
+  const img = el.querySelector("img"), svg = el.querySelector("svg"), stage = el.querySelector(".stage");
+  let scale = 1, z = 1, tx = 0, ty = 0, ready = false, moved = false, ring = null, base = 60;
+  const size = () => [el.clientWidth, el.clientHeight];
+  const fitZ = () => { const [w, h] = size(); return Math.min(w / img.naturalWidth, h / img.naturalHeight); };
+  function apply(){
+    const [w, h] = size(), iw = img.naturalWidth * z, ih = img.naturalHeight * z;
+    tx = iw <= w ? (w - iw) / 2 : Math.min(0, Math.max(w - iw, tx));   // never past the map's edge
+    ty = ih <= h ? (h - ih) / 2 : Math.min(0, Math.max(h - ih, ty));
+    stage.style.transform = `translate(${tx}px,${ty}px) scale(${z})`;
+    if (ring) ring.setAttribute("r", Math.max(base, 20 / (z * scale)));   // still easy to spot with the whole map showing
+  }
+  function view(mode){
+    if (!ready || !el.clientWidth) return;
+    const [w, h] = size();
+    if (mode === "fit" || !target) z = fitZ();
+    else {
+      z = Math.min(3, Math.max(fitZ(), Math.min(w, h) / (FOCUS_SPAN * scale)));
+      tx = w / 2 - target.x * scale * z; ty = h / 2 - target.y * scale * z;
+    }
+    apply();
+  }
+  function zoomAt(f, cx, cy){
+    const nz = Math.min(4, Math.max(fitZ(), z * f));
+    tx = cx - (cx - tx) * nz / z; ty = cy - (cy - ty) * nz / z; z = nz; moved = true; apply();
+  }
+  el._refit = () => moved ? apply() : view("focus");
+  function show(s){
+    scale = s || 1; ready = true;
+    const W = img.naturalWidth / scale, H = img.naturalHeight / scale;
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    svg.setAttribute("width", img.naturalWidth); svg.setAttribute("height", img.naturalHeight);
+    if (target){
+      base = Math.max(50, Math.min(W, H) * 0.06);
+      svg.innerHTML = `<circle class="ring" vector-effect="non-scaling-stroke" cx="${target.x}" cy="${target.y}" r="${base}"/>`;
+      ring = svg.querySelector("circle");
+    }
+    el.classList.add("ready");
+    view("focus");
+  }
+  img.addEventListener("load", async () => {
+    if (img.dataset.remote) return show(1);
+    try{ show((await api("/api/mapsize?id=" + d.id)).scale); }catch(e){ show(1); }
+  });
+  img.addEventListener("error", () => {
+    if (d.remote && !img.dataset.remote){ img.dataset.remote = "1"; img.src = d.remote; }
+    else el.querySelector(".maploading").textContent = "No picture of this map.";
+  });
+  img.src = "/api/mapimg?id=" + d.id;
+  el.querySelectorAll("[data-z]").forEach(b => b.addEventListener("click", e => {
+    e.stopPropagation();
+    const [w, h] = size(), k = b.dataset.z;
+    if (k === "in" || k === "out") zoomAt(k === "in" ? 1.4 : 1 / 1.4, w / 2, h / 2);
+    else { moved = k === "fit"; view(k); }
+  }));
+  el.addEventListener("wheel", e => {
+    if (!ready) return;
+    e.preventDefault();
+    const r = el.getBoundingClientRect();
+    zoomAt(e.deltaY < 0 ? 1.2 : 1 / 1.2, e.clientX - r.left, e.clientY - r.top);
+  }, {passive:false});
+  let drag = null;
+  el.addEventListener("pointerdown", e => {
+    if (!ready || e.target.closest(".mapctl")) return;
+    drag = {x: e.clientX, y: e.clientY, tx, ty}; el.setPointerCapture(e.pointerId); el.classList.add("drag");
+  });
+  el.addEventListener("pointermove", e => {
+    if (!drag) return;
+    tx = drag.tx + e.clientX - drag.x; ty = drag.ty + e.clientY - drag.y; moved = true; apply();
+  });
+  const end = () => { drag = null; el.classList.remove("drag"); };
+  el.addEventListener("pointerup", end); el.addEventListener("pointercancel", end);
+  el.addEventListener("dblclick", () => { moved = false; view("focus"); });
+  new ResizeObserver(() => el._refit()).observe(el);
 }
 
 function guideBox(gd){
@@ -759,7 +849,7 @@ async function renderNav(force){
       ? `<h3 style="color:var(--good)">You’re there: ${pretty(st.name)}</h3>${st.npc ? `<div class="sub">Find ${pretty(st.npc.name)}, circled on the map.</div>` : ""}`
       : `<div class="row"><div class="big" aria-hidden="true">${esc(st.hint.arrow)}</div><div class="grow"><h3>Portal on the ${esc(st.hint.text)}</h3>
          <div class="sub">in ${pretty(st.name)}, leads to ${pretty(st.to.name)}</div></div></div>`;
-    right = win(st.arrived ? "Arrived" : `Step ${nav.i + 1} of ${last}`, `<div class="body">${head}${mapPicture(st)}
+    right = win(st.arrived ? "Arrived" : `Step ${nav.i + 1} of ${last}`, `<div class="body">${head}${mapBox(st.id, st.render, st.name, st.portal || st.npc)}
       <div class="btns" style="margin:12px 0 0">
         ${st.arrived ? "" : `<button class="btn primary" data-step="${nav.i + 1}">I went through</button>`}
         <button class="btn" id="stop">Stop route</button>
@@ -773,7 +863,8 @@ async function renderNav(force){
   const sg = $("#stopguide"); if (sg) sg.addEventListener("click", async () => { await api("/api/guide", {stop:true}); renderNav(true); });
   if (!nav) wireSearch("dest", async (id, name) => { pendingTo = null; const r = await api("/api/nav", {to:id, from: state.current && state.current.id}); if (r.error){ alert(r.error); } renderNav(true); });
   else {
-    wirePicture(nav.steps[nav.i]);
+    wireMaps();
+    const next = nav.steps[nav.i + 1]; if (next) preloadMap(next.id);      // the next map shows at once too
     document.querySelectorAll("[data-step]").forEach(b => b.addEventListener("click", async () => { await api("/api/nav/step", {i:+b.dataset.step}); renderNav(true); }));
     $("#stop").addEventListener("click", async () => { await api("/api/nav/stop", {}); renderNav(true); });
     document.querySelectorAll("[data-cmd]").forEach(b => b.addEventListener("click", () => api("/api/" + b.dataset.cmd, {})));
