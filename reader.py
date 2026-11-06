@@ -20,7 +20,8 @@ import re
 
 from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont, ImageOps, ImageStat
 
-from paths import APP_DIR
+from paths import APP_DIR, RES_DIR
+from anchors import Titles
 from gamedata import fix_numeral, match_place
 
 DIGITS_FILE = APP_DIR / "cache" / "hud_digits.json"   # level digit shapes learned from CHARACTER STAT
@@ -239,7 +240,7 @@ class LevelDigits:
             return None, False
         digits, exact = "", True
         for g in glyphs:
-            d = self.known.get(_bits(g))
+            d = self.known.get(_bits(g)) or self.nearest(g)
             if d is None:
                 exact = False
                 big = g.resize((g.width * 4, g.height * 4), Image.NEAREST)
@@ -247,15 +248,33 @@ class LevelDigits:
             digits += d
         return int(digits), exact
 
+    def nearest(self, g, min_same=0.92):
+        """The digit of the learned shape this one is nearly the same as (the game can draw a digit a
+        pixel differently), or None. Only shapes of the same size count."""
+        size, bits = _bits(g).split(":")
+        best, d = min_same, None
+        for k, v in self.known.items():
+            ksize, kbits = k.split(":")
+            if ksize == size:
+                same = sum(a == b for a, b in zip(bits, kbits)) / len(bits)
+                if same >= best:
+                    best, d = same, v
+        return d
+
     def learn(self, glyphs, level):
+        """Learn the digit shapes of a level known to be right. A shape already learned as another
+        digit is forgotten, never remapped: one of the two reads was wrong."""
         s = str(level)
         if len(s) != len(glyphs):
             return
         changed = False
         for g, d in zip(glyphs, s):
             k = _bits(g)
-            if self.known.get(k) != d:
+            if k not in self.known:
                 self.known[k], changed = d, True
+            elif self.known[k] != d:
+                del self.known[k]
+                changed = True
         if changed:
             try:
                 DIGITS_FILE.write_text(json.dumps(self.known), "utf-8")
@@ -281,6 +300,51 @@ DETAIL_ROWS = {"attack": 97, "wdef": 125, "magic": 153, "mdef": 181, "acc": 209,
                "critdmg": 293, "speed": 321, "jump": 350}
 
 
+def join_digits(text):
+    """OCR puts a space after a 1 ("1 52 (1 42+1 0)"): spaces between two digits go."""
+    return re.sub(r"(?<=\d)\s+(?=\d)", "", text or "")
+
+
+def stat_number(text):
+    """(total, base) of a stat row: "152 (142+10)" is 152 in all, 142 of it from AP, the rest from gear."""
+    text = join_digits(text)
+    total = to_int(text.split("(")[0])
+    m = re.search(r"\(\s*(\d+)\s*\+", text)
+    return total, int(m.group(1)) if m else total
+
+
+def fix_one_vs_l(text, crop):
+    """A name with the 1s OCR read as l put right ("Tural" is "Tura1"): the game's 1 has a flag
+    reaching left from the top of its stem, its l is a plain stem. Only when the crop's letters
+    can be told apart one by one (names have no spaces); an I without a flag stays as read."""
+    import numpy as np
+    ink = np.asarray(ImageOps.grayscale(crop)) < 150
+    cols = ink.any(axis=0)
+    glyphs, x = [], 0
+    while x < len(cols):
+        if cols[x]:
+            start = x
+            while x < len(cols) and cols[x]:
+                x += 1
+            glyphs.append(ink[:, start:x])
+        x += 1
+    if len(glyphs) != len(text):
+        # the letters can't be told apart (a see-through tooltip over the name): an l or I in it
+        # may be a 1, so the name isn't known from this read
+        return None if any(c in "lI|1" for c in text) else text
+    out = []
+    for ch, g in zip(text, glyphs):
+        if ch in "lI|1":
+            rows = np.where(g.any(axis=1))[0]
+            g = g[rows[0]:rows[-1] + 1]
+            stem = np.where(g.sum(axis=0) >= 0.7 * g.shape[0])[0]
+            top = g[:max(1, g.shape[0] // 3)]
+            flag = len(stem) and top[:, :max(0, stem.min() - 1)].any()
+            ch = "1" if flag else ("I" if ch == "I" else "l")
+        out.append(ch)
+    return "".join(out)
+
+
 def read_stat(frame, t, s, job_names):
     from rapidfuzz import fuzz, process
     x, y = t[1], t[2]     # values start right of the colored label cells, whose edge can read as a "1"
@@ -293,19 +357,23 @@ def read_stat(frame, t, s, job_names):
         if hit:
             job = hit[0]
             break
-    out = {"name": v.get("name"), "job": job}
+    name = v.get("name")
+    line = next((ln for ln in vals if ln[0] == name), None) if name else None
+    if line:      # OCR reads Tura1 as Tural: the 1's own shape says which it is
+        _, lx, ly, lw, lh = line
+        name = fix_one_vs_l(name, frame.crop((int(lx - 3 * s), int(ly - 2 * s), int(lx + lw + 4 * s), int(ly + lh + 2 * s))))
+    out = {"name": name, "job": job}
     lv = to_int(v.get("level", ""))
     out["level"] = lv if lv and 1 <= lv <= 200 else None
-    m = re.search(r"^([\d,\s]+)\((\d+)", v.get("exp", ""))     # "11392 (56%)", sometimes read "1 1392 (56%)"
+    m = re.search(r"^([\d,\s]+)\((\d+)", join_digits(v.get("exp", "")))     # "11392 (56%)", read "1 1392 (56%)"
     if m:
         out["exp"], out["exp_pct"] = to_int(m.group(1)), int(m.group(2))
-    for k in ("str", "dex", "int", "luk", "ap"):
-        n = to_int(re.split(r"\(", v.get(k, ""))[0])
-        if n is not None:
-            out[k] = n
-            # "93 (92+1)": 92 is the base you put AP into, +1 comes from gear
-            m = re.search(r"\(\s*(\d+)\s*\+", v.get(k, ""))
-            out[k + "_base"] = int(m.group(1)) if m else n
+    for k in ("str", "dex", "int", "luk"):
+        total, base = stat_number(v.get(k, ""))
+        if total is not None:
+            out[k], out[k + "_base"] = total, base
+    # unspent AP: a lone number in a box, which the values column reads as its border's "1"
+    out["ap"] = read_small_number(frame, (x + 122 * s, y + 388 * s, x + 170 * s, y + 410 * s), s)
     detail = read_box(frame, (x + 388 * s, y + 85 * s, x + 550 * s, y + 375 * s), s)
     d = nearest_row(detail, DETAIL_ROWS, y, s)
     if d:
@@ -351,21 +419,24 @@ def match_quest(text, names, cutoff=86):
     """The quest a (maybe cut short or half-read) title names, or None."""
     from rapidfuzz import fuzz, process
     cut = text.rstrip(".:… ")
+
+    def starting(low):
+        """The one name starting so; None when none does, or when several do (never a guess)."""
+        hits = [q for q in names if q.lower().startswith(low)]
+        return hits[0] if len(hits) == 1 else (None if hits else False)
     if text.endswith(("...", "..", "…", ":")) and len(cut) >= 8:
-        low = cut.lower()[:len(cut) - 1]
-        hit = next((q for q in names if q.lower().startswith(low)), None)
-        if hit:
-            return hit
+        hit = starting(cut.lower()[:len(cut) - 1])
+        if hit is not False:
+            return hit       # "Maple World's Unique Fun:..." is two lines (Match Cards, Omok): None
     hit = process.extractOne(text, names, scorer=fuzz.WRatio, score_cutoff=cutoff) if len(text) >= 6 else None
     if hit:
         return hit[0]
     if len(cut) >= 14:            # the Quest Helper cuts long titles without "..."
-        low = cut.lower()[:-2]
-        return next((q for q in names if q.lower().startswith(low)), None)
+        return starting(cut.lower()[:-2]) or None
     return None
 
 
-def read_quest_window(frame, t, s, quest_names):
+def read_quest_window(frame, t, s, quest_names, line_names=()):
     x, y = t[1], t[2]
     tab_area = frame.crop((int(x - 4 * s), int(y + 26 * s), int(x + 330 * s), int(y + 44 * s))).convert("RGB")
     px = tab_area.load()
@@ -388,11 +459,14 @@ def read_quest_window(frame, t, s, quest_names):
         from rapidfuzz import fuzz
         if any(fuzz.ratio(text.rstrip(".:… "), n["text"]) >= 75 for n in names):
             continue     # the same quest read twice (a row half-scrolled into view)
-        names.append({"text": text.rstrip(".:… "), "quest": match_quest(text, quest_names)})
+        quest = match_quest(text, quest_names)
+        # a quest line shows under its own name ("Caretaker's Ledger"), not its step's
+        names.append({"text": text.rstrip(".:… "), "quest": quest,
+                      "line": None if quest else match_quest(text, line_names)})
     return {"tab": tab, "quests": names}
 
 
-PROGRESS = re.compile(r"^\s*(\d[\d\s/Il!|$t.,'`]*?)\s*(?:no\s+)?([A-Za-z].*)?$")
+PROGRESS = re.compile(r"^\s*(\d[\d\s/\\Il!|$t.,'`]*?)\s*(?:no\s+)?([A-Za-z].*)?$")   # "1 \ 1": a slash read as \
 
 
 def _count_text(text):
@@ -400,8 +474,8 @@ def _count_text(text):
     are a few pixels tall, so a 0 often reads as O and the slash as a letter: "O j 40 Charm" is
     "0/40 Charm", "O 75 Zombie" is "0 75 Zombie"."""
     text = re.sub(r"^\s*[OoQD](?=\s*[^A-Za-z\s]|\s*[jrIl!|]\s*\d|\s+\d)", "0", text)
-    return re.sub(r"(?<=\d)\s*[jrIl!|]\s*(?=\d)", "/", text)
-SLASHES = "/Il1!|$t.,'`7"
+    return re.sub(r"(?<=\d)\s*[jrIl!|\\]\s*(?=\d)", "/", text)
+SLASHES = "/\\Il1!|$t.,'`7"
 
 
 def _have(nums, need):
@@ -423,13 +497,31 @@ def _have(nums, need):
         # only the goal read: "3 / 25" over a busy map often comes out as "25", and taking that as
         # the count would say the quest is done and send you back to the NPC
         return None
-    first = re.match(r"\d+", digits)
-    if first and (not need or int(first.group()) <= need * 5) and len(first.group()) <= 4:
-        return int(first.group())
+    # a lone number isn't a count: "0 / 25" with "0 / 2" hidden behind a rope reads "5"
     return None
 
 
-def read_helper(frame, t, s, quests_by_name):
+def helper_count(text):
+    """How many quests the Quest Helper says it tracks: the 4 in "Quest Helper (4/5)", or None."""
+    m = re.search(r"\(\s*(\d)", text or "")
+    return int(m.group(1)) if m else None
+
+
+def _join_rows(lines, s):
+    """OCR lines on the same row joined left to right: a rope or a vine across the see-through
+    Quest Helper cuts its lines in pieces ("Make a Pig & Oct", "us Omok Set")."""
+    rows = []
+    for ln in sorted(lines, key=lambda ln: (ln[2], ln[1])):
+        r = rows[-1] if rows else None
+        if r and abs(ln[2] - r[2]) <= 4 * s:
+            x, y = min(r[1], ln[1]), min(r[2], ln[2])
+            rows[-1] = (r[0] + " " + ln[0], x, y, max(r[1] + r[3], ln[1] + ln[3]) - x, max(r[2] + r[4], ln[2] + ln[4]) - y)
+        else:
+            rows.append(tuple(ln))
+    return rows
+
+
+def read_helper(frame, t, s, quests_by_name, active_ids=frozenset()):
     """Tracked quests and their kill / collect counts, as listed in the Quest Helper. The counts'
     text is often half-read over a busy map, so each line is matched to what the quest asks for.
     "bottom" is where its last quest or count line ends: the Quest Helper is only as tall as the
@@ -437,8 +529,34 @@ def read_helper(frame, t, s, quests_by_name):
     from rapidfuzz import fuzz, process
     names = list(quests_by_name)
     x, y = t[1], t[2]
+    # "Quest Helper (4/5)": how many quests it tracks, read close up (the 1x pass gives "(4.15)")
+    title = read_box(frame, (x - 4 * s, y - 4 * s, x + 220 * s, y + 21 * s), s)
+    tracked = helper_count(title[0][0]) if title else None
+    rows = _join_rows(read_box(frame, (x - 4 * s, y + 22 * s, x + 330 * s, y + 640 * s), s), s)
+    # titles are matched strictly: a title half-hidden by a rope is left out, never matched loosely
+    # (tried: "[E entl The Jourt' y Begins" then lands on "The Best Dad")
+    quests, bottom = _helper_rows(rows, s, quests_by_name, names, active_ids)
+    quests = cap_quests(quests, tracked)
+    for q in quests:
+        q["asks"] = len(q.pop("reqs"))     # how many counts the quest has, read or not
+        del q["score"]
+    return {"quests": quests, "bottom": bottom}
+
+
+def cap_quests(quests, tracked):
+    """More titles than the Quest Helper tracks means a misread line landed on a look-alike quest
+    ("Make a Slime & Octopus Omok Set"): the best-read ones stay, in their order on screen."""
+    if tracked is None or len(quests) <= tracked:
+        return quests
+    keep = sorted(quests, key=lambda q: -q["score"])[:tracked]
+    return [q for q in quests if any(q is k for k in keep)]
+
+
+def _helper_rows(rows, s, quests_by_name, names, active_ids):
+    """The Quest Helper's rows read as quests with their counts: (quests, bottom of the last row)."""
+    from rapidfuzz import fuzz
     quests, cur, bottom = [], None, None
-    for text, _, ly, _, lh in read_box(frame, (x - 4 * s, y + 22 * s, x + 330 * s, y + 640 * s), s):
+    for text, _, ly, _, lh in rows:
         m = PROGRESS.match(_count_text(text))
         if m:
             bottom = ly + lh
@@ -448,12 +566,13 @@ def read_helper(frame, t, s, quests_by_name):
             reqs = cur["reqs"]
             # whole-name similarity first, so "Blue Snail Shell" doesn't count as "Snail Shell"
             score = {r: max(fuzz.ratio(what, r), 0.9 * fuzz.partial_ratio(what, r)) for r in reqs} if what else {}
-            best = max(score, key=score.get) if score else None
-            best = (best,) if best and score[best] >= 60 else None
+            # each count shows once per quest: a line that looks most like a count already read is the
+            # look-alike next to it ("Omok Piece: Pig", "Omok Piece: Octopus"), not a repeat
+            taken = {n["what"] for n in cur["needs"]}
+            best = next(((r,) for r in sorted(score, key=score.get, reverse=True)
+                         if r not in taken and score[r] >= 60), None)
             need = reqs[best[0]] if best else None
             have = _have(m.group(1), need)
-            if best and any(n["what"] == best[0] for n in cur["needs"]):
-                continue     # each count shows once per quest; a repeat is a misread line
             if have is not None and best:
                 cur["needs"].append({"what": best[0], "have": have, "need": need})
             continue
@@ -462,14 +581,13 @@ def read_helper(frame, t, s, quests_by_name):
             bottom = ly + lh
             q = quests_by_name[hit]
             cur = {"quest": hit, "id": str(q["id"]), "needs": [],
+                   "score": fuzz.WRatio(text, hit) + (10 if str(q["id"]) in active_ids else 0),
                    "reqs": {r["name"]: r["count"] for r in q.get("requirements_list") or []
                             if r.get("type") in ("item", "mob") and r.get("count")}}
             quests.append(cur)
-        else:
+        elif not text.lstrip()[:1].isdigit():
             cur = None    # a title we couldn't place: skip its counts rather than pin them on another quest
-    for q in quests:
-        q["asks"] = len(q.pop("reqs"))     # how many counts the quest has, read or not
-    return {"quests": quests, "bottom": bottom}
+    return quests, bottom
 
 
 def read_hud(frame, t, s, job_names):
@@ -516,7 +634,42 @@ def read_minimap(lines, frame, s, map_names):
     return read_minimap_bar(lines, frame, s, map_names)
 
 
+def _text_box(lines, s, left=24, right=40, below=5):
+    """The box minimap_window and the route strip place things by: the text's box, widened by the
+    emblem's room on the left and the buttons' room on the right (at the 1200 px UI size)."""
+    return [round(min(ln[1] for ln in lines) - left * s), round(lines[0][2] - 4 * s),
+            round(max(ln[1] + ln[3] for ln in lines) + right * s), round(lines[-1][2] + lines[-1][4] + below * s)]
+
+
+def read_minimap_at(frame, title, s, map_names, buttons=None):
+    """(street, map name, title box, False) of the open mini map whose "MINI MAP" title (found by
+    its picture) is `title`: its two lines under the title, read close up. The window's own
+    "– + WORLD" buttons, when found, mark its right edge (8 px past them), so a window beside the
+    mini map isn't read with it. All None if the lines don't name a map."""
+    x, y = title[1], title[2]
+    right = buttons[1] + buttons[3] + 8 * s if buttons and abs(buttons[2] - y) < 20 * s else x + 340 * s
+    lines = read_box(frame, (x + 60 * s, y + 24 * s, right, y + 82 * s), s)
+    if not lines:
+        return None, None, None, None
+    name = match_place(lines[-1][0], map_names, 86)
+    if not name:
+        return None, None, None, None
+    return (lines[-2][0] if len(lines) > 1 else None), name, _text_box(lines, s), False
+
+
 BAR_SPLIT = re.compile(r"\s*[:•·]\s*")
+
+
+def read_minibar_at(frame, buttons, s, map_names):
+    """(street, map name, bar box, True) of the collapsed mini map, from the bar's text left of its
+    "– + WORLD" buttons (found by their picture), read close up. All None if it names no map."""
+    bx, by, _, bh = buttons[1:]
+    lines = read_box(frame, (bx - 470 * s, by - 4 * s, bx, by + bh + 4 * s), s)
+    parts = BAR_SPLIT.split(" : ".join(ln[0] for ln in lines), maxsplit=1)
+    name = match_place(parts[1], map_names, 86) if len(parts) == 2 else None
+    if not name:
+        return None, None, None, None
+    return parts[0].strip(), name, _text_box(lines, s, 0, 0, 0), True
 
 
 def read_minimap_bar(lines, frame, s, map_names):
@@ -752,17 +905,46 @@ def read_banded(frame, box, s, band=90, overlap=30):
     return sorted(out, key=lambda ln: (ln[2], ln[1]))
 
 
+def match_item(text, names):
+    """The item a shop row names. A name the list cuts short ("Hat Accuracy Scroll: Inter...") is
+    matched by its start, and only when one item starts so: a whole-name best match picks the
+    wrong grade ("…: Greater"). None rather than a guess."""
+    from rapidfuzz import fuzz, process
+    cut = text.rstrip(".… ")
+    if text.rstrip().endswith(("..", "…")) and len(cut) >= 4:
+        low = cut.lower()[:-1]
+        hits = [n for n in names if n.lower().startswith(low)]
+        return hits[0] if len(hits) == 1 else None
+    hit = process.extractOne(text, names, scorer=fuzz.ratio, score_cutoff=80)
+    return hit[0] if hit else None
+
+
+NPC_PRICE = re.compile(r"^\W{0,3}\d[\d,]*\s*Mesos\s*$", re.I)    # an NPC shop's row: "50 Mesos"
+
+
 def read_shop(frame, t, s, item_names):
     """A player shop: the seller and each listed item with its price. Rows show the item's name
     with "<count> for <price> mesos" under it; sold-out rows are grayed out."""
     x, y = t[1], t[2]          # the LEAVE STORE button
     box = left, top, right, bottom = x - 168 * s, y + 60 * s, x + 92 * s, y + 440 * s
     rows = lambda lines: [ln for ln in lines if abs(ln[1] - (x - 164 * s)) < 12 * s]   # not item tooltips
-    items = _shop_items(rows(read_box(frame, box, s)), frame, s, top, item_names)
-    if not items:              # nothing read at once: try again a few rows at a time
+    lines = read_box(frame, box, s)
+    items = _shop_items(rows(lines), frame, s, top, item_names)
+    # an NPC's store has the same LEAVE STORE and BUY ITEM buttons, but no SELLER INFO above them,
+    # and rows priced "50 Mesos" (a dialog over the list can hide those)
+    kind = "player"
+    if not items:
+        from rapidfuzz import fuzz
+        w, h = t[3], t[4]
+        above = read_box(frame, (x - 12 * s, y - 88 * s, x + w + 12 * s, y - 80 * s + h + 8 * s), s)
+        seller_info = any(fuzz.partial_ratio("SELLER INFO", re.sub(r"[^A-Za-z ]", "", ln[0]).upper()) >= 80
+                          and len(ln[0]) >= 4 for ln in above)
+        if not seller_info or sum(bool(NPC_PRICE.match(ln[0])) for ln in lines) >= 2:
+            kind = "npc"
+    if not items and kind == "player":   # nothing read at once: try again a few rows at a time
         items = _shop_items(rows(read_banded(frame, box, s)), frame, s, top, item_names)
     seller = read_box(frame, (x - 205 * s, y + 24 * s, x - 90 * s, y + 50 * s), s)
-    return {"seller": seller[0][0] if seller else None, "items": items,
+    return {"kind": kind, "seller": seller[0][0] if seller else None, "items": items,
             "box": [round(left), round(top), round(right - left), round(bottom - top)]}
 
 
@@ -776,13 +958,13 @@ def _shop_items(lines, frame, s, top, item_names):
             continue
         name_line = lines[i - 1]
         count, price = _num(m.group(1)), _num(m.group(2))
-        hit = process.extractOne(name_line[0].replace("VV", "W"), item_names, scorer=fuzz.ratio, score_cutoff=80)
+        hit = match_item(name_line[0].replace("VV", "W"), item_names)
         if not count or not price or not hit:
             continue
         # sold-out rows are drawn in light gray: no dark pixels in their name
         nx, ny, nw, nh = name_line[1:]
         dark = ImageOps.grayscale(frame.crop((int(nx), int(ny), int(nx + nw), int(ny + nh)))).getextrema()[0]
-        items.append({"name": hit[0], "count": count, "price": price, "unit": price / count,
+        items.append({"name": hit, "count": count, "price": price, "unit": price / count,
                       "sold": dark > 120, "cy": (name_line[2] + ln[2] + ln[4]) / 2 - top})
     return items
 
@@ -834,6 +1016,11 @@ class Reader:
     def __init__(self, data):
         self.data = data
         self.digits = LevelDigits()
+        self.titles = Titles(APP_DIR, RES_DIR)   # windows found by their title picture
+        self.map_titles = {}      # the mini map's title or collapsed bar, found by picture
+        self.reads = 0
+        self.last_glyphs = None   # the HUD level's digit shapes in the last read, to learn once it's sure
+        self.active_ids = set()  # quests the profile has in progress (set by the app), for the Quest Helper
         self.kept = {}            # window -> its title line and look, from the last read that saw it
         self.helper_depth = None  # how far the Quest Helper's last line reaches below its title
         self.by_name = {}         # quest name -> every quest with that name (job quests share names)
@@ -878,12 +1065,43 @@ class Reader:
             if mine:
                 self.quests_by_name[name] = mine[0]
         self.quest_names = sorted(self.quests_by_name)
+        self.line_names = sorted(getattr(self.data, "chains", {}))
+
+    def start_read(self):
+        """What a read keeps for afterwards starts empty: digit shapes of an older read are not this one's."""
+        self.last_glyphs = None
+
+    def learn_level(self, level):
+        """Learn the last read's HUD digit shapes as `level`, once the app is sure of it."""
+        if self.last_glyphs:
+            self.digits.learn(self.last_glyphs, level)
+
+    def place_by_picture(self, frame, s, wins):
+        """Put each window OCR found (or saw last time) exactly where its title picture is: OCR's own
+        box can be a few pixels off, and every field read from the window would shift with it. The
+        mini map, which OCR can't find, is looked for over the whole frame every third read while
+        its place isn't known. A title OCR read cleanly that its picture didn't match is learned as
+        the game draws it at this size."""
+        from rapidfuzz import fuzz
+        self.reads += 1
+        hints = {k: v for k, v in wins.items() if k in self.titles.boxes}
+        full = {n for n in ("minimap", "minibar") if n not in self.titles.last} if self.reads % 3 == 1 else set()
+        found = self.titles.find(frame, s, hints, full)
+        self.map_titles = {k: found.pop(k) for k in ("minimap", "minibar") if k in found}
+        wins.update(found)
+        for k, line in hints.items():
+            clean = re.sub(r"[^A-Za-z ]", "", line[0]).strip().upper()
+            want = self.titles.boxes[k]["text"].rstrip(" (")
+            if k not in found and fuzz.ratio(clean[:len(want)], want) >= 90 and clean.startswith(want[:3])                     and not (self.titles.learned / str(frame.height) / f"{k}.png").exists():
+                self.titles.learn(frame, k, line)
 
     def read(self, frame):
         """Everything visible in one frame of the game area, plus where each window is."""
         s = frame.height / REF_HEIGHT
+        self.start_read()
         lines = ocr(frame)
         wins = find_windows(lines, frame.height)
+        self.place_by_picture(frame, s, wins)
         # windows move whenever you drag them, so each read looks for them again. When a title didn't
         # read this time, a window whose title is still pixel for pixel where it was is still open
         for k in KEPT:
@@ -903,14 +1121,22 @@ class Reader:
         glyphs = None
         if "hud" in wins:
             seen["hud"] = read_hud(frame, wins["hud"], s, self.job_names)
-            glyphs = level_glyphs(frame, wins["hud"])
+            glyphs = self.last_glyphs = level_glyphs(frame, wins["hud"])
             lv, exact = self.digits.read(glyphs)
             seen["hud"].update(level=lv, level_exact=exact)
         done = quest_completed(lines, s, self.quest_names)
         if done:
             seen["quest_complete"] = done
-        street, name, title, collapsed = read_minimap([ln for ln in lines if ln[2] < frame.height * 0.9], frame, s,
-                                                      self.map_names)
+        # the mini map by its picture, read close up: open, by its title (its buttons look like the
+        # collapsed bar's, so the bar counts only when there's no open mini map); else as OCR saw it
+        mt, street, name = self.map_titles, None, None
+        if "minimap" in mt:
+            street, name, title, collapsed = read_minimap_at(frame, mt["minimap"], s, self.map_names, mt.get("minibar"))
+        elif "minibar" in mt:
+            street, name, title, collapsed = read_minibar_at(frame, mt["minibar"], s, self.map_names)
+        if not name:
+            street, name, title, collapsed = read_minimap([ln for ln in lines if ln[2] < frame.height * 0.9], frame,
+                                                          s, self.map_names)
         if name:
             seen["map"] = {"street": street, "name": name, "title": title, "collapsed": collapsed,
                            "window": None if collapsed else minimap_window(frame, title, s)}
@@ -921,25 +1147,28 @@ class Reader:
             seen["stat"] = read_stat(frame, wins["stat"], s, self.job_names)
             lv = seen["stat"].get("level")
             if glyphs and lv and len(str(lv)) == len(glyphs):    # both agree on the digit count
-                self.digits.learn(glyphs, lv)
                 seen["hud"].update(level=lv, level_exact=True)
         if "inventory" in wins:
             seen["inventory"] = read_inventory(frame, wins["inventory"], s)
         if "skills" in wins:
             seen["skills"] = read_skills(frame, wins["skills"], s, self.skill_names)
         if "quest" in wins:
-            seen["quest"] = read_quest_window(frame, wins["quest"], s, self.quest_names)
+            seen["quest"] = read_quest_window(frame, wins["quest"], s, self.quest_names, self.line_names)
             if seen["quest"] is None:
                 del seen["quest"], wins["quest"], seen["windows"]["quest"]
                 self.kept.pop("quest", None)
         if "helper" in wins:
-            seen["helper"] = read_helper(frame, wins["helper"], s, self.quests_by_name)
+            seen["helper"] = read_helper(frame, wins["helper"], s, self.quests_by_name, self.active_ids)
             bottom = seen["helper"].pop("bottom")
             if bottom is not None:      # kept while a read makes out none of its lines
                 self.helper_depth = (bottom - wins["helper"][2]) / s
         if "shop" in wins:
-            seen["shop"] = read_shop(frame, wins["shop"], s, self.item_names)
-            seen["shop"]["anchor"] = list(wins["shop"])
+            shop = read_shop(frame, wins["shop"], s, self.item_names)
+            if shop["kind"] == "player":     # an NPC's store has nothing to price
+                seen["shop"] = shop
+                seen["shop"]["anchor"] = list(wins["shop"])
+            else:
+                seen["windows"].pop("shop", None)
         return seen
 
     def read_shop_only(self, frame, anchor):
@@ -948,6 +1177,8 @@ class Reader:
         if not shop_still_open(frame, anchor, s):
             return None
         shop = read_shop(frame, anchor, s, self.item_names)
+        if shop["kind"] != "player":
+            return None
         shop["anchor"] = list(anchor)
         return {"shop": shop, "scale": round(s, 3), "quick": True,
                 "windows": {"shop": [round(anchor[1] / frame.width, 4), round(anchor[2] / frame.height, 4)]}}

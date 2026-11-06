@@ -17,3 +17,7 @@ dist/
 
 # Pictures of the game, until cropped and cleared for sharing
 samples/raw/
+
+# Reader test cases: pictures of the game, kept on this PC only
+samples/cases/
+*.bak
