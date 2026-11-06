@@ -13,6 +13,7 @@ sys.path.insert(0, str(APP / "tools"))
 def game_reader(tmp_path_factory):
     """One Reader for the whole run, on the cached game data (no downloads), learning HUD digit
     shapes into a copy so the real cache/hud_digits.json is never changed by a test."""
+    import anchors
     import gamedata
     import reader
     real_fetch = gamedata.fetch_json
@@ -22,6 +23,9 @@ def game_reader(tmp_path_factory):
         shutil.copy(reader.DIGITS_FILE, digits)
     reader.DIGITS_FILE = digits
     try:
-        return reader.Reader(gamedata.GameData())
+        r = reader.Reader(gamedata.GameData())
+        # title pictures learned during a run go to a temporary folder, not the real cache/titles/
+        r.titles = anchors.Titles(tmp_path_factory.mktemp("app"), res_dir=APP)
+        return r
     finally:
         gamedata.fetch_json = real_fetch

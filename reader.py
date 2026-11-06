@@ -20,7 +20,8 @@ import re
 
 from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont, ImageOps, ImageStat
 
-from paths import APP_DIR
+from paths import APP_DIR, RES_DIR
+from anchors import Titles
 from gamedata import fix_numeral, match_place
 
 DIGITS_FILE = APP_DIR / "cache" / "hud_digits.json"   # level digit shapes learned from CHARACTER STAT
@@ -846,6 +847,9 @@ class Reader:
     def __init__(self, data):
         self.data = data
         self.digits = LevelDigits()
+        self.titles = Titles(APP_DIR, RES_DIR)   # windows found by their title picture
+        self.map_titles = {}      # the mini map's title or collapsed bar, found by picture
+        self.reads = 0
         self.kept = {}            # window -> its title line and look, from the last read that saw it
         self.helper_depth = None  # how far the Quest Helper's last line reaches below its title
         self.by_name = {}         # quest name -> every quest with that name (job quests share names)
@@ -891,11 +895,31 @@ class Reader:
                 self.quests_by_name[name] = mine[0]
         self.quest_names = sorted(self.quests_by_name)
 
+    def place_by_picture(self, frame, s, wins):
+        """Put each window OCR found (or saw last time) exactly where its title picture is: OCR's own
+        box can be a few pixels off, and every field read from the window would shift with it. The
+        mini map, which OCR can't find, is looked for over the whole frame every third read while
+        its place isn't known. A title OCR read cleanly that its picture didn't match is learned as
+        the game draws it at this size."""
+        from rapidfuzz import fuzz
+        self.reads += 1
+        hints = {k: v for k, v in wins.items() if k in self.titles.boxes}
+        full = {n for n in ("minimap", "minibar") if n not in self.titles.last} if self.reads % 3 == 1 else set()
+        found = self.titles.find(frame, s, hints, full)
+        self.map_titles = {k: found.pop(k) for k in ("minimap", "minibar") if k in found}
+        wins.update(found)
+        for k, line in hints.items():
+            clean = re.sub(r"[^A-Za-z ]", "", line[0]).strip().upper()
+            want = self.titles.boxes[k]["text"].rstrip(" (")
+            if k not in found and fuzz.ratio(clean[:len(want)], want) >= 90 and clean.startswith(want[:3])                     and not (self.titles.learned / str(frame.height) / f"{k}.png").exists():
+                self.titles.learn(frame, k, line)
+
     def read(self, frame):
         """Everything visible in one frame of the game area, plus where each window is."""
         s = frame.height / REF_HEIGHT
         lines = ocr(frame)
         wins = find_windows(lines, frame.height)
+        self.place_by_picture(frame, s, wins)
         # windows move whenever you drag them, so each read looks for them again. When a title didn't
         # read this time, a window whose title is still pixel for pixel where it was is still open
         for k in KEPT:
