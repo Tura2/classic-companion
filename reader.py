@@ -364,21 +364,24 @@ def match_quest(text, names, cutoff=86):
     """The quest a (maybe cut short or half-read) title names, or None."""
     from rapidfuzz import fuzz, process
     cut = text.rstrip(".:… ")
+
+    def starting(low):
+        """The one name starting so; None when none does, or when several do (never a guess)."""
+        hits = [q for q in names if q.lower().startswith(low)]
+        return hits[0] if len(hits) == 1 else (None if hits else False)
     if text.endswith(("...", "..", "…", ":")) and len(cut) >= 8:
-        low = cut.lower()[:len(cut) - 1]
-        hit = next((q for q in names if q.lower().startswith(low)), None)
-        if hit:
-            return hit
+        hit = starting(cut.lower()[:len(cut) - 1])
+        if hit is not False:
+            return hit       # "Maple World's Unique Fun:..." is two lines (Match Cards, Omok): None
     hit = process.extractOne(text, names, scorer=fuzz.WRatio, score_cutoff=cutoff) if len(text) >= 6 else None
     if hit:
         return hit[0]
     if len(cut) >= 14:            # the Quest Helper cuts long titles without "..."
-        low = cut.lower()[:-2]
-        return next((q for q in names if q.lower().startswith(low)), None)
+        return starting(cut.lower()[:-2]) or None
     return None
 
 
-def read_quest_window(frame, t, s, quest_names):
+def read_quest_window(frame, t, s, quest_names, line_names=()):
     x, y = t[1], t[2]
     tab_area = frame.crop((int(x - 4 * s), int(y + 26 * s), int(x + 330 * s), int(y + 44 * s))).convert("RGB")
     px = tab_area.load()
@@ -401,7 +404,10 @@ def read_quest_window(frame, t, s, quest_names):
         from rapidfuzz import fuzz
         if any(fuzz.ratio(text.rstrip(".:… "), n["text"]) >= 75 for n in names):
             continue     # the same quest read twice (a row half-scrolled into view)
-        names.append({"text": text.rstrip(".:… "), "quest": match_quest(text, quest_names)})
+        quest = match_quest(text, quest_names)
+        # a quest line shows under its own name ("Caretaker's Ledger"), not its step's
+        names.append({"text": text.rstrip(".:… "), "quest": quest,
+                      "line": None if quest else match_quest(text, line_names)})
     return {"tab": tab, "quests": names}
 
 
@@ -974,6 +980,7 @@ class Reader:
             if mine:
                 self.quests_by_name[name] = mine[0]
         self.quest_names = sorted(self.quests_by_name)
+        self.line_names = sorted(getattr(self.data, "chains", {}))
 
     def place_by_picture(self, frame, s, wins):
         """Put each window OCR found (or saw last time) exactly where its title picture is: OCR's own
@@ -1052,7 +1059,7 @@ class Reader:
         if "skills" in wins:
             seen["skills"] = read_skills(frame, wins["skills"], s, self.skill_names)
         if "quest" in wins:
-            seen["quest"] = read_quest_window(frame, wins["quest"], s, self.quest_names)
+            seen["quest"] = read_quest_window(frame, wins["quest"], s, self.quest_names, self.line_names)
             if seen["quest"] is None:
                 del seen["quest"], wins["quest"], seen["windows"]["quest"]
                 self.kept.pop("quest", None)

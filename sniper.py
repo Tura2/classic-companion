@@ -84,6 +84,17 @@ SAMPLES_KEPT = 30         # the newest pictures of shops that couldn't be read; 
 CONFIRM_READS = 3         # a quest joins In progress or Done only after this many reads in a row agree
 
 
+def current_step(chain_ids, done):
+    """The step of a quest line you're on: its first quest not done, or None when all are."""
+    return next((q for q in chain_ids if q not in done), None)
+
+
+def line_step(chain_ids, done, active):
+    """The quest a line seen In Progress adds to your quests: none when one of its quests is already
+    going (a line can be a set of quests to choose from, like the six Omok sets), else its step."""
+    return None if any(q in active for q in chain_ids) else current_step(chain_ids, done)
+
+
 class Agree:
     """What a read says counts only once it says it CONFIRM_READS times in a row: one misread title
     (or a tab taken for another) would otherwise put a quest you never took into In progress or Done."""
@@ -905,7 +916,8 @@ class App:
             found = [(x, byname[x["quest"]]) for x in qw["quests"] if x["quest"] in byname]
             # a quest above your level can't be taken yet, let alone done: that's a misread title
             seen_ids = [str(q["id"]) for _, q in found if (q.get("level_min") or 0) <= lv]
-            sure = self.agree.update("tab:" + qw["tab"], seen_ids)
+            lines = [x["line"] for x in qw["quests"] if x.get("line") in self.data.chains] if qw["tab"] == "in_progress" else []
+            sure = self.agree.update("tab:" + qw["tab"], seen_ids + ["line:" + n for n in lines])
             ids = [i for i in dict.fromkeys(seen_ids) if i in sure]
             qw = {**qw, "quests": [{**x, "id": str(q["id"])} for x, q in found if str(q["id"]) in sure]}
             if ids and qw["tab"] == "completed":
@@ -917,6 +929,16 @@ class App:
                 have = {(a.get("id"), a.get("name")) for a in prof.get("quests_active", [])}
                 new = [{"name": q["quest"], "id": q["id"]} for q in qw["quests"]]
                 new = [a for a in new if (a["id"], a["name"]) not in have]
+                if new:
+                    put("quests_active", prof.get("quests_active", []) + new)
+            if lines:
+                # a quest line In Progress: its step joins your quests, unless one of its quests is
+                # already going (once three reads in a row agree, like any quest seen there)
+                done = set(map(str, prof.get("quests_done", [])))
+                active = {str(a.get("id")) for a in prof.get("quests_active", [])}
+                names = {str(q["id"]): q["name"] for q in self.data.quest_list}
+                steps = [line_step(self.data.chains[n], done, active) for n in dict.fromkeys(lines) if "line:" + n in sure]
+                new = [{"name": names.get(i, i), "id": i} for i in dict.fromkeys(steps) if i]
                 if new:
                     put("quests_active", prof.get("quests_active", []) + new)
         # a quest tracked in the Quest Helper is in progress, and stays so in the Quests tab until the

@@ -42,3 +42,9 @@ def test_more_titles_than_tracked_keeps_the_best_read_in_screen_order():
           {"quest": "The Filing Error", "score": 100}]
     assert [q["quest"] for q in reader.cap_quests(qs, 2)] == ["Make a Pig & Octopus Omok Set", "The Filing Error"]
     assert reader.cap_quests(qs, None) == qs and reader.cap_quests(qs, 3) == qs
+
+
+def test_cut_name_that_fits_two_is_not_guessed():
+    lines = ["Caretaker's Ledger", "Maple World's Unique Fun: Match Cards", "Maple World's Unique Fun: Omok"]
+    assert reader.match_quest("Maple World's Unique Fun:...", lines) is None
+    assert reader.match_quest("Caretaker's Led...", lines) == "Caretaker's Ledger"
