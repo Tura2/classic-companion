@@ -1067,6 +1067,10 @@ class Reader:
         self.quest_names = sorted(self.quests_by_name)
         self.line_names = sorted(getattr(self.data, "chains", {}))
 
+    def start_read(self):
+        """What a read keeps for afterwards starts empty: digit shapes of an older read are not this one's."""
+        self.last_glyphs = None
+
     def learn_level(self, level):
         """Learn the last read's HUD digit shapes as `level`, once the app is sure of it."""
         if self.last_glyphs:
@@ -1094,6 +1098,7 @@ class Reader:
     def read(self, frame):
         """Everything visible in one frame of the game area, plus where each window is."""
         s = frame.height / REF_HEIGHT
+        self.start_read()
         lines = ocr(frame)
         wins = find_windows(lines, frame.height)
         self.place_by_picture(frame, s, wins)

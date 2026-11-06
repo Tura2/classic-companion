@@ -53,10 +53,15 @@ def test_a_big_mesos_change_needs_two_reads():
 def test_another_name_is_not_written_and_blocks_the_rest():
     g, prof = gate(), profile()
     for _ in range(2):
-        g.check(prof, stat(name="Tural"))
-    got = g.check(prof, stat(name="Tural"))
-    assert got.get("other_name") == "Tural"
+        g.check(prof, stat(name="Offir"))
+    got = g.check(prof, stat(name="Offir"))
+    assert got.get("other_name") == "Offir"
     assert "name" not in got and "stats" not in got and "level" not in got
+
+
+def test_a_right_name_is_never_put_wrong():
+    got = gate().check(profile(), stat(name="Tural"))      # "Tura1" saved, a 1 read as l
+    assert "name" not in got and "blocked" not in got
 
 
 def test_skills_that_add_up_are_saved():
@@ -107,3 +112,21 @@ def test_a_shape_a_pixel_off_reads_as_the_learned_digit(tmp_path, monkeypatch):
 def test_nothing_is_saved_while_another_name_shows():
     got = gate().check(profile(), {**stat(name="Offir", level=10), "inventory": {"mesos": 500}})
     assert not ({"level", "stats", "mesos", "acc", "skills_now"} & set(got))
+
+
+def test_a_name_saved_misread_by_the_old_reader_is_put_right():
+    # profiles saved before this fix hold "Tural": the new read "Tura1" is the same character
+    g, prof = gate(), profile(name="Tural")
+    got = g.check(prof, stat())
+    assert got.get("name") == "Tura1" and "blocked" not in got and "stats" in got
+
+
+def test_learn_level_ignores_digits_from_an_older_read(tmp_path, monkeypatch):
+    import gamedata  # noqa: F401  (Reader needs no data for this)
+    from PIL import Image
+    monkeypatch.setattr(reader, "DIGITS_FILE", tmp_path / "digits.json")
+    r = reader.Reader.__new__(reader.Reader)
+    r.digits, r.last_glyphs = reader.LevelDigits(), [Image.new("L", (10, 11), 255)] * 2
+    r.start_read()                       # a new read that doesn't see the HUD
+    r.learn_level(33)
+    assert r.digits.known == {}

@@ -15,6 +15,13 @@ character the rule doesn't fit (a magician advances at level 8, not 10).
 """
 
 LEVEL_READS, MESOS_READS, NAME_READS, ODD_READS = 3, 2, 3, 5
+ONE_OR_L = str.maketrans("lI|", "111")
+
+
+def same_name(a, b):
+    """The same name but for a 1 read as an l, I or |: how OCR read "Tura1" before names were
+    checked letter by letter, and profiles saved then still hold it."""
+    return a.translate(ONE_OR_L) == b.translate(ONE_OR_L)
 
 
 class Gate:
@@ -41,8 +48,12 @@ class Gate:
             if not prof.get("name"):
                 if self._again("name", name) >= NAME_READS:
                     out["name"] = name
-            elif name == prof["name"]:
+            elif same_name(name, prof["name"]):
                 self.other = None
+                # a name the old reader saved misread ("Tural") is put right; never the other way
+                if all(r == s or (r == "1" and s in "lI|") for r, s in zip(name, prof["name"])):
+                    if name != prof["name"]:
+                        out["name"] = name
             else:
                 # another name on screen: none of this read is yours. Read 3 times, it's another character
                 if self._again("other", name) >= NAME_READS:
