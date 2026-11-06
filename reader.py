@@ -281,6 +281,19 @@ DETAIL_ROWS = {"attack": 97, "wdef": 125, "magic": 153, "mdef": 181, "acc": 209,
                "critdmg": 293, "speed": 321, "jump": 350}
 
 
+def join_digits(text):
+    """OCR puts a space after a 1 ("1 52 (1 42+1 0)"): spaces between two digits go."""
+    return re.sub(r"(?<=\d)\s+(?=\d)", "", text or "")
+
+
+def stat_number(text):
+    """(total, base) of a stat row: "152 (142+10)" is 152 in all, 142 of it from AP, the rest from gear."""
+    text = join_digits(text)
+    total = to_int(text.split("(")[0])
+    m = re.search(r"\(\s*(\d+)\s*\+", text)
+    return total, int(m.group(1)) if m else total
+
+
 def read_stat(frame, t, s, job_names):
     from rapidfuzz import fuzz, process
     x, y = t[1], t[2]     # values start right of the colored label cells, whose edge can read as a "1"
@@ -296,16 +309,15 @@ def read_stat(frame, t, s, job_names):
     out = {"name": v.get("name"), "job": job}
     lv = to_int(v.get("level", ""))
     out["level"] = lv if lv and 1 <= lv <= 200 else None
-    m = re.search(r"^([\d,\s]+)\((\d+)", v.get("exp", ""))     # "11392 (56%)", sometimes read "1 1392 (56%)"
+    m = re.search(r"^([\d,\s]+)\((\d+)", join_digits(v.get("exp", "")))     # "11392 (56%)", read "1 1392 (56%)"
     if m:
         out["exp"], out["exp_pct"] = to_int(m.group(1)), int(m.group(2))
-    for k in ("str", "dex", "int", "luk", "ap"):
-        n = to_int(re.split(r"\(", v.get(k, ""))[0])
-        if n is not None:
-            out[k] = n
-            # "93 (92+1)": 92 is the base you put AP into, +1 comes from gear
-            m = re.search(r"\(\s*(\d+)\s*\+", v.get(k, ""))
-            out[k + "_base"] = int(m.group(1)) if m else n
+    for k in ("str", "dex", "int", "luk"):
+        total, base = stat_number(v.get(k, ""))
+        if total is not None:
+            out[k], out[k + "_base"] = total, base
+    # unspent AP: a lone number in a box, which the values column reads as its border's "1"
+    out["ap"] = read_small_number(frame, (x + 122 * s, y + 388 * s, x + 170 * s, y + 410 * s), s)
     detail = read_box(frame, (x + 388 * s, y + 85 * s, x + 550 * s, y + 375 * s), s)
     d = nearest_row(detail, DETAIL_ROWS, y, s)
     if d:
