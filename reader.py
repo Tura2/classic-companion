@@ -850,17 +850,46 @@ def read_banded(frame, box, s, band=90, overlap=30):
     return sorted(out, key=lambda ln: (ln[2], ln[1]))
 
 
+def match_item(text, names):
+    """The item a shop row names. A name the list cuts short ("Hat Accuracy Scroll: Inter...") is
+    matched by its start, and only when one item starts so: a whole-name best match picks the
+    wrong grade ("…: Greater"). None rather than a guess."""
+    from rapidfuzz import fuzz, process
+    cut = text.rstrip(".… ")
+    if text.rstrip().endswith(("..", "…")) and len(cut) >= 4:
+        low = cut.lower()[:-1]
+        hits = [n for n in names if n.lower().startswith(low)]
+        return hits[0] if len(hits) == 1 else None
+    hit = process.extractOne(text, names, scorer=fuzz.ratio, score_cutoff=80)
+    return hit[0] if hit else None
+
+
+NPC_PRICE = re.compile(r"^\W{0,3}\d[\d,]*\s*Mesos\s*$", re.I)    # an NPC shop's row: "50 Mesos"
+
+
 def read_shop(frame, t, s, item_names):
     """A player shop: the seller and each listed item with its price. Rows show the item's name
     with "<count> for <price> mesos" under it; sold-out rows are grayed out."""
     x, y = t[1], t[2]          # the LEAVE STORE button
     box = left, top, right, bottom = x - 168 * s, y + 60 * s, x + 92 * s, y + 440 * s
     rows = lambda lines: [ln for ln in lines if abs(ln[1] - (x - 164 * s)) < 12 * s]   # not item tooltips
-    items = _shop_items(rows(read_box(frame, box, s)), frame, s, top, item_names)
-    if not items:              # nothing read at once: try again a few rows at a time
+    lines = read_box(frame, box, s)
+    items = _shop_items(rows(lines), frame, s, top, item_names)
+    # an NPC's store has the same LEAVE STORE and BUY ITEM buttons, but no SELLER INFO above them,
+    # and rows priced "50 Mesos" (a dialog over the list can hide those)
+    kind = "player"
+    if not items:
+        from rapidfuzz import fuzz
+        w, h = t[3], t[4]
+        above = read_box(frame, (x - 12 * s, y - 88 * s, x + w + 12 * s, y - 80 * s + h + 8 * s), s)
+        seller_info = any(fuzz.partial_ratio("SELLER INFO", re.sub(r"[^A-Za-z ]", "", ln[0]).upper()) >= 80
+                          and len(ln[0]) >= 4 for ln in above)
+        if not seller_info or sum(bool(NPC_PRICE.match(ln[0])) for ln in lines) >= 2:
+            kind = "npc"
+    if not items and kind == "player":   # nothing read at once: try again a few rows at a time
         items = _shop_items(rows(read_banded(frame, box, s)), frame, s, top, item_names)
     seller = read_box(frame, (x - 205 * s, y + 24 * s, x - 90 * s, y + 50 * s), s)
-    return {"seller": seller[0][0] if seller else None, "items": items,
+    return {"kind": kind, "seller": seller[0][0] if seller else None, "items": items,
             "box": [round(left), round(top), round(right - left), round(bottom - top)]}
 
 
@@ -874,13 +903,13 @@ def _shop_items(lines, frame, s, top, item_names):
             continue
         name_line = lines[i - 1]
         count, price = _num(m.group(1)), _num(m.group(2))
-        hit = process.extractOne(name_line[0].replace("VV", "W"), item_names, scorer=fuzz.ratio, score_cutoff=80)
+        hit = match_item(name_line[0].replace("VV", "W"), item_names)
         if not count or not price or not hit:
             continue
         # sold-out rows are drawn in light gray: no dark pixels in their name
         nx, ny, nw, nh = name_line[1:]
         dark = ImageOps.grayscale(frame.crop((int(nx), int(ny), int(nx + nw), int(ny + nh)))).getextrema()[0]
-        items.append({"name": hit[0], "count": count, "price": price, "unit": price / count,
+        items.append({"name": hit, "count": count, "price": price, "unit": price / count,
                       "sold": dark > 120, "cy": (name_line[2] + ln[2] + ln[4]) / 2 - top})
     return items
 
@@ -1069,8 +1098,12 @@ class Reader:
             if bottom is not None:      # kept while a read makes out none of its lines
                 self.helper_depth = (bottom - wins["helper"][2]) / s
         if "shop" in wins:
-            seen["shop"] = read_shop(frame, wins["shop"], s, self.item_names)
-            seen["shop"]["anchor"] = list(wins["shop"])
+            shop = read_shop(frame, wins["shop"], s, self.item_names)
+            if shop["kind"] == "player":     # an NPC's store has nothing to price
+                seen["shop"] = shop
+                seen["shop"]["anchor"] = list(wins["shop"])
+            else:
+                seen["windows"].pop("shop", None)
         return seen
 
     def read_shop_only(self, frame, anchor):
@@ -1079,6 +1112,8 @@ class Reader:
         if not shop_still_open(frame, anchor, s):
             return None
         shop = read_shop(frame, anchor, s, self.item_names)
+        if shop["kind"] != "player":
+            return None
         shop["anchor"] = list(anchor)
         return {"shop": shop, "scale": round(s, 3), "quick": True,
                 "windows": {"shop": [round(anchor[1] / frame.width, 4), round(anchor[2] / frame.height, 4)]}}

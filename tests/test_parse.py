@@ -48,3 +48,17 @@ def test_cut_name_that_fits_two_is_not_guessed():
     lines = ["Caretaker's Ledger", "Maple World's Unique Fun: Match Cards", "Maple World's Unique Fun: Omok"]
     assert reader.match_quest("Maple World's Unique Fun:...", lines) is None
     assert reader.match_quest("Caretaker's Led...", lines) == "Caretaker's Ledger"
+
+
+SCROLLS = ["Hat Accuracy Scroll: Greater", "Hat Accuracy Scroll: Intermediate", "Hat Accuracy Scroll: Basic",
+           "Earring INT Scroll: Intermediate", "Earring INT Scroll: Greater", "Horny Mushroom Cap"]
+
+
+@pytest.mark.parametrize("text,expected", [
+    ("Hat Accuracy Scroll: Inter...", "Hat Accuracy Scroll: Intermediate"),
+    ("Earring INT Scroll: Interm...", "Earring INT Scroll: Intermediate"),
+    ("Horny Mushroom Cap", "Horny Mushroom Cap"),
+    ("Hat Accuracy Scroll: ...", None),          # three grades start so: not guessed
+])
+def test_shop_item_name(text, expected):
+    assert reader.match_item(text, SCROLLS) == expected
