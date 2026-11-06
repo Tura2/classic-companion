@@ -529,7 +529,42 @@ def read_minimap(lines, frame, s, map_names):
     return read_minimap_bar(lines, frame, s, map_names)
 
 
+def _text_box(lines, s, left=24, right=40, below=5):
+    """The box minimap_window and the route strip place things by: the text's box, widened by the
+    emblem's room on the left and the buttons' room on the right (at the 1200 px UI size)."""
+    return [round(min(ln[1] for ln in lines) - left * s), round(lines[0][2] - 4 * s),
+            round(max(ln[1] + ln[3] for ln in lines) + right * s), round(lines[-1][2] + lines[-1][4] + below * s)]
+
+
+def read_minimap_at(frame, title, s, map_names, buttons=None):
+    """(street, map name, title box, False) of the open mini map whose "MINI MAP" title (found by
+    its picture) is `title`: its two lines under the title, read close up. The window's own
+    "– + WORLD" buttons, when found, mark its right edge (8 px past them), so a window beside the
+    mini map isn't read with it. All None if the lines don't name a map."""
+    x, y = title[1], title[2]
+    right = buttons[1] + buttons[3] + 8 * s if buttons and abs(buttons[2] - y) < 20 * s else x + 340 * s
+    lines = read_box(frame, (x + 60 * s, y + 24 * s, right, y + 82 * s), s)
+    if not lines:
+        return None, None, None, None
+    name = match_place(lines[-1][0], map_names, 86)
+    if not name:
+        return None, None, None, None
+    return (lines[-2][0] if len(lines) > 1 else None), name, _text_box(lines, s), False
+
+
 BAR_SPLIT = re.compile(r"\s*[:•·]\s*")
+
+
+def read_minibar_at(frame, buttons, s, map_names):
+    """(street, map name, bar box, True) of the collapsed mini map, from the bar's text left of its
+    "– + WORLD" buttons (found by their picture), read close up. All None if it names no map."""
+    bx, by, _, bh = buttons[1:]
+    lines = read_box(frame, (bx - 470 * s, by - 4 * s, bx, by + bh + 4 * s), s)
+    parts = BAR_SPLIT.split(" : ".join(ln[0] for ln in lines), maxsplit=1)
+    name = match_place(parts[1], map_names, 86) if len(parts) == 2 else None
+    if not name:
+        return None, None, None, None
+    return parts[0].strip(), name, _text_box(lines, s, 0, 0, 0), True
 
 
 def read_minimap_bar(lines, frame, s, map_names):
@@ -945,8 +980,16 @@ class Reader:
         done = quest_completed(lines, s, self.quest_names)
         if done:
             seen["quest_complete"] = done
-        street, name, title, collapsed = read_minimap([ln for ln in lines if ln[2] < frame.height * 0.9], frame, s,
-                                                      self.map_names)
+        # the mini map by its picture, read close up: open, by its title (its buttons look like the
+        # collapsed bar's, so the bar counts only when there's no open mini map); else as OCR saw it
+        mt, street, name = self.map_titles, None, None
+        if "minimap" in mt:
+            street, name, title, collapsed = read_minimap_at(frame, mt["minimap"], s, self.map_names, mt.get("minibar"))
+        elif "minibar" in mt:
+            street, name, title, collapsed = read_minibar_at(frame, mt["minibar"], s, self.map_names)
+        if not name:
+            street, name, title, collapsed = read_minimap([ln for ln in lines if ln[2] < frame.height * 0.9], frame,
+                                                          s, self.map_names)
         if name:
             seen["map"] = {"street": street, "name": name, "title": title, "collapsed": collapsed,
                            "window": None if collapsed else minimap_window(frame, title, s)}
