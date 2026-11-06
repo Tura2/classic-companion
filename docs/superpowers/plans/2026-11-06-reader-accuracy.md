@@ -20,7 +20,7 @@
 | s1 | same, Quest Helper (4 quests), Lemon tooltip over the stat window, inventory moved | Helper 15/15 correct; full read misses the tooltip, quick look finds it; level read 132 on 1 frame |
 | s2 | hunting map (A Hill West of Henesys), stat + mini map moved, killing | Helper numbers never wrong (Maple Leaf 1→2→3, Omok Piece: Pig 0→1); a count line dropped on 6/15 frames (Omok Piece: Pig / Octopus, Arwen's Glass Shoe); EXP and MP lines missing on 6/15 frames, under the game's own "Maple Leaf 2 / 30" popup |
 | s3a/s3b | Skill window, 1st-job tab then Hunter tab; mini map collapsed | skills 8/8 frames perfect (incl. "Amazon's Judgem..."); collapsed bar read None on 8/8 |
-| s4 | another player's shop (SourSweet) with the Earring INT Scroll tooltip over its rows; see-through Quest Helper over ropes | seller, 3 prices and the tooltip correct; **"Hat Accuracy Scroll: Inter..." matched to "…: Greater"**; Helper lost most count lines (no wrong numbers) |
+| s4 | another player's shop with the Earring INT Scroll tooltip over its rows; see-through Quest Helper over ropes | seller, 3 prices and the tooltip correct; **"Hat Accuracy Scroll: Inter..." matched to "…: Greater"**; Helper lost most count lines (no wrong numbers) |
 | s5 | 1920x1080 | stat values fine; **Helper lists "Make a Slime & …", a quest not tracked, on every frame**; collapsed bar None |
 
 Field misreads:
@@ -99,7 +99,7 @@ Tried and dropped:
   - `hunt_popup` (s2_02): `stat.exp` None (covered by the game's popup), `stat.level` 32.
   - `skills_1st` (s3a_00): `skills.levels` {Critical Shot 15, The Eye of Amazon 15, Focus 10, Power Knockback 0, Arrow Blow 20, Double Shot 1}, `skills.sp` 0, `map.street` "Victoria Road", `map.name` "A Hill West of Henesys", `map.collapsed` true.
   - `skills_hunter` (s3b_00): {Bow Mastery 5, Amazon's Judgement 0, Final Attack: Bow 0, Bow Booster 1, Soul Arrow: Bow 0, Arrow Bomb 1}, `skills.sp` 0.
-  - `player_shop` (s4_00): `shop.seller` "SourSweet", `shop.items` names/prices: Hat Accuracy Scroll: Intermediate 58000, Earring INT Scroll: Intermediate 131000, Horny Mushroom Cap 25; `quicklook.tooltips` ["Earring INT Scroll: Intermediate"].
+  - `player_shop` (s4_00): `shop.seller` (the seller's name, kept only in the local case), `shop.items` names/prices: Hat Accuracy Scroll: Intermediate 58000, Earring INT Scroll: Intermediate 131000, Horny Mushroom Cap 25; `quicklook.tooltips` ["Earring INT Scroll: Intermediate"].
   - `res_1080` (s5_00): `stat.level` 32, `stat.exp` 1646, `helper.list` with exactly the 4 tracked quests (no "Make a Slime & …").
   - `npc_shop` (shop_20261105_104043), `npc_shop_2` (shop_20261102_114059): `shop` None. `player_shop_soldout` (shop_20261105_094702): `shop.kind` "player".
 - [ ] **Step 3: Write `tests/test_cases.py`**: one test per (case, field), parametrized from the JSON files, `assert field(seen, f) == expected`. Skip the whole module when `samples/cases/` is empty.
