@@ -313,6 +313,38 @@ def stat_number(text):
     return total, int(m.group(1)) if m else total
 
 
+def fix_one_vs_l(text, crop):
+    """A name with the 1s OCR read as l put right ("Tural" is "Tura1"): the game's 1 has a flag
+    reaching left from the top of its stem, its l is a plain stem. Only when the crop's letters
+    can be told apart one by one (names have no spaces); an I without a flag stays as read."""
+    import numpy as np
+    ink = np.asarray(ImageOps.grayscale(crop)) < 150
+    cols = ink.any(axis=0)
+    glyphs, x = [], 0
+    while x < len(cols):
+        if cols[x]:
+            start = x
+            while x < len(cols) and cols[x]:
+                x += 1
+            glyphs.append(ink[:, start:x])
+        x += 1
+    if len(glyphs) != len(text):
+        # the letters can't be told apart (a see-through tooltip over the name): an l or I in it
+        # may be a 1, so the name isn't known from this read
+        return None if any(c in "lI|1" for c in text) else text
+    out = []
+    for ch, g in zip(text, glyphs):
+        if ch in "lI|1":
+            rows = np.where(g.any(axis=1))[0]
+            g = g[rows[0]:rows[-1] + 1]
+            stem = np.where(g.sum(axis=0) >= 0.7 * g.shape[0])[0]
+            top = g[:max(1, g.shape[0] // 3)]
+            flag = len(stem) and top[:, :max(0, stem.min() - 1)].any()
+            ch = "1" if flag else ("I" if ch == "I" else "l")
+        out.append(ch)
+    return "".join(out)
+
+
 def read_stat(frame, t, s, job_names):
     from rapidfuzz import fuzz, process
     x, y = t[1], t[2]     # values start right of the colored label cells, whose edge can read as a "1"
@@ -325,7 +357,12 @@ def read_stat(frame, t, s, job_names):
         if hit:
             job = hit[0]
             break
-    out = {"name": v.get("name"), "job": job}
+    name = v.get("name")
+    line = next((ln for ln in vals if ln[0] == name), None) if name else None
+    if line:      # OCR reads Tura1 as Tural: the 1's own shape says which it is
+        _, lx, ly, lw, lh = line
+        name = fix_one_vs_l(name, frame.crop((int(lx - 3 * s), int(ly - 2 * s), int(lx + lw + 4 * s), int(ly + lh + 2 * s))))
+    out = {"name": name, "job": job}
     lv = to_int(v.get("level", ""))
     out["level"] = lv if lv and 1 <= lv <= 200 else None
     m = re.search(r"^([\d,\s]+)\((\d+)", join_digits(v.get("exp", "")))     # "11392 (56%)", read "1 1392 (56%)"

@@ -62,3 +62,38 @@ SCROLLS = ["Hat Accuracy Scroll: Greater", "Hat Accuracy Scroll: Intermediate", 
 ])
 def test_shop_item_name(text, expected):
     assert reader.match_item(text, SCROLLS) == expected
+
+
+def _stem(flag):
+    """A 2 px wide stem, 14 px tall; with `flag`, the 1's flag 2 px to its left in its top rows."""
+    from PIL import Image, ImageDraw
+    img = Image.new("RGB", (20, 18), (230, 230, 225))
+    d = ImageDraw.Draw(img)
+    d.rectangle((10, 2, 11, 15), fill=(20, 20, 20))
+    if flag:
+        d.rectangle((7, 3, 9, 4), fill=(20, 20, 20))
+    return img
+
+
+def test_a_straight_stem_is_an_l():
+    assert reader.fix_one_vs_l("l", _stem(False)) == "l"
+
+
+def test_a_stem_with_a_flag_is_a_1():
+    assert reader.fix_one_vs_l("l", _stem(True)) == "1"
+
+
+def test_the_name_tura1_on_the_stat_window():
+    from casekit import CASES
+    from PIL import Image
+    if not (CASES / "fm_quest_window.png").exists():
+        pytest.skip("no cases on this PC")
+    crop = Image.open(CASES / "fm_quest_window.png").convert("RGB").crop((856, 700, 1008, 720))
+    assert reader.fix_one_vs_l("Tural", crop) == "Tura1"
+
+
+def test_a_name_that_cant_be_checked_is_not_guessed():
+    from PIL import Image
+    covered = Image.new("RGB", (60, 18), (40, 40, 90))          # under a tooltip's dark navy
+    assert reader.fix_one_vs_l("Tural", covered) is None        # its "l" could be a 1
+    assert reader.fix_one_vs_l("Bob", covered) == "Bob"         # nothing a 1 could hide in
