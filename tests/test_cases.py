@@ -36,6 +36,13 @@ def seen_case(game_reader):
 @pytest.mark.parametrize("case,name", [(c, f) for c, case in CASE_LIST.items() for f in case["expect"]])
 def test_case_field(seen_case, case, name):
     got, want = field(seen_case(case), name), CASE_LIST[case]["expect"][name]
+    if name in CASE_LIST[case].get("subset", []):
+        # what's read must be true; what can't be read may be left out, never guessed
+        if isinstance(want, dict):
+            assert got is not None and all(k in want and want[k] == v for k, v in got.items()), (got, want)
+        else:
+            assert got is not None and all(v in want for v in got), (got, want)
+        return
     known = CASE_LIST[case].get("known", {})
     if got != want and name in known:
         pytest.xfail(known[name])        # a known limit, said why in the case; a pass shows as a pass

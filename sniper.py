@@ -779,6 +779,8 @@ class App:
                                      "too_small": [frame.width, frame.height]}, None))
                 return
             self.reader.set_job(self.state["profile"].get("job"))
+            # quests you're known to have going win over look-alikes when the Quest Helper lists too many
+            self.reader.active_ids = {str(a.get("id")) for a in self.state["profile"].get("quests_active", []) if a.get("id")}
             seen = None
             if self.shop_anchor:
                 seen = self.reader.read_shop_only(frame, self.shop_anchor)

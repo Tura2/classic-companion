@@ -26,6 +26,12 @@ def computed(seen, name):
         h = seen.get("helper")
         return None if h is None else [[q["quest"], [[n["what"], n["have"], n["need"]] for n in q["needs"]]]
                                        for q in h["quests"]]
+    if name == "helper.quests":
+        h = seen.get("helper")
+        return None if h is None else [q["quest"] for q in h["quests"]]
+    if name == "helper.counts":
+        h = seen.get("helper")
+        return None if h is None else {f'{q["quest"]} | {n["what"]}': n["have"] for q in h["quests"] for n in q["needs"]}
     if name == "shop.list":
         sh = seen.get("shop")
         return None if sh is None else [[i["name"], i["price"]] for i in sh["items"] if not i["sold"]]

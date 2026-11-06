@@ -405,7 +405,7 @@ def read_quest_window(frame, t, s, quest_names):
     return {"tab": tab, "quests": names}
 
 
-PROGRESS = re.compile(r"^\s*(\d[\d\s/Il!|$t.,'`]*?)\s*(?:no\s+)?([A-Za-z].*)?$")
+PROGRESS = re.compile(r"^\s*(\d[\d\s/\\Il!|$t.,'`]*?)\s*(?:no\s+)?([A-Za-z].*)?$")   # "1 \ 1": a slash read as \
 
 
 def _count_text(text):
@@ -413,8 +413,8 @@ def _count_text(text):
     are a few pixels tall, so a 0 often reads as O and the slash as a letter: "O j 40 Charm" is
     "0/40 Charm", "O 75 Zombie" is "0 75 Zombie"."""
     text = re.sub(r"^\s*[OoQD](?=\s*[^A-Za-z\s]|\s*[jrIl!|]\s*\d|\s+\d)", "0", text)
-    return re.sub(r"(?<=\d)\s*[jrIl!|]\s*(?=\d)", "/", text)
-SLASHES = "/Il1!|$t.,'`7"
+    return re.sub(r"(?<=\d)\s*[jrIl!|\\]\s*(?=\d)", "/", text)
+SLASHES = "/\\Il1!|$t.,'`7"
 
 
 def _have(nums, need):
@@ -436,13 +436,31 @@ def _have(nums, need):
         # only the goal read: "3 / 25" over a busy map often comes out as "25", and taking that as
         # the count would say the quest is done and send you back to the NPC
         return None
-    first = re.match(r"\d+", digits)
-    if first and (not need or int(first.group()) <= need * 5) and len(first.group()) <= 4:
-        return int(first.group())
+    # a lone number isn't a count: "0 / 25" with "0 / 2" hidden behind a rope reads "5"
     return None
 
 
-def read_helper(frame, t, s, quests_by_name):
+def helper_count(text):
+    """How many quests the Quest Helper says it tracks: the 4 in "Quest Helper (4/5)", or None."""
+    m = re.search(r"\(\s*(\d)", text or "")
+    return int(m.group(1)) if m else None
+
+
+def _join_rows(lines, s):
+    """OCR lines on the same row joined left to right: a rope or a vine across the see-through
+    Quest Helper cuts its lines in pieces ("Make a Pig & Oct", "us Omok Set")."""
+    rows = []
+    for ln in sorted(lines, key=lambda ln: (ln[2], ln[1])):
+        r = rows[-1] if rows else None
+        if r and abs(ln[2] - r[2]) <= 4 * s:
+            x, y = min(r[1], ln[1]), min(r[2], ln[2])
+            rows[-1] = (r[0] + " " + ln[0], x, y, max(r[1] + r[3], ln[1] + ln[3]) - x, max(r[2] + r[4], ln[2] + ln[4]) - y)
+        else:
+            rows.append(tuple(ln))
+    return rows
+
+
+def read_helper(frame, t, s, quests_by_name, active_ids=frozenset()):
     """Tracked quests and their kill / collect counts, as listed in the Quest Helper. The counts'
     text is often half-read over a busy map, so each line is matched to what the quest asks for.
     "bottom" is where its last quest or count line ends: the Quest Helper is only as tall as the
@@ -450,8 +468,34 @@ def read_helper(frame, t, s, quests_by_name):
     from rapidfuzz import fuzz, process
     names = list(quests_by_name)
     x, y = t[1], t[2]
+    # "Quest Helper (4/5)": how many quests it tracks, read close up (the 1x pass gives "(4.15)")
+    title = read_box(frame, (x - 4 * s, y - 4 * s, x + 220 * s, y + 21 * s), s)
+    tracked = helper_count(title[0][0]) if title else None
+    rows = _join_rows(read_box(frame, (x - 4 * s, y + 22 * s, x + 330 * s, y + 640 * s), s), s)
+    # titles are matched strictly: a title half-hidden by a rope is left out, never matched loosely
+    # (tried: "[E entl The Jourt' y Begins" then lands on "The Best Dad")
+    quests, bottom = _helper_rows(rows, s, quests_by_name, names, active_ids)
+    quests = cap_quests(quests, tracked)
+    for q in quests:
+        q["asks"] = len(q.pop("reqs"))     # how many counts the quest has, read or not
+        del q["score"]
+    return {"quests": quests, "bottom": bottom}
+
+
+def cap_quests(quests, tracked):
+    """More titles than the Quest Helper tracks means a misread line landed on a look-alike quest
+    ("Make a Slime & Octopus Omok Set"): the best-read ones stay, in their order on screen."""
+    if tracked is None or len(quests) <= tracked:
+        return quests
+    keep = sorted(quests, key=lambda q: -q["score"])[:tracked]
+    return [q for q in quests if any(q is k for k in keep)]
+
+
+def _helper_rows(rows, s, quests_by_name, names, active_ids):
+    """The Quest Helper's rows read as quests with their counts: (quests, bottom of the last row)."""
+    from rapidfuzz import fuzz
     quests, cur, bottom = [], None, None
-    for text, _, ly, _, lh in read_box(frame, (x - 4 * s, y + 22 * s, x + 330 * s, y + 640 * s), s):
+    for text, _, ly, _, lh in rows:
         m = PROGRESS.match(_count_text(text))
         if m:
             bottom = ly + lh
@@ -461,12 +505,13 @@ def read_helper(frame, t, s, quests_by_name):
             reqs = cur["reqs"]
             # whole-name similarity first, so "Blue Snail Shell" doesn't count as "Snail Shell"
             score = {r: max(fuzz.ratio(what, r), 0.9 * fuzz.partial_ratio(what, r)) for r in reqs} if what else {}
-            best = max(score, key=score.get) if score else None
-            best = (best,) if best and score[best] >= 60 else None
+            # each count shows once per quest: a line that looks most like a count already read is the
+            # look-alike next to it ("Omok Piece: Pig", "Omok Piece: Octopus"), not a repeat
+            taken = {n["what"] for n in cur["needs"]}
+            best = next(((r,) for r in sorted(score, key=score.get, reverse=True)
+                         if r not in taken and score[r] >= 60), None)
             need = reqs[best[0]] if best else None
             have = _have(m.group(1), need)
-            if best and any(n["what"] == best[0] for n in cur["needs"]):
-                continue     # each count shows once per quest; a repeat is a misread line
             if have is not None and best:
                 cur["needs"].append({"what": best[0], "have": have, "need": need})
             continue
@@ -475,14 +520,13 @@ def read_helper(frame, t, s, quests_by_name):
             bottom = ly + lh
             q = quests_by_name[hit]
             cur = {"quest": hit, "id": str(q["id"]), "needs": [],
+                   "score": fuzz.WRatio(text, hit) + (10 if str(q["id"]) in active_ids else 0),
                    "reqs": {r["name"]: r["count"] for r in q.get("requirements_list") or []
                             if r.get("type") in ("item", "mob") and r.get("count")}}
             quests.append(cur)
-        else:
+        elif not text.lstrip()[:1].isdigit():
             cur = None    # a title we couldn't place: skip its counts rather than pin them on another quest
-    for q in quests:
-        q["asks"] = len(q.pop("reqs"))     # how many counts the quest has, read or not
-    return {"quests": quests, "bottom": bottom}
+    return quests, bottom
 
 
 def read_hud(frame, t, s, job_names):
@@ -885,6 +929,7 @@ class Reader:
         self.titles = Titles(APP_DIR, RES_DIR)   # windows found by their title picture
         self.map_titles = {}      # the mini map's title or collapsed bar, found by picture
         self.reads = 0
+        self.active_ids = set()  # quests the profile has in progress (set by the app), for the Quest Helper
         self.kept = {}            # window -> its title line and look, from the last read that saw it
         self.helper_depth = None  # how far the Quest Helper's last line reaches below its title
         self.by_name = {}         # quest name -> every quest with that name (job quests share names)
@@ -1012,7 +1057,7 @@ class Reader:
                 del seen["quest"], wins["quest"], seen["windows"]["quest"]
                 self.kept.pop("quest", None)
         if "helper" in wins:
-            seen["helper"] = read_helper(frame, wins["helper"], s, self.quests_by_name)
+            seen["helper"] = read_helper(frame, wins["helper"], s, self.quests_by_name, self.active_ids)
             bottom = seen["helper"].pop("bottom")
             if bottom is not None:      # kept while a read makes out none of its lines
                 self.helper_depth = (bottom - wins["helper"][2]) / s
