@@ -240,7 +240,7 @@ class LevelDigits:
             return None, False
         digits, exact = "", True
         for g in glyphs:
-            d = self.known.get(_bits(g))
+            d = self.known.get(_bits(g)) or self.nearest(g)
             if d is None:
                 exact = False
                 big = g.resize((g.width * 4, g.height * 4), Image.NEAREST)
@@ -248,15 +248,33 @@ class LevelDigits:
             digits += d
         return int(digits), exact
 
+    def nearest(self, g, min_same=0.92):
+        """The digit of the learned shape this one is nearly the same as (the game can draw a digit a
+        pixel differently), or None. Only shapes of the same size count."""
+        size, bits = _bits(g).split(":")
+        best, d = min_same, None
+        for k, v in self.known.items():
+            ksize, kbits = k.split(":")
+            if ksize == size:
+                same = sum(a == b for a, b in zip(bits, kbits)) / len(bits)
+                if same >= best:
+                    best, d = same, v
+        return d
+
     def learn(self, glyphs, level):
+        """Learn the digit shapes of a level known to be right. A shape already learned as another
+        digit is forgotten, never remapped: one of the two reads was wrong."""
         s = str(level)
         if len(s) != len(glyphs):
             return
         changed = False
         for g, d in zip(glyphs, s):
             k = _bits(g)
-            if self.known.get(k) != d:
+            if k not in self.known:
                 self.known[k], changed = d, True
+            elif self.known[k] != d:
+                del self.known[k]
+                changed = True
         if changed:
             try:
                 DIGITS_FILE.write_text(json.dumps(self.known), "utf-8")
@@ -964,6 +982,7 @@ class Reader:
         self.titles = Titles(APP_DIR, RES_DIR)   # windows found by their title picture
         self.map_titles = {}      # the mini map's title or collapsed bar, found by picture
         self.reads = 0
+        self.last_glyphs = None   # the HUD level's digit shapes in the last read, to learn once it's sure
         self.active_ids = set()  # quests the profile has in progress (set by the app), for the Quest Helper
         self.kept = {}            # window -> its title line and look, from the last read that saw it
         self.helper_depth = None  # how far the Quest Helper's last line reaches below its title
@@ -1011,6 +1030,11 @@ class Reader:
         self.quest_names = sorted(self.quests_by_name)
         self.line_names = sorted(getattr(self.data, "chains", {}))
 
+    def learn_level(self, level):
+        """Learn the last read's HUD digit shapes as `level`, once the app is sure of it."""
+        if self.last_glyphs:
+            self.digits.learn(self.last_glyphs, level)
+
     def place_by_picture(self, frame, s, wins):
         """Put each window OCR found (or saw last time) exactly where its title picture is: OCR's own
         box can be a few pixels off, and every field read from the window would shift with it. The
@@ -1055,7 +1079,7 @@ class Reader:
         glyphs = None
         if "hud" in wins:
             seen["hud"] = read_hud(frame, wins["hud"], s, self.job_names)
-            glyphs = level_glyphs(frame, wins["hud"])
+            glyphs = self.last_glyphs = level_glyphs(frame, wins["hud"])
             lv, exact = self.digits.read(glyphs)
             seen["hud"].update(level=lv, level_exact=exact)
         done = quest_completed(lines, s, self.quest_names)
@@ -1081,7 +1105,6 @@ class Reader:
             seen["stat"] = read_stat(frame, wins["stat"], s, self.job_names)
             lv = seen["stat"].get("level")
             if glyphs and lv and len(str(lv)) == len(glyphs):    # both agree on the digit count
-                self.digits.learn(glyphs, lv)
                 seen["hud"].update(level=lv, level_exact=True)
         if "inventory" in wins:
             seen["inventory"] = read_inventory(frame, wins["inventory"], s)

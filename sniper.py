@@ -29,6 +29,7 @@ from PIL import Image, ImageDraw, ImageTk
 
 import overlay_art as art
 import reader
+from trust import Gate
 from capture import GameCapture, client_box, find_window, foreground_window, window_bounds
 from gamedata import JOBS, NPC_PRICES
 
@@ -93,6 +94,18 @@ def line_step(chain_ids, done, active):
     """The quest a line seen In Progress adds to your quests: none when one of its quests is already
     going (a line can be a set of quests to choose from, like the six Omok sets), else its step."""
     return None if any(q in active for q in chain_ids) else current_step(chain_ids, done)
+
+
+def skill_rules(data):
+    """({skill: its max level}, {skill: its job}) from the game data, for the save gate."""
+    top, job = {}, {}
+    for groups in data.skills.values():
+        for g in groups if isinstance(groups, list) else []:
+            for sk in (g.get("skills") or []) if isinstance(g, dict) else []:
+                if sk.get("name"):
+                    top[sk["name"]] = sk.get("max_level") or 30
+                    job[sk["name"]] = g.get("job")
+    return top, job
 
 
 class Agree:
@@ -599,6 +612,7 @@ class App:
         self.capture = GameCapture(lambda: self.cfg["game_title"])
         self.reader = reader.Reader(data)
         self.agree, self.notice, self.counts = Agree(), Agree(2), SteadyCounts()
+        self.gate = Gate(*skill_rules(data))   # what a read may change in the profile (trust.py)
         self.shop_rows = []         # verdicts for the shop window open in the game (found by the reader)
         self.last_listings = set()  # listings in the previous read: a deal is announced once two reads agree
         self.announced = set()      # deals already announced this session
@@ -887,27 +901,26 @@ class App:
                 prof[key], changed = value, True
 
         hud, stat = seen.get("hud") or {}, seen.get("stat") or {}
-        put("job", stat.get("job") if stat.get("job") in JOBS else hud.get("job") if hud.get("job") in JOBS else None)
-        put("name", stat.get("name"))
-        if stat.get("dex_base") is not None:     # base stats, for where your next AP should go
-            put("stats", {k: stat.get(k + "_base") for k in ("str", "dex", "int", "luk")})
-        # ACC well past what anyone this level has is a misread (it once read 585 at level 21)
-        acc_cap = 40 + 6 * int(stat.get("level") or prof.get("level") or 1)
-        put("acc", stat.get("acc") if stat.get("acc") and stat["acc"] <= acc_cap else None)
-        if (prof.get("acc") or 0) > acc_cap:
+        # only what fits the game's rules goes in (trust.py): a misread repeats on every read
+        ok = self.gate.check(prof, seen)
+        game["other_name"] = ok.get("other_name")     # another character on screen: none of it is saved
+        if not ok.get("other_name") and not ok.get("blocked"):
+            put("job", stat.get("job") if stat.get("job") in JOBS else hud.get("job") if hud.get("job") in JOBS else None)
+        put("name", ok.get("name"))
+        put("stats", ok.get("stats"))            # base stats, for where your next AP should go
+        put("acc", ok.get("acc"))
+        acc_cap = 40 + 6 * int(ok.get("level") or prof.get("level") or 1)
+        if (prof.get("acc") or 0) > acc_cap:     # ACC well past what anyone this level has is a misread
             prof["acc"], changed = None, True
-        put("mesos", (seen.get("inventory") or {}).get("mesos"))
-        level, hint = stat.get("level"), None
-        if not level and hud.get("level"):
-            if hud.get("level_exact") or hud["level"] == (prof.get("level") or 0) + 1:   # a level up
-                level = hud["level"]
-            elif hud["level"] != prof.get("level"):
-                hint = hud["level"]     # a guess from digit shapes not seen before: ask to confirm
-        put("level", level)
-        if (sk := seen.get("skills")) and sk.get("levels"):
-            now = {**prof.get("skills_now", {}), **sk["levels"]}
-            put("skills_now", now)
-            put("sp", sk.get("sp"))
+        put("mesos", ok.get("mesos"))
+        hint = None
+        if hud.get("level") and not hud.get("level_exact") and "level" not in ok and hud["level"] != prof.get("level"):
+            hint = hud["level"]     # a guess from digit shapes not seen before: ask to confirm
+        put("level", ok.get("level"))
+        if stat.get("level") and stat["level"] == prof.get("level") and not (ok.get("other_name") or ok.get("blocked")):
+            self.reader.learn_level(prof["level"])   # the HUD's digit shapes, from a level the gate let in
+        put("skills_now", ok.get("skills_now"))
+        put("sp", ok.get("sp"))
         if (qw := seen.get("quest")) and qw.get("quests"):
             lv = int(prof.get("level") or 200)
             # the names this read was matched against: the reader's list changes with your job, and
