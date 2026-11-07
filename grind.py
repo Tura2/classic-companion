@@ -16,6 +16,17 @@ IDLE = 15.0             # seconds without a gain before the clock stops
 WINDOW = 300.0          # "last 5 minutes" rate
 MIN_TTL_DATA = 60.0     # seconds of active time before time-to-level is shown
 MAX_GAIN_SHARE = 0.6    # one step gaining more than this share of a level is a misread
+NEED_READS = 3          # reads that agree on the level's EXP (exp / pct) before any is trusted
+
+
+def need_of(exp, pct):
+    """The EXP the level needs, from the HUD's EXP and its two-decimal percent."""
+    return exp * 100 / pct if pct else None
+
+
+def need_tol(pct):
+    """How far exp / pct may stray from the level's EXP: the percent is shown to 0.01."""
+    return 0.011 / pct + 0.0003
 
 
 class Grind:
@@ -30,6 +41,9 @@ class Grind:
         self.last = None             # the last accepted (exp, pct, level)
         self.raw = None              # the last read, for the two-reads rule
         self.map_id = self.map = None
+        self.need = None             # the level's EXP, once NEED_READS reads agree on it
+        self.need_level = None
+        self.need_seen = []          # exp / pct of recent reads, while the level's EXP isn't known yet
         self.seg = None
         self._new_session(None)
 
@@ -89,8 +103,9 @@ class Grind:
         read = (exp, pct, level)
         agreed = self.raw == read
         self.raw = read
-        if not agreed:
-            return 0
+        fits = self._fits_level(exp, pct, level)
+        if not agreed or not fits:
+            return 0                      # one read alone, or its EXP and percent disagree on the level's EXP
         if self.last is None:
             self.last = read
             return 0
@@ -112,6 +127,27 @@ class Grind:
             self.seg["saved"] = now
             self._save_segment(now)
         return gain
+
+    def _fits_level(self, exp, pct, level):
+        """True if exp / pct is this level's EXP. A new level (or the percent wrapping round) starts
+        over: the first NEED_READS reads that agree among themselves set it."""
+        need = need_of(exp, pct)
+        if not need:
+            return False
+        new_level = level != self.need_level or (self.need is not None and self.last is not None
+                                                 and pct + 50 < self.last[1])
+        if self.need is not None and not new_level:
+            return abs(need - self.need) <= self.need * need_tol(pct)
+        if new_level:
+            self.need, self.need_level, self.need_seen = None, level, []
+        self.need_seen = (self.need_seen + [(need, pct)])[-NEED_READS:]
+        if len(self.need_seen) < NEED_READS:
+            return False
+        ref = sorted(n for n, _ in self.need_seen)[NEED_READS // 2]
+        if all(abs(n - ref) <= ref * need_tol(p) for n, p in self.need_seen):
+            self.need = ref
+            return True
+        return False
 
     @staticmethod
     def _gain(old, new):

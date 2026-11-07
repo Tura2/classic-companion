@@ -18,6 +18,7 @@ from paths import APP_DIR, RES_DIR
 
 LEARNED = APP_DIR / "cache" / "exp_digits.json"
 SEEDS = RES_DIR / "assets" / "exp_digits.json"
+MIN_GAP = 0.04         # ...and at least this much closer than to any other digit
 MIN_SAME = 0.92          # a shape this close to a known one, of the same size, is that digit
 
 
@@ -77,7 +78,7 @@ def exp_glyphs(frame, lv_line):
     for j in range(len(marks) - 1, 0, -1):
         for i in range(j - 1, -1, -1):
             a, b = marks[i], marks[j]
-            if abs(a[2] - b[2]) <= 1 and abs(a[3] - b[3]) <= 1 and b[0] - a[1] > 3 * (b[3] - b[2]):
+            if abs(a[2] - b[2]) <= 1 and abs(a[3] - b[3]) <= 1 and b[0] - a[1] > 3 * (b[3] - b[2])                     and b[3] - b[2] + 1 >= 0.45 * lh:     # not the EXP bar's fill edge: a bracket is text-tall
                 pair = (a, b)
                 break
         if pair:
@@ -146,17 +147,23 @@ class ExpDigits:
                 pass
 
     def digit(self, key):
+        """The digit a shape is: a known shape exactly, else the closest one of its size, but only when
+        it's clearly closer to that digit than to any other (3 and 9, 8 and 9 differ by a few pixels)."""
         if key in self.known:
             return self.known[key]
         size, bits = key.split(":")
-        best, d = MIN_SAME, None
+        best = {}
         for k, v in self.known.items():
             ksize, kbits = k.split(":")
             if ksize == size:
                 same = sum(a == b for a, b in zip(bits, kbits)) / len(bits)
-                if same >= best:
-                    best, d = same, v
-        return d
+                best[v] = max(best.get(v, 0), same)
+        if not best:
+            return None
+        ranked = sorted(best.items(), key=lambda kv: -kv[1])
+        d, top = ranked[0]
+        runner = ranked[1][1] if len(ranked) > 1 else 0
+        return d if top >= MIN_SAME and top - runner >= MIN_GAP else None
 
     def text(self, shapes):
         out = ""

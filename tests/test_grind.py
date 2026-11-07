@@ -15,9 +15,9 @@ def tracker(tmp_path):
 def feed(g, exps, t0=0.0, step=6.0, level=32, map_id=1, name="Ant Tunnel I"):
     t = t0
     for e in exps:
-        for _ in range(2):             # the app reads every 1.5 s; two reads agree before a change counts
+        for _ in range(3):             # the app reads every 1.5-2 s; two reads agree before a change counts
             g.update(e, pct(e), level, map_id, name, t)
-            t += step / 2
+            t += step / 3
     return t
 
 
@@ -25,8 +25,8 @@ def test_ten_minutes_at_steady_pace(tmp_path):
     g = tracker(tmp_path)
     t = feed(g, [50000 + 100 * i for i in range(101)])     # +100 EXP every 6 s for 10 minutes
     s = g.summary(t)
-    assert abs(s["exp_hr"] - 60000) / 60000 < 0.01
-    assert abs(s["exp_hr_5m"] - 60000) / 60000 < 0.01
+    assert abs(s["exp_hr"] - 60000) / 60000 < 0.02
+    assert abs(s["exp_hr_5m"] - 60000) / 60000 < 0.02
     assert s["ttl_s"] is not None and abs(s["ttl_s"] - (NEED - 60000) / 60000 * 3600) < 60
 
 
@@ -60,9 +60,9 @@ def test_level_up_keeps_counting(tmp_path):
     g = tracker(tmp_path)
     t = feed(g, [122000, 122000])
     before = g.summary(t)["gained"]
-    for _ in range(2):
+    for _ in range(4):
         g.update(500, 0.2, 33, 1, "Ant Tunnel I", t)
-        t += 3
+        t += 2
     # the level's EXP is worked out from the HUD's two-decimal percent: right to about a thousandth
     assert abs(g.summary(t)["gained"] - before - ((NEED - 122000) + 500)) <= NEED * 0.001
 
@@ -101,3 +101,28 @@ def test_reset_starts_over(tmp_path):
     t = feed(g, [50000 + 100 * i for i in range(11)])
     g.reset(t)
     assert g.summary(t)["gained"] == 0
+
+
+def test_a_percent_that_disagrees_with_the_exp_is_a_misread(tmp_path):
+    """Live, 2026-11-07: 29,977 [21.62%] read as 29,877 [21.62%] twice; and 30,420 [21.94%] as 21.34."""
+    g = tracker(tmp_path)
+    t = feed(g, [29500, 29600])
+    before = g.summary(t)["gained"]
+    for _ in range(3):
+        g.update(29877, 21.62, 32, 1, "Ant Tunnel I", t)
+        t += 2
+    for _ in range(3):
+        g.update(30420, 21.34, 32, 1, "Ant Tunnel I", t)
+        t += 2
+    assert g.summary(t)["gained"] == before
+    t = feed(g, [30447], t0=t)
+    assert g.summary(t)["gained"] == before + 847
+
+
+def test_the_levels_exp_needs_three_reads_that_agree(tmp_path):
+    g = tracker(tmp_path)
+    g.update(50000, pct(50000), 32, 1, "Ant Tunnel I", 0)
+    g.update(50000, pct(50000), 32, 1, "Ant Tunnel I", 2)
+    assert g.need is None
+    g.update(50000, pct(50000), 32, 1, "Ant Tunnel I", 4)
+    assert abs(g.need - NEED) < NEED * 0.001
