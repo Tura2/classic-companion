@@ -27,9 +27,12 @@ Frames are in `samples/raw/` (git-ignored: they show names and chat).
 - **The HUD EXP reads "EXP 73,665 [60.01%]"**: the number and the percent, at the right of the HUD.
   So EXP needed for the level is `exp / pct` (122,755 here): no EXP table needed.
 
-Still to see: a frame **after a sale** (what the sold row looks like, whether the mesos box and
-Total Received both go up, and whether the chat log prints a line). A watcher is saving frames
-whenever the shop's panels change.
+**After a sale** (seen live 2026-11-07, Orange 1 for 20 bought twice, then a Red Potion for 5):
+the sold item's listed row goes gray; SOLD ITEMS gets a row "Orange / Buyer: <name> / Number
+purchased: 1" **above** the "Total Sales / Total Received" line, **newest at the top**, and the totals
+line moves down one row per sale (after 3 sales the panel is full and scrolls); the mesos box under
+the character rises by what was received (20 for 20: the 3% fee rounds to 0 on small sales); the
+chat log prints nothing about the sale. Masked cases `myshop_sold1|2|3` (buyer painted over).
 
 ## 1. Shop sale alerts on Discord
 
@@ -86,8 +89,8 @@ inside the brief's 5–10 s), with a full read every 10th time. No new capture l
 - **Extras on the same pieces** (cheap, included): "Your shop closed" when the owner's shop
   was being watched and the game goes to the login screen or disconnects (the shop window and
   the HUD both gone for 3 reads in a row while the game window is still there); "Shop sold out"
-  when no listed row is left. Lie Detector ping: needs a sample of the Lie Detector window; left
-  for later.
+  when no listed row is left. (A Lie Detector ping was in the brief; the owner dropped it on
+  2026-11-07 as not needed.)
 
 ### Config keys
 `discord_enabled` (false), `discord_id`, `discord_name`, `discord_post_sales` (true once linked),
@@ -158,4 +161,4 @@ channel, and nothing else. Add the admin setup guide from the brief to README.
 - The HUD EXP is read by digit shape (OCR can't read its font); shapes for 0,1,3,5,6,7 ship from the
   samples, the rest are learned from CHARACTER STAT.
 - Outbox and grind log are local files in `APP_DIR`; nothing new leaves the PC except Discord posts.
-- Lie Detector ping postponed until there's a sample.
+- Lie Detector ping: dropped by the owner (2026-11-07), not needed.
