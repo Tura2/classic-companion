@@ -15,7 +15,9 @@ def data(npc=None, gear=()):
     npc = npc or {}
     return SimpleNamespace(quest_list=[JANE, LATER, FAR], npc_price=lambda n: npc.get(n),
                            gear=lambda job, level: {"slots": [{"slot": "Hat", "now": [{"name": g} for g in gear], "soon": []}]},
-                           equip_names={"Blue Bamboo Hat", "Bazlud"})
+                           equip_names={"Blue Bamboo Hat", "Bazlud"},
+                           item_ids={"Arrows for Bows": 2060000, "Subi Throwing-Stars": 2070000, "Red Potion": 2000000,
+                                     "Leather": 4000049})
 
 
 def market(items=None, cozy=None):
@@ -91,3 +93,23 @@ def test_fm_price_but_no_npc_price_says_so():
     m = market({"Rare Etc": {"p": 50000, "st": 0.2, "vol": 3}})
     v = advisor.verdict("Rare Etc", 1, prof(), data(), m)
     assert v["verdict"] == "fm" and "Sells slowly" in v["why"] and "NPC price unknown" in v["why"]
+
+
+# live, 2026-11-07: a Hunter's "Arrows for Bows" came out "SELL ON FM ~0.5"
+def test_your_own_ammo_is_kept():
+    v = advisor.verdict("Arrows for Bows", None, prof(), data(), market({"Arrows for Bows": {"p": 0.5, "vol": 900, "st": 1}}))
+    assert v["verdict"] == "keep" and "arrows" in v["why"]
+
+
+def test_someone_elses_ammo_is_not_kept_for_you():
+    v = advisor.verdict("Subi Throwing-Stars", None, prof(), data(), market({"Subi Throwing-Stars": {"p": 300, "vol": 50, "st": 1}}))
+    assert v["verdict"] == "fm"
+
+
+def test_potions_are_kept():
+    assert advisor.verdict("Red Potion", 30, prof(), data(), market({"Red Potion": {"p": 20}}))["verdict"] == "keep"
+
+
+def test_under_a_meso_after_the_fee_is_no_fm_sale():
+    v = advisor.verdict("Leather", None, prof(job="Magician"), data(), market({"Leather": {"p": 0.5, "vol": 900, "st": 1}}))
+    assert v["verdict"] == "unknown" and advisor.short(v) is None

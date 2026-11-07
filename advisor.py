@@ -18,6 +18,13 @@ LIQUID_ST = 0.5         # ...and the share of listings that sell, for "sells fas
 
 fmt = "{:,}".format
 
+# ammo by item id range (OSMS ids), and the jobs that shoot it
+AMMO = [((2060000, 2060999), "arrows", ("Bowman", "Hunter", "Ranger", "Bow Master")),
+        ((2061000, 2061999), "arrows", ("Bowman", "Crossbowman", "Sniper", "Marksman")),
+        ((2070000, 2070999), "throwing stars", ("Thief", "Assassin", "Hermit", "Night Lord")),
+        ((2330000, 2330999), "bullets", ("Pirate", "Gunslinger", "Outlaw", "Corsair"))]
+POTIONS = (2000000, 2002999)    # HP and MP potions
+
 
 def _quest_need(name, q):
     for r in q.get("requirements_list") or []:
@@ -81,6 +88,13 @@ def verdict(name, count, profile, data, market, untradable=False):
         return keep(f"For {q['name']} at level {q.get('level_min') or 1}")
     if _wears(name, profile, data):
         return keep("Gear you'll wear, now or soon")
+    iid = (getattr(data, "item_ids", None) or {}).get(name)
+    job = profile.get("job") or ""
+    for (lo, hi), what, jobs in AMMO:
+        if iid and lo <= iid <= hi and job in jobs:
+            return keep(f"Your {what}: you shoot these")
+    if iid and POTIONS[0] <= iid <= POTIONS[1]:
+        return keep("Potions: you drink these")
     npc = data.npc_price(name)
     if untradable:
         if npc:
@@ -92,6 +106,11 @@ def verdict(name, count, profile, data, market, untradable=False):
             return {"verdict": "npc", "why": _npc_why(npc, count, known), "price": npc}
         return {"verdict": "unknown", "why": "No market data. Check it yourself.", "price": None}
     net = round(fm * (1 - FM_FEE))
+    if net < 1:
+        if npc:
+            return {"verdict": "npc", "why": _npc_why(npc, count, known), "price": npc}
+        return {"verdict": "unknown", "why": f"Worth under 1 meso each on the FM ({fm}): not worth a shop slot",
+                "price": fm}
     m = market.items.get(name) or {}
     liquid = (m.get("vol") or 0) >= LIQUID_VOL and (m.get("st") or 0) >= LIQUID_ST
     if npc and (npc >= NPC_IS_ENOUGH * net or not liquid):
