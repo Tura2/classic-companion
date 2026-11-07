@@ -88,6 +88,7 @@ PREVIEW_W = 960           # width of the live picture of the game in the dashboa
 SAMPLE_EVERY = 60         # seconds between saved pictures of a shop window (to tune the shop reader)
 SAMPLES_KEPT = 30         # the newest pictures of shops that couldn't be read; older ones are deleted
 CONFIRM_READS = 3         # a quest joins In progress or Done only after this many reads in a row agree
+GRIND_ON = False          # the Grind card: built and tested, its dashboard isn't finished yet
 MYSHOP_EVERY = 6.0        # seconds between looks at your own store while it's open (nobody's using it)
 MYSHOP_FULL_EVERY = 10    # every this many store looks, a full read, so the rest of the dashboard keeps up
 CLOSED_READS = 3          # reads with neither your store nor the HUD before "your shop closed"
@@ -700,7 +701,7 @@ class App:
         self.announced = set()      # deals already announced this session
         self.shop_anchor = None     # where the open shop's LEAVE STORE button was, for the quick re-read
         self.shopwatch = ShopWatch()  # sales in your own store
-        self.grind = Grind(APP_DIR / "grind.sqlite")   # EXP/hr per session and per map
+        self.grind = Grind(APP_DIR / "grind.sqlite") if GRIND_ON else None   # EXP/hr per session and per map
         state["grind"] = self.grind
         self.myshop_anchor = None   # your own store's fee notice, for the slow store-only look
         self.myshop_panel = None    # its SOLD ITEMS panel's title, when that's open
