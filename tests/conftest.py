@@ -22,6 +22,8 @@ def game_reader(tmp_path_factory):
     if reader.DIGITS_FILE.exists():
         shutil.copy(reader.DIGITS_FILE, digits)
     reader.DIGITS_FILE = digits
+    import hudexp
+    hudexp.LEARNED = tmp_path_factory.mktemp("cache") / "exp_digits.json"   # never the real cache
     try:
         r = reader.Reader(gamedata.GameData())
         # title pictures learned during a run go to a temporary folder, not the real cache/titles/

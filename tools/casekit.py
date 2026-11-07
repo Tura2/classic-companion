@@ -38,6 +38,12 @@ def computed(seen, name):
     if name == "quest.lines":
         qw = seen.get("quest")
         return None if qw is None else [e["line"] for e in qw["quests"] if e.get("line")]
+    if name == "myshop.list":
+        sh = seen.get("myshop")
+        return None if sh is None else [[i["name"] or i["text"], i["count"], i["price"]] for i in sh["items"]]
+    if name == "myshop.totals":
+        p = (seen.get("myshop") or {}).get("panel")
+        return None if p is None else [p["total_sales"], p["total_received"]]
     raise KeyError(name)
 
 

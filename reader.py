@@ -22,6 +22,7 @@ from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont, ImageOps, 
 
 from paths import APP_DIR, RES_DIR
 from anchors import Titles
+from hudexp import ExpDigits, exp_glyphs
 from gamedata import fix_numeral, match_place
 
 DIGITS_FILE = APP_DIR / "cache" / "hud_digits.json"   # level digit shapes learned from CHARACTER STAT
@@ -161,13 +162,162 @@ def find_windows(lines, height):
                 continue     # the Quest window's QUEST HELPER button; the real title shows "(2/5)"
             found[key], best[key] = ln, scores[key]
             continue
+        mine = my_shop_line(text)
+        if mine:
+            if mine not in found or ln[2] < found[mine][2]:     # the notice's first line
+                found[mine] = ln
+            continue
         for button, above in SHOP_BUTTONS.items():
             score = fuzz.ratio(button, letters)
             if score >= 75 and score - above / 10 > best.get("shop", 0):   # LEAVE STORE wins a tie
                 s = ln[4] / 12        # the buttons' text is 12 px tall at the 1200 px UI size
                 found["shop"] = (button, ln[1], ln[2] + above * s, ln[3], ln[4])
                 best["shop"] = score - above / 10
+    if "myshop" in found and "shop" in found:
+        # someone else's shop shows the same fee notice under it: a LEAVE STORE above it is theirs
+        x, y = found["myshop"][1:3]
+        if abs(found["shop"][1] - x) < 400 and -700 < found["shop"][2] - y < 0:
+            del found["myshop"]
     return found
+
+
+# ---------------------------------------------------------------- your own store
+# Your own personal store (the character sits in it) has no LEAVE STORE button. Under it the game
+# always shows "Please be aware that a 3% fee / will be deducted from sales.", which the 1x pass
+# reads well at every UI size, so that notice is its anchor. The SOLD ITEMS side panel is found by
+# its "Total Sales / Total Received" line. Measured 2026-11-07 on two UI sizes (u = 1.0 and 0.73).
+FEE_NOTICE = "please be aware that a 3% fee"
+FEE_WIDTH = 232          # the notice's first line, px wide at the 1200 px UI size
+SALES_TITLE = "total sales total received"
+SALES_WIDTH = 214        # the panel's "Total Sales / Total Received" line at the same size
+MY_NAME_CUT = 180       # a name line this wide (at the 1200 px UI size) reaches the list's edge: cut short
+MESOS = re.compile(r"^\s*([\dOoIl|,.\s]{1,13})\s*mes[o0]s\s*$", re.I)
+AMOUNT = re.compile(r"^\s*\d{1,3}(?:[,.\s]\d{3})*\s*$")
+
+
+def my_shop_line(text):
+    """"myshop" for the fee notice's first line, "mysales" for the SOLD ITEMS panel's title, else None."""
+    from rapidfuzz import fuzz
+    low = re.sub(r"[^a-z0-9% ]", " ", text.lower())
+    low = re.sub(r"\s+", " ", low).strip()
+    if len(low) >= 20 and fuzz.partial_ratio(FEE_NOTICE, low) >= 85:
+        return "myshop"
+    letters = re.sub(r"[^a-z ]", " ", low)
+    letters = re.sub(r"\s+", " ", letters).strip()
+    if len(letters) >= 18 and fuzz.ratio(SALES_TITLE, re.sub(r"\b[a-z]\b ?", "", letters).strip()) >= 85:
+        return "mysales"
+    return None
+
+
+def _width_from(line, start):
+    """The width of an OCR line from the word `start` on: a stray mark read in front ("g Please")
+    widens the line without being part of the text."""
+    text, w = line[0], line[3]
+    i = text.lower().find(start)
+    return w * (len(text) - i) / len(text) if i > 0 else w
+
+
+def orange_buttons(frame, line):
+    """How many orange buttons the store has right of the character: someone else's shop has two
+    (BUY ITEM, LEAVE STORE), your open store one (CLOSE STORE; OPEN STORE is grayed out)."""
+    u = _width_from(line, "please") / FEE_WIDTH
+    x = line[1] + line[3] - _width_from(line, "please")
+    y = line[2]
+    l, t = max(0, int(x + 145 * u)), max(0, int(y - 520 * u))
+    r, b = min(frame.width, int(x + 270 * u)), min(frame.height, int(y - 395 * u))
+    if r - l < 10 or b - t < 10:
+        return 0
+    area = frame.crop((l, t, r, b)).convert("RGB")
+    px = area.load()
+    # a button's white lettering leaves only a little orange on its middle rows: a low bar, and
+    # a gap of a row or two inside a button doesn't split it
+    rows = [sum(_orange(px[c, rr]) for c in range(area.width)) >= area.width * 0.12 for rr in range(area.height)]
+    on = [i for i, v in enumerate(rows) if v]
+    return sum(1 for i, rr in enumerate(on) if i == 0 or rr - on[i - 1] > 3)
+
+
+def read_my_shop(frame, line, item_names):
+    """Your own store, from its fee notice's first line: its title, the mesos box under your
+    character and the listed items ("1 for 388,887 mesos"), with u, the UI's size against 1200 px."""
+    u = _width_from(line, "please") / FEE_WIDTH
+    x = line[1] + line[3] - _width_from(line, "please")      # where "Please" starts
+    y = line[2]
+    box = left, top, right, bottom = x - 60 * u, y - 600 * u, x + 280 * u, y - 30 * u
+    lines = read_box(frame, box, u)
+    title = [ln for ln in lines if ln[2] < y - 540 * u and ln[1] < x + 200 * u]
+    # the mesos box under your character reads only on its own, not with the whole store
+    mesos = next((to_int(t) for t, *_ in read_box(frame, (x + 130 * u, y - 420 * u, x + 275 * u, y - 368 * u), u)
+                  if AMOUNT.match(t)), None)
+    rows = [ln for ln in lines if abs(ln[1] - (x + 18 * u)) < 14 * u and ln[2] > y - 385 * u]   # not your name
+    return {"title": title[0][0] if title else None, "mesos": mesos, "items": _my_items(rows, frame, u, item_names),
+            "u": round(u, 3), "box": [round(left), round(top), round(right - left), round(bottom - top)]}
+
+
+def _my_items(lines, frame, u, item_names):
+    """Your store's listed rows, like _shop_items, but a name the list cuts short ("Overall Armor
+    DEF Scroll:..") that matches more than one item is kept as its text, with no item: it can still
+    say what sold. Each row: {"name", "text", "count", "price", "sold"}."""
+    items, i = [], 0
+    while i < len(lines):
+        name_line = lines[i]
+        if LISTING.match(name_line[0]):
+            i += 1
+            continue
+        nxt = lines[i + 1] if i + 1 < len(lines) and 18 * u <= lines[i + 1][2] - name_line[2] <= 34 * u else None
+        m = LISTING.match(nxt[0]) if nxt else None
+        if not m:
+            # the price line misread ("1 ,6gg mesos"): read it again on its own, with a margin
+            nx, ny = name_line[1], name_line[2] + 24 * u
+            for pad in (4, 8):
+                again = read_box(frame, (nx - 4 * u, ny - 5 * u, nx + 225 * u, ny + 19 * u), u, pad=pad)
+                m = next((LISTING.match(a[0]) for a in again if LISTING.match(a[0])), None)
+                if m:
+                    break
+        i += 2 if nxt and m else 1
+        if not m:
+            continue
+        count, price = _num(m.group(1)), _num(m.group(2))
+        if not count or not price:
+            continue
+        text = name_line[0].replace("VV", "W").strip()
+        nx, ny, nw, nh = name_line[1:]
+        if nw / u >= MY_NAME_CUT and not text.endswith(("..", "…")):
+            text = text[:-1] + ".."      # as wide as the column: cut short, its last mark a misread "..."
+        dark = ImageOps.grayscale(frame.crop((int(nx), int(ny), int(nx + nw), int(ny + nh)))).getextrema()[0]
+        items.append({"name": match_item(text, item_names), "text": text.rstrip(".… :").strip(), "count": count,
+                      "price": price, "sold": dark > 120})
+    return items
+
+
+def read_sales_panel(frame, line, item_names):
+    """The SOLD ITEMS panel: Total Sales and Total Received ("0 mesos" each, in that order under
+    its title), then a row per sale."""
+    u = line[3] / SALES_WIDTH
+    x, y = line[1], line[2]
+    lines = read_box(frame, (x - 10 * u, y + 15 * u, x + 230 * u, y + 320 * u), u)
+    totals = [_num(m.group(1)) for ln in lines[:4] if (m := MESOS.match(ln[0]))]
+    rows = []
+    for ln in lines:
+        if ln[2] < y + 60 * u:
+            continue
+        hit = match_item(ln[0].replace("VV", "W"), item_names)
+        m = LISTING.match(ln[0])
+        if hit:
+            rows.append({"name": hit, "count": None, "price": None, "y": ln[2]})
+        elif rows and m and rows[-1]["count"] is None:
+            rows[-1].update(count=_num(m.group(1)), price=_num(m.group(2)))
+        elif rows and (m2 := MESOS.match(ln[0])) and rows[-1]["price"] is None:
+            rows[-1]["price"] = _num(m2.group(1))
+    return {"total_sales": totals[0] if totals else None, "total_received": totals[1] if len(totals) > 1 else None,
+            "rows": [{k: r[k] for k in ("name", "count", "price")} for r in rows], "u": round(u, 3)}
+
+
+def my_shop_still_open(frame, line):
+    """True if the fee notice still reads where it was: the check before a store-only re-read."""
+    u = _width_from(line, "please") / FEE_WIDTH
+    _, x, y, w, h = line
+    return any(my_shop_line(t) == "myshop" for t, *_ in
+               read_box(frame, (x - 12 * u, y - 8 * u, x + w + 12 * u, y + h + 8 * u), u))
 
 
 # ---------------------------------------------------------------- HUD level digits
@@ -1016,6 +1166,7 @@ class Reader:
     def __init__(self, data):
         self.data = data
         self.digits = LevelDigits()
+        self.exp_digits = ExpDigits()   # the HUD's EXP digit shapes
         self.titles = Titles(APP_DIR, RES_DIR)   # windows found by their title picture
         self.map_titles = {}      # the mini map's title or collapsed bar, found by picture
         self.reads = 0
@@ -1118,12 +1269,16 @@ class Reader:
                     break
         seen = {"windows": {k: [round(v[1] / frame.width, 4), round(v[2] / frame.height, 4)] for k, v in wins.items()},
                 "scale": round(s, 3)}
-        glyphs = None
+        glyphs = exp_g = None
         if "hud" in wins:
             seen["hud"] = read_hud(frame, wins["hud"], s, self.job_names)
             glyphs = self.last_glyphs = level_glyphs(frame, wins["hud"])
             lv, exact = self.digits.read(glyphs)
             seen["hud"].update(level=lv, level_exact=exact)
+            exp_g = exp_glyphs(frame, wins["hud"])
+            got = self.exp_digits.read(exp_g)
+            if got:
+                seen["hud"].update(exp=got["exp"], exp_pct=got["pct"])
         done = quest_completed(lines, s, self.quest_names)
         if done:
             seen["quest_complete"] = done
@@ -1148,6 +1303,11 @@ class Reader:
             lv = seen["stat"].get("level")
             if glyphs and lv and len(str(lv)) == len(glyphs):    # both agree on the digit count
                 seen["hud"].update(level=lv, level_exact=True)
+            st = seen["stat"]
+            if exp_g and st.get("exp") is not None and seen["hud"].get("exp") in (None, st["exp"]):
+                # CHARACTER STAT's EXP is the HUD's, in the same frame: learn the HUD's digit shapes
+                if self.exp_digits.learn(exp_g, st["exp"], st.get("exp_pct")) and (got := self.exp_digits.read(exp_g)):
+                    seen["hud"].update(exp=got["exp"], exp_pct=got["pct"])
         if "inventory" in wins:
             seen["inventory"] = read_inventory(frame, wins["inventory"], s)
         if "skills" in wins:
@@ -1169,7 +1329,35 @@ class Reader:
                 seen["shop"]["anchor"] = list(wins["shop"])
             else:
                 seen["windows"].pop("shop", None)
+        if "myshop" in wins and orange_buttons(frame, wins["myshop"]) == 1:
+            seen["myshop"] = self.read_my_shop_at(frame, wins["myshop"], wins.get("mysales"))
+        else:
+            seen["windows"].pop("myshop", None)
+        seen["windows"].pop("mysales", None)
         return seen
+
+    def read_my_shop_at(self, frame, line, panel_line=None):
+        """Your own store, plus its SOLD ITEMS panel when that's open."""
+        mine = read_my_shop(frame, line, self.item_names)
+        mine["anchor"] = list(line)
+        mine["panel"] = read_sales_panel(frame, panel_line, self.item_names) if panel_line else None
+        mine["panel_anchor"] = list(panel_line) if panel_line else None
+        return mine
+
+    def read_my_shop_only(self, frame, anchor, panel_anchor=None):
+        """The slow look while your own store is open: just the store and its SOLD ITEMS panel."""
+        if not my_shop_still_open(frame, anchor) or orange_buttons(frame, anchor) != 1:
+            return None
+        panel = panel_anchor
+        if panel:
+            u = panel[3] / SALES_WIDTH
+            near = read_box(frame, (panel[1] - 12 * u, panel[2] - 8 * u, panel[1] + panel[3] + 12 * u,
+                                    panel[2] + panel[4] + 8 * u), u)
+            panel = panel if any(my_shop_line(t) == "mysales" for t, *_ in near) else None
+        s = frame.height / REF_HEIGHT
+        return {"myshop": self.read_my_shop_at(frame, tuple(anchor), tuple(panel) if panel else None),
+                "scale": round(s, 3), "quick": True,
+                "windows": {"myshop": [round(anchor[1] / frame.width, 4), round(anchor[2] / frame.height, 4)]}}
 
     def read_shop_only(self, frame, anchor):
         """The quick look while a shop is open: just its item list, about a fifth of a full read."""
