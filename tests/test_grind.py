@@ -147,3 +147,13 @@ def test_a_misread_level_doesnt_stop_counting(tmp_path):
         g.update(96, 22.5, 23, 1, "Ant Tunnel I", i * 2)      # the HUD's level misread too
     t = feed(g, [50000 + 100 * i for i in range(4)], t0=10)
     assert g.summary(t)["gained"] > 0
+
+
+def test_summary_feeds_the_card(tmp_path):
+    g = tracker(tmp_path)
+    t = feed(g, [50000 + 100 * i for i in range(21)], t0=6000.0)     # two minutes, +100 every 6 s
+    s = g.summary(t)
+    assert s["level"] == 32 and abs(s["need"] - NEED) < NEED * 0.001
+    assert s["left"] == s["need"] - 52000
+    assert len(s["spark"]) == grind.SPARK_MINUTES and sum(s["spark"]) == s["gained"] == 2000
+    assert s["since"] is not None and s["since"] >= 6000.0

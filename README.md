@@ -91,8 +91,13 @@ Settings has two separate switches, both off by default:
      be seen: there's no game on screen to read.
    - The HUD's EXP and percent ("73,665 [60.01%]"), read by digit shape: the HUD's tiny font
      doesn't OCR. Digits not seen yet are learned from CHARACTER STAT (S): keep it open while you
-     kill monsters for about a minute, so every digit shows up once. (For the Grind tracker,
-     coming in the next version.)
+     kill monsters for about a minute, so every digit shows up once. Works windowed and full screen.
+     From it, the **Grind** card on Now: EXP per hour (the last 5 minutes), time to the next level
+     and the clock time you'll reach it at this pace, a bar to the next level, EXP per minute over
+     the last 30 minutes, and EXP per hour on each map you grinded. The clock stops after 15 s
+     without EXP and on a map change (unless "Keep counting across maps" is on). A read whose EXP
+     and percent don't agree on the level's EXP is dropped. Each map's numbers go into
+     `grind.sqlite`, and Train shows your real EXP/hr on maps you've grinded.
    - Player shops: found by their LEAVE STORE button (a shop's title is whatever its owner typed).
      While a shop is open only its list is re-read, about three times a second.
      Each listed item is read with its price ("1 for 4,500 mesos", bundles too), judged against the
@@ -207,7 +212,8 @@ Everything stays on your PC: `profile.json` (job, level, quests done, skill plan
 showed), `config.json` (settings), `scans.sqlite` (shop prices you've seen, behind Shops;
 `--report` lists them), `cache/` (downloaded game data, learned level digits), `debug/samples/`
 (pictures of shop windows). The Now tab's picture of the game is only served to this PC.
-`discord_outbox.json` (sales waiting to be posted, and the keys of ones already posted, so none
+`grind.sqlite` (your EXP per map and session, behind the Grind card and "your real EXP/hr" on
+Train), `discord_outbox.json` (sales waiting to be posted, and the keys of ones already posted, so none
 goes twice). Nothing is uploaded anywhere unless you connect Discord; then only your shop's sales
 (item, quantity, price, character name, shop total) go to the group's #shop-sales channel.
 

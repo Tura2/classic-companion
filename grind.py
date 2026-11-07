@@ -16,6 +16,7 @@ IDLE = 15.0             # seconds without a gain before the clock stops
 WINDOW = 300.0          # "last 5 minutes" rate
 MIN_TTL_DATA = 60.0     # seconds of active time before time-to-level is shown
 MAX_GAIN_SHARE = 0.6    # one step gaining more than this share of a level is a misread
+SPARK_MINUTES = 30      # the chart: EXP per minute over this many minutes
 NEED_READS = 3          # reads that agree on the level's EXP (exp / pct) before any is trusted
 RETHINK_READS = 6       # reads in a row agreeing on another level EXP replace one set by misreads
 
@@ -51,6 +52,8 @@ class Grind:
     # ---- state
     def _new_session(self, now):
         self.s_gained, self.s_active, self.s_mesos0, self.s_mesos = 0, 0.0, None, None
+        self.s_start = None          # the session's first gain
+        self.minutes = {}            # minute (epoch // 60) -> EXP gained in it, for the chart
         self.events = []             # (ts, gain, active seconds before it), for the 5-minute rate
         self.last_gain = None
         self.last_tick = now
@@ -124,6 +127,12 @@ class Grind:
         self.events.append((now, gain, self.s_active))
         self.events = [e for e in self.events if e[0] >= now - WINDOW - 60]
         self.last_gain = now
+        if self.s_start is None:
+            self.s_start = now
+        m = int(now // 60)
+        self.minutes[m] = self.minutes.get(m, 0) + gain
+        for old in [k for k in self.minutes if k < m - SPARK_MINUTES]:
+            del self.minutes[old]
         self.s_gained += gain
         self.seg["exp"] += gain
         self.seg["level_end"] = level
@@ -223,7 +232,14 @@ class Grind:
         mhr = None
         if self.s_mesos0 is not None and self.s_mesos is not None and self.s_active >= 60:
             mhr = (self.s_mesos - self.s_mesos0) / self.s_active * 3600
+        now_m = int(now // 60)
+        spark = [self.minutes.get(m, 0) for m in range(now_m - SPARK_MINUTES + 1, now_m + 1)]
+        level = self.last[2] if self.last else None
+        need = self.need if self.need is not None else (need_of(self.last[0], self.last[1]) if self.last else None)
         return {"running": running, "paused": self.paused, "no_reset": self.no_reset, "gained": self.s_gained,
+                "level": level, "need": round(need) if need else None,
+                "left": round(need - self.last[0]) if need and self.last else None,
+                "since": self.s_start, "spark": spark,
                 "active_s": round(self.s_active, 1), "exp_hr": hr, "exp_hr_5m": hr5, "ttl_s": ttl, "mesos_hr": mhr,
                 "map": self.map, "map_id": self.map_id,
                 "exp": self.last[0] if self.last else None, "pct": self.last[1] if self.last else None}
