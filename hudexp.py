@@ -72,17 +72,25 @@ def exp_glyphs(frame, lv_line):
         while end + 1 in ys:            # its top stretch only: the EXP bar can start right under "["
             end += 1
         marks.append((a, z, ys[0], end))
-    # HP and MP have green brackets too, and the EXP bar's fill ends in an upright green edge: EXP's
-    # "[" and "]" are the rightmost two strokes of the same height, with its text between them
-    pair = None
-    for j in range(len(marks) - 1, 0, -1):
-        for i in range(j - 1, -1, -1):
-            a, b = marks[i], marks[j]
-            if abs(a[2] - b[2]) <= 1 and abs(a[3] - b[3]) <= 1 and b[0] - a[1] > 3 * (b[3] - b[2])                     and b[3] - b[2] + 1 >= 0.45 * lh:     # not the EXP bar's fill edge: a bracket is text-tall
-                pair = (a, b)
+    # HP, MP and EXP each have a green "[" and "]" of the same height on one row: the largest group
+    # of strokes sharing a top and bottom are those six, and EXP's are its rightmost two. (Green
+    # in the game scene right of the HUD, and the EXP bar's fill edge, don't come in such a group.)
+    groups = []
+    for m in marks:
+        if m[3] - m[2] + 1 < 0.3 * lh:
+            continue
+        for g in groups:
+            if abs(g[0][2] - m[2]) <= 1 and abs(g[0][3] - m[3]) <= 1:
+                g.append(m)
                 break
-        if pair:
-            break
+        else:
+            groups.append([m])
+    best = max(groups, key=len, default=[])
+    pair = None
+    if len(best) >= 3:
+        a, b = best[-2], best[-1]
+        if b[0] - a[1] > 3 * (b[3] - b[2]):
+            pair = (a, b)
     if not pair:
         return None
     (o0, o1, top, bottom), (c0, *_) = pair
@@ -106,8 +114,12 @@ def exp_glyphs(frame, lv_line):
     left = clusters(0, o0)
     num, prev = [], None
     for cl in reversed(left):            # from the bracket leftwards, up to the gap before "EXP"
-        if prev is not None and prev - cl[-1] - 1 >= max(3, 3.5 * u + 0.5):
+        # a narrow "1" next to a faint comma leaves a wide gap inside the number: stop only at a much
+        # wider one; the "EXP" letters taken by then are dropped below by their height
+        if prev is not None and prev - cl[-1] - 1 >= max(6, 8 * u + 0.5):
             break
+        if len(cl) > 1.6 * (bottom - top + 1):
+            break                        # far wider than a digit: the bold "EXP" letters run together
         num.insert(0, cl)
         prev = cl[0]
     pct = clusters(o1 + 1, c0)[:-1]      # the last one before "]" is "%"
