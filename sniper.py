@@ -30,6 +30,7 @@ from PIL import Image, ImageDraw, ImageTk
 import overlay_art as art
 import reader
 from trust import Gate
+from shopwatch import ShopWatch
 from capture import GameCapture, client_box, find_window, foreground_window, window_bounds
 from gamedata import JOBS, NPC_PRICES
 
@@ -65,6 +66,8 @@ DEFAULTS = {
     "consent": False,          # user confirmed they understand the risk
     "game_title": "MapleStory",  # labels show only while a window with this in its title is in front
     "setup_done": False,       # the dashboard's first-run setup was finished or skipped
+    "discord_enabled": False,  # post your shop's sales to the group's Discord (after Connect Discord)
+    "discord_post_sales": True,
 }
 
 GREEN, AMBER, RED, GREY = "#2EE59D", "#FFC24B", "#FF6B5B", "#C9D3DF"
@@ -83,6 +86,9 @@ PREVIEW_W = 960           # width of the live picture of the game in the dashboa
 SAMPLE_EVERY = 60         # seconds between saved pictures of a shop window (to tune the shop reader)
 SAMPLES_KEPT = 30         # the newest pictures of shops that couldn't be read; older ones are deleted
 CONFIRM_READS = 3         # a quest joins In progress or Done only after this many reads in a row agree
+MYSHOP_EVERY = 6.0        # seconds between looks at your own store while it's open (nobody's using it)
+MYSHOP_FULL_EVERY = 10    # every this many store looks, a full read, so the rest of the dashboard keeps up
+CLOSED_READS = 3          # reads with neither your store nor the HUD before "your shop closed"
 
 
 def current_step(chain_ids, done):
@@ -150,6 +156,57 @@ class SteadyCounts:
                      if (q.get("id"), n["what"]) in self.shown]
             out.append({**q, "needs": needs})
         return out
+
+
+def handle_myshop(app, seen, now):
+    """Your own store, from one look at the game: sales into the dashboard, a beep, and Discord.
+    `seen` None or with "error": the game couldn't be seen this time."""
+    sw = getattr(app, "shopwatch", None)
+    if sw is None:
+        return []
+    state, cfg = app.state, app.cfg
+    ok = seen is not None and not seen.get("error")
+    mine = seen.get("myshop") if ok else None
+    was = sw.status["watching"] or sw.base is not None
+    sales = sw.update(mine, now)
+    ms = state.setdefault("myshop", {"sales": [], "away_from": now})
+    if not cfg.get("screen_reading"):
+        reason = "Screen reading is off."
+    elif not ok:
+        reason = "Can't see the game: is it minimized?"
+    elif not mine:
+        reason = "Your store isn't on screen."
+    else:
+        reason = ""
+    ms.update(watching=sw.watching, total=sw.status["total"], reason=reason, ts=now,
+              title=mine.get("title") if mine else ms.get("title"), sales=sw.sales[-100:],
+              panel=bool(mine and mine.get("panel")))
+    linked = cfg.get("discord_enabled") and cfg.get("discord_id")
+    for sale in sales:
+        what = f"{sale['item']} x{sale.get('count') or 1}" if sale.get("item") else "something"
+        print(f"Your shop sold {what} for {sale['price']:,} mesos")
+        if cfg.get("sound"):
+            try:
+                import winsound
+                winsound.MessageBeep()
+            except Exception:
+                pass
+        if linked and cfg.get("discord_post_sales") and state.get("outbox"):
+            state["outbox"].add("sale", sale, sale["key"])
+    told = getattr(app, "myshop_told", None)
+    if told is None:
+        told = app.myshop_told = set()
+    send = state.get("discord_send") if linked else None
+    if "soldout" in sw.events and ("soldout", sw.session) not in told:
+        told.add(("soldout", sw.session))
+        send and send("your shop sold out: time to restock.")
+    # gone with the HUD too, while the game window is there: disconnected, or back at the login screen
+    app.closed_reads = (getattr(app, "closed_reads", 0) + 1) if ok and was and not mine and not seen.get("hud") \
+        and not seen.get("quick") else 0
+    if app.closed_reads >= CLOSED_READS and ("closed", sw.session) not in told:
+        told.add(("closed", sw.session))
+        send and send("your shop closed: the game left the Free Market (disconnected, or back at the login screen).")
+    return sales
 
 
 def fmt(n):
@@ -336,7 +393,7 @@ def judge(r, market):
 
 
 WINDOW_LABELS = {"hud": "HUD", "stat": "Character stat", "inventory": "Inventory", "skills": "Skills",
-                 "quest": "Quests", "helper": "Quest Helper", "shop": "Shop"}
+                 "quest": "Quests", "helper": "Quest Helper", "shop": "Shop", "myshop": "Your shop"}
 
 
 def preview(frame, seen):
@@ -617,6 +674,10 @@ class App:
         self.last_listings = set()  # listings in the previous read: a deal is announced once two reads agree
         self.announced = set()      # deals already announced this session
         self.shop_anchor = None     # where the open shop's LEAVE STORE button was, for the quick re-read
+        self.shopwatch = ShopWatch()  # sales in your own store
+        self.myshop_anchor = None   # your own store's fee notice, for the slow store-only look
+        self.myshop_panel = None    # its SOLD ITEMS panel's title, when that's open
+        self.my_reads = 0
         self.last_shop = None       # the open shop's last full read, for when an item's tooltip covers it
         self.watching = False       # a look at the game is in progress
         self.sample_ts = 0.0        # when a shop window's picture was last saved
@@ -729,7 +790,8 @@ class App:
         """While screen reading is on, look at the whole game every few seconds and read whatever
         windows are open, wherever they are. Nothing to select. While a shop is open, only its item
         list is re-read, about three times a second, so prices and labels keep up as you scroll."""
-        self.root.after(int((SHOP_EVERY if self.shop_anchor else WATCH_EVERY) * 1000), self.watch_loop)
+        every = SHOP_EVERY if self.shop_anchor else MYSHOP_EVERY if self.myshop_anchor else WATCH_EVERY
+        self.root.after(int(every * 1000), self.watch_loop)
         if self.cfg["screen_reading"] and not self.watching:
             self.watching = True
             threading.Thread(target=self._watch, daemon=True).start()
@@ -783,7 +845,7 @@ class App:
         try:
             frame = self.capture.grab_game()
             if frame is None:
-                self.shop_anchor = None         # no game: back to the slow pace, not shop re-reads
+                self.shop_anchor = self.myshop_anchor = None   # no game: back to the usual pace
                 self.q.put(("seen", None, None))
                 return
             if frame.convert("L").getextrema()[1] < 12:
@@ -812,10 +874,19 @@ class App:
                 self.quick_reads = getattr(self, "quick_reads", 0) + 1
                 if seen and self.quick_reads % 6 == 0:
                     seen = None     # a full look now and then, so the rest of the dashboard keeps up
+            elif self.myshop_anchor:
+                # your own store: nobody's using it, so only it, every few seconds
+                seen = self.reader.read_my_shop_only(frame, self.myshop_anchor, self.myshop_panel)
+                self.my_reads += 1
+                if seen and self.my_reads % MYSHOP_FULL_EVERY == 0:
+                    seen = None
             if seen is None:
                 seen = self.reader.read(frame)
             shop = seen.get("shop")
             self.shop_anchor = shop["anchor"] if shop else None
+            mine = seen.get("myshop")
+            self.myshop_anchor = mine["anchor"] if mine else None
+            self.myshop_panel = mine["panel_anchor"] if mine else None
             cl, ct, _, _ = client_box(self.capture.hwnd) if self.capture.hwnd else (0, 0, 0, 0)
             mini, s = seen.get("map"), seen.get("scale", 1)
             if mini and mini.get("window"):
@@ -879,6 +950,7 @@ class App:
         game = self.state.setdefault("game", {})
         if picture:
             self.state["frame"] = picture
+        handle_myshop(self, seen, time.time())
         if seen is None or seen.get("error"):
             game.update(error=(seen or {}).get("error") or self.capture.error or "Can't see the game window.",
                         ts=time.time(), too_small=(seen or {}).get("too_small"))
