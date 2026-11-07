@@ -90,9 +90,10 @@ Settings has two separate switches, both off by default:
      a row sells out and the mesos box goes up. A Hired Merchant (shop while you're offline) can't
      be seen: there's no game on screen to read.
    - The HUD's EXP and percent ("73,665 [60.01%]"), read by digit shape: the HUD's tiny font
-     doesn't OCR. Digits not seen yet are learned the first time CHARACTER STAT (S) shows your EXP.
-     From it, the **Grind** card on Now: EXP per hour (the last 5 minutes), time to the next level
-     (after a minute of data) and mesos per hour (from the inventory, when it's open). The clock
+     doesn't OCR. Digits not seen yet are learned from CHARACTER STAT (S): keep it open while you
+     kill monsters for about a minute, so every digit shows up once.
+     From it, the **Grind** card on Now: EXP per hour (the last 5 minutes) and time to the next
+     level (after a minute of data). The clock
      stops after 15 s without EXP and on a map change (unless "Keep counting across maps" is on);
      each map's numbers go into `grind.sqlite`, and Train shows your real EXP/hr on maps you've
      grinded.

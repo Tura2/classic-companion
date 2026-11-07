@@ -142,7 +142,7 @@ img.icon{width:36px;height:36px;object-fit:contain;image-rendering:pixelated;fle
 /* Now: the status line and the open shop's rows */
 .status{display:flex;align-items:center;gap:8px;margin:0 2px 12px;font-weight:800;color:var(--muted);font-size:.92rem}
 a.btn{display:inline-flex;align-items:center;text-decoration:none}
-.gstrip{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center}
+.gstrip{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;text-align:center}
 .gstrip div{background:var(--cell);border-radius:6px;padding:6px 4px}
 .gstrip b{display:block;font-size:1.15rem}
 .gstrip span{font-size:.78rem;color:var(--muted);font-weight:700}
@@ -657,9 +657,8 @@ function grindCard(gr){
   const st = n.paused ? "Paused" : n.running ? "Grinding" : "Waiting for EXP";
   return win("Grind" + (n.map ? ` · ${pretty(n.map)}` : ""), `<div class="body">
       <div class="gstrip"><div><b>${perHr(n.exp_hr_5m ?? n.exp_hr)}</b><span>EXP/hr</span></div>
-        <div><b>${dur(n.ttl_s)}</b><span>to level</span></div>
-        <div><b>${perHr(n.mesos_hr)}</b><span>mesos/hr</span></div></div>
-      <p class="sub" style="margin:6px 0 0">${st}. ${fmt(n.gained)} EXP in ${dur(n.active_s)}${n.mesos_hr == null ? ". Open your inventory now and then for mesos/hr" : ""}.</p>
+        <div><b>${dur(n.ttl_s)}</b><span>to level</span></div></div>
+      <p class="sub" style="margin:6px 0 0">${st}. ${fmt(n.gained)} EXP in ${dur(n.active_s)}.</p>
       <div class="btns" style="margin-top:8px"><button class="btn small" data-grind="pause">${n.paused ? "Resume" : "Pause"}</button>
         <button class="btn small" data-grind="reset">Reset</button>
         <label class="toggle" style="margin:0"><input type="checkbox" data-grind="no_reset" ${n.no_reset ? "checked" : ""}> Keep counting across maps</label></div></div>`);
@@ -737,7 +736,7 @@ async function renderLive(){
   const ms = state.myshop;
   const gr = on ? await api("/api/grind").catch(() => null) : null;
   if (tab !== "live") return;
-  const key = JSON.stringify([gr && gr.now && [Math.round((gr.now.exp_hr_5m ?? gr.now.exp_hr ?? 0) / 100), gr.now.ttl_s && Math.round(gr.now.ttl_s / 60), gr.now.paused, gr.now.running, gr.now.no_reset, gr.now.map, gr.now.mesos_hr && Math.round(gr.now.mesos_hr / 1000)],on, g.helper, g.shop && g.shop.seller, g.shop && g.shop.items, g.level_hint, l.rows, l.note,
+  const key = JSON.stringify([gr && gr.now && [Math.round((gr.now.exp_hr_5m ?? gr.now.exp_hr ?? 0) / 100), gr.now.ttl_s && Math.round(gr.now.ttl_s / 60), gr.now.paused, gr.now.running, gr.now.no_reset, gr.now.map],on, g.helper, g.shop && g.shop.seller, g.shop && g.shop.items, g.level_hint, l.rows, l.note,
     ms && [ms.watching, ms.reason, ms.panel, (ms.sales || []).length],
     state.deals.length, p.rev, state.screen.drawing, !!shotUrl, state.nav && [state.nav.i, state.nav.to.id, state.nav.steps.length],
     state.guide, next && next.at]);
