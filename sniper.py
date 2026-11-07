@@ -32,6 +32,7 @@ import overlay_art as art
 import reader
 from trust import Gate
 from shopwatch import ShopWatch
+from grind import Grind
 from capture import GameCapture, client_box, find_window, foreground_window, window_bounds
 from gamedata import JOBS, NPC_PRICES
 
@@ -157,6 +158,21 @@ class SteadyCounts:
                      if (q.get("id"), n["what"]) in self.shown]
             out.append({**q, "needs": needs})
         return out
+
+
+def handle_grind(app, seen, prof):
+    """Feed the grind tracker from a full read: the HUD's EXP, where you are, your mesos."""
+    g = getattr(app, "grind", None)
+    if g is None or not seen or seen.get("quick"):
+        return
+    now = time.time()
+    hud = seen.get("hud") or {}
+    if hud.get("exp") is not None:
+        mid = prof.get("current_map")
+        name = (app.data.maps.get(mid) or {}).get("name") if mid else None
+        g.update(hud["exp"], hud.get("exp_pct"), prof.get("level"), mid, name, now)
+    if (seen.get("inventory") or {}).get("mesos") is not None:
+        g.mesos(seen["inventory"]["mesos"], now)
 
 
 def note_hovered(state, tips):
@@ -684,6 +700,8 @@ class App:
         self.announced = set()      # deals already announced this session
         self.shop_anchor = None     # where the open shop's LEAVE STORE button was, for the quick re-read
         self.shopwatch = ShopWatch()  # sales in your own store
+        self.grind = Grind(APP_DIR / "grind.sqlite")   # EXP/hr per session and per map
+        state["grind"] = self.grind
         self.myshop_anchor = None   # your own store's fee notice, for the slow store-only look
         self.myshop_panel = None    # its SOLD ITEMS panel's title, when that's open
         self.my_reads = 0
@@ -1140,6 +1158,7 @@ class App:
                     skills=seen.get("skills") or game.get("skills"))
         if self.state.get("guide") and self.state.get("guide_tick"):
             self.state["guide_tick"]()       # follow the guided quest's counts and where you are
+        handle_grind(self, seen, prof)
 
     def anchor(self):
         """Where the route strip goes under the mini map: where the mini map was last seen, for as

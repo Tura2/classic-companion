@@ -132,8 +132,8 @@ channel, and nothing else. Add the admin setup guide from the brief to README.
 - `advisor.py`: `verdict(name, count, profile, data, market) -> {"verdict", "why", "price"}`, rules
   in the brief's order (starred, quest in progress, quest within 10 levels, gear you'll wear,
   untradable, NPC vs FM, equips "check its stats", no data). Thresholds in one block at the top.
-  `fm` = the lower of MSC median and Cozy, **minus the 3% fee**. Liquid = sold ≥ 30 and
-  sell-through `st` ≥ 0.5 (MSC fields).
+  `fm` = the lower of MSC median and Cozy, **minus the 3% fee**. Liquid = at least 10 sales on the
+  last full day (`vol`) and sell-through `st` ≥ 0.5 (MSC fields; the market file keeps no total).
 - **NPC prices**: OSMS `items.json` has `price` for 1,181 equips (what an NPC pays), used with
   `NPC_PRICES` (hand list for etc). Use/etc items mostly have none → "NPC price unknown". (The KB's
   NPC sell-back numbers come from NiaDB/MeowDB, which needs permission first, so they're not used.)
@@ -151,6 +151,11 @@ channel, and nothing else. Add the admin setup guide from the brief to README.
 ## Decisions made here (Claude's calls, for the owner to check)
 - Owner shop found by CLOSE STORE; scale from the button's text height.
 - 6 s owner-shop cadence; sanity cap 10× listed value, at least 10M.
-- Liquid = ≥ 30 sales and sell-through ≥ 0.5; NPC wins when it pays ≥ 80% of the FM price after fee.
+- Liquid = ≥ 10 sales a day and sell-through ≥ 0.5; NPC wins when it pays ≥ 80% of the FM price after fee.
+- A shop row's "1 for 12,999" is the bundle, not the stock (the stock is the unread number on its
+  icon), so a sale is named by the one row whose price the Total Sales rise is a whole multiple of.
+- Your store is told from someone else's (which shows the same fee notice) by its one orange button.
+- The HUD EXP is read by digit shape (OCR can't read its font); shapes for 0,1,3,5,6,7 ship from the
+  samples, the rest are learned from CHARACTER STAT.
 - Outbox and grind log are local files in `APP_DIR`; nothing new leaves the PC except Discord posts.
 - Lie Detector ping postponed until there's a sample.

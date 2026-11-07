@@ -267,6 +267,12 @@ def make_handler(data, state, cfg):
                         out.append({"name": name, "img": data.item_img(name), "ts": h["ts"],
                                     "starred": name in (prof.get("starred") or []), **v})
                     return self.send(200, out)
+                if url.path == "/api/grind":         # EXP/hr now, the log, and your real EXP/hr per map
+                    g = state.get("grind")
+                    if not g:
+                        return self.send(200, {"available": False})
+                    return self.send(200, {"available": True, "now": g.summary(time.time()), "history": g.history(12),
+                                           "by_map": {str(k): round(v) for k, v in g.by_map().items()}})
                 if url.path == "/api/myshop":
                     return self.send(200, state.get("myshop") or {"watching": False, "sales": []})
                 if url.path == "/api/state":
@@ -406,6 +412,18 @@ def make_handler(data, state, cfg):
                 if not discord_send(state, cfg, "this is a test from Companion."):
                     return self.send(409, {"error": "Connect Discord and turn it on first."})
                 return self.send(200, {"ok": True})
+            if path == "/api/grind":            # Pause / Resume, Reset, No reset across maps
+                g = state.get("grind")
+                if not g:
+                    return self.send(409, {"error": "Screen reading isn't available."})
+                act = body.get("action")
+                if act == "pause":
+                    g.pause(bool(body.get("on", True)))
+                elif act == "reset":
+                    g.reset(time.time())
+                elif act == "no_reset":
+                    g.no_reset = bool(body.get("on", True))
+                return self.send(200, g.summary(time.time()))
             if path == "/api/star":            # keep this item, whatever the market says
                 name = str(body["name"])[:100]
                 stars = [n for n in state["profile"].get("starred", []) if n != name]

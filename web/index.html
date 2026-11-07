@@ -142,6 +142,11 @@ img.icon{width:36px;height:36px;object-fit:contain;image-rendering:pixelated;fle
 /* Now: the status line and the open shop's rows */
 .status{display:flex;align-items:center;gap:8px;margin:0 2px 12px;font-weight:800;color:var(--muted);font-size:.92rem}
 a.btn{display:inline-flex;align-items:center;text-decoration:none}
+.gstrip{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center}
+.gstrip div{background:var(--cell);border-radius:6px;padding:6px 4px}
+.gstrip b{display:block;font-size:1.15rem}
+.gstrip span{font-size:.78rem;color:var(--muted);font-weight:700}
+.mine{color:var(--good)}
 .skh{margin:6px 0 4px;font-size:.9rem}
 .sk{list-style:none;margin:0 0 6px;padding:0;display:grid;gap:4px}
 .sk li{display:flex;gap:8px;align-items:center}
@@ -642,6 +647,24 @@ function myShopCard(ms, full){
         : `<p class="sub" style="margin:0">No sales yet this session.</p>`}</div>`,
     sales.length ? `${fmt(sum)} mesos` : "");
 }
+/* the grind tracker, small, for the Now tab */
+const dur = s => s == null ? "—" : s >= 3600 ? `${Math.floor(s / 3600)}h ${Math.round(s % 3600 / 60)}m` : s >= 60 ? `${Math.round(s / 60)}m` : `${Math.round(s)}s`;
+const perHr = n => n == null ? "—" : n >= 1e6 ? (n / 1e6).toFixed(2) + "M" : n >= 1e4 ? Math.round(n / 1000) + "K" : fmt(n);
+function grindCard(gr){
+  if (!gr || !gr.available) return "";
+  const n = gr.now;
+  if (!n.gained) return "";          // shows once EXP comes in, not while you stand in town
+  const st = n.paused ? "Paused" : n.running ? "Grinding" : "Waiting for EXP";
+  return win("Grind" + (n.map ? ` · ${pretty(n.map)}` : ""), `<div class="body">
+      <div class="gstrip"><div><b>${perHr(n.exp_hr_5m ?? n.exp_hr)}</b><span>EXP/hr</span></div>
+        <div><b>${dur(n.ttl_s)}</b><span>to level</span></div>
+        <div><b>${perHr(n.mesos_hr)}</b><span>mesos/hr</span></div></div>
+      <p class="sub" style="margin:6px 0 0">${st}. ${fmt(n.gained)} EXP in ${dur(n.active_s)}${n.mesos_hr == null ? ". Open your inventory now and then for mesos/hr" : ""}.</p>
+      <div class="btns" style="margin-top:8px"><button class="btn small" data-grind="pause">${n.paused ? "Resume" : "Pause"}</button>
+        <button class="btn small" data-grind="reset">Reset</button>
+        <label class="toggle" style="margin:0"><input type="checkbox" data-grind="no_reset" ${n.no_reset ? "checked" : ""}> Keep counting across maps</label></div></div>`);
+}
+
 /* sell or keep: every item hovered this session, grouped, with the reason and the price */
 const SK = [["npc", "Sell to an NPC"], ["fm", "Sell on the Free Market"], ["keep", "Keep"], ["drop", "Drop it"], ["unknown", "No data"]];
 function sellKeepCard(list){
@@ -712,7 +735,9 @@ async function renderLive(){
   // rebuild only when what's shown changes; the status, picture and shop age update in place,
   // so nothing flickers and scrolling or a hovered item stay put
   const ms = state.myshop;
-  const key = JSON.stringify([on, g.helper, g.shop && g.shop.seller, g.shop && g.shop.items, g.level_hint, l.rows, l.note,
+  const gr = on ? await api("/api/grind").catch(() => null) : null;
+  if (tab !== "live") return;
+  const key = JSON.stringify([gr && gr.now && [Math.round((gr.now.exp_hr_5m ?? gr.now.exp_hr ?? 0) / 100), gr.now.ttl_s && Math.round(gr.now.ttl_s / 60), gr.now.paused, gr.now.running, gr.now.no_reset, gr.now.map, gr.now.mesos_hr && Math.round(gr.now.mesos_hr / 1000)],on, g.helper, g.shop && g.shop.seller, g.shop && g.shop.items, g.level_hint, l.rows, l.note,
     ms && [ms.watching, ms.reason, ms.panel, (ms.sales || []).length],
     state.deals.length, p.rev, state.screen.drawing, !!shotUrl, state.nav && [state.nav.i, state.nav.to.id, state.nav.steps.length],
     state.guide, next && next.at]);
@@ -737,7 +762,7 @@ async function renderLive(){
       <button class="btn" id="now-setup">Set up screen reading</button></div>`);
   // an open shop sits up front; the hint for when none is open goes last
   const shopNow = on && (g.shop || (l.rows || []).length);
-  let left = [on ? myShopCard(ms, false) : "", routeCard(), shopNow ? shop : ""].filter(Boolean), right = [nextUpCard(next), off, helper,
+  let left = [on ? myShopCard(ms, false) : "", on ? grindCard(gr) : "", routeCard(), shopNow ? shop : ""].filter(Boolean), right = [nextUpCard(next), off, helper,
     deals ? win("Deals this session", `<div class="body"><ul class="chips" style="margin:0">${deals}</ul></div>`) : "",
     shopNow ? "" : shop].filter(Boolean);
   if (!left.length){ left = right; right = []; }
@@ -765,19 +790,25 @@ async function renderLive(){
     await api(state.nav ? "/api/nav/stop" : "/api/guide", state.nav ? {} : {stop:true}); liveKey = ""; renderLive();
   });
   const su = $("#now-setup"); if (su) su.addEventListener("click", () => openSetup(1));
+  document.querySelectorAll("#view [data-grind]").forEach(b => b.addEventListener(b.type === "checkbox" ? "change" : "click", async () => {
+    const a = b.dataset.grind, n = (gr && gr.now) || {};
+    await api("/api/grind", a === "pause" ? {action:"pause", on:!n.paused} : a === "no_reset" ? {action:"no_reset", on:b.checked} : {action:"reset"});
+    liveKey = ""; renderLive();
+  }));
 }
 
 // Train: a tab per map, best first, the chosen map in full beside them
 let trainPick = 0;
 async function renderTrain(){
   const p = state.profile, maps = await api("/api/train");
+  const mine = ((await api("/api/grind").catch(() => null)) || {}).by_map || {};
   const note = `<p class="note">Best maps for level ${p.level}: the most EXP for the HP you chew through, and more monsters count extra.${state.on_island ? " Maple Island only, since you’re still there." : ""}</p>`;
   if (!maps.length){ $("#view").innerHTML = note + `<div class="empty">No spawn data for this level yet.</div>`; return; }
   trainPick = Math.min(trainPick, maps.length - 1);
   const m = maps[trainPick];
   const list = maps.map((x, i) => `<button class="vtab" role="tab" aria-selected="${i === trainPick}" data-i="${i}">
       <span class="rank">${i + 1}</span><span class="grow"><b>${pretty(x.name)}</b><small>${pretty(x.mobs.map(y => y.name).join(", "))}</small></span>
-      <span class="score">${(x.eff * 100).toFixed(1)}<small>per 100 HP, ${fmt(x.count)} mobs</small></span></button>`).join("");
+      <span class="score">${(x.eff * 100).toFixed(1)}<small>per 100 HP, ${fmt(x.count)} mobs${mine[x.id] ? `<br><b class="mine">you: ${perHr(mine[x.id])} EXP/hr</b>` : ""}</small></span></button>`).join("");
   const mobs = m.mobs.map(x => `<tr><td>${x.img ? `<img src="${esc(x.img)}" alt="" loading="lazy">` : ""}</td>
       <td><b>${pretty(x.name)}</b>${x.weak.length ? `<small>weak to ${esc(x.weak.join(", "))}</small>` : ""}</td>
       <td>${x.level}</td><td>${fmt(x.hp)}</td><td>${fmt(x.exp)}</td><td>${x.need_acc}</td><td><b>×${x.count}</b></td></tr>`).join("");
@@ -785,6 +816,7 @@ async function renderTrain(){
   const detail = win(pretty(m.name), `<div class="body">${m.render ? `<div style="margin:-10px 0 12px">${mapBox(m.id, m.render, m.name, null)}</div>` : ""}
       <ul class="chips" style="margin:0"><li>${fmt(m.count)} monsters</li><li>${fmt(m.exp)} EXP per full clear</li>
         <li class="good">${(m.eff * 100).toFixed(1)} EXP per 100 HP</li>
+        ${mine[m.id] ? `<li class="good">Your real EXP/hr here: ${perHr(mine[m.id])}</li>` : ""}
         <li class="${short ? "bad" : ""}">~${m.need_acc} ACC to always hit${short ? `, you have ${p.acc}` : ""}</li></ul>
       <table class="mobtable"><thead><tr><th></th><th>Monster</th><th>Level</th><th>HP</th><th>EXP</th><th>ACC</th><th>Spawns</th></tr></thead><tbody>${mobs}</tbody></table>
       <div class="btns" style="margin:12px 0 0"><button class="btn primary" id="go">Take me there</button></div>
