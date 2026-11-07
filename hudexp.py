@@ -23,7 +23,9 @@ MIN_SAME = 0.92          # a shape this close to a known one, of the same size, 
 
 
 def _green(p):
-    return p[1] > p[0] + 40 and p[1] > 120 and p[1] > p[2]
+    # the brackets' green; at full screen the game scales them and they blur toward the gray
+    # behind (G 170, R 130), so the margin over red is 25, not more; the EXP bar's yellow fails it
+    return p[1] > p[0] + 25 and p[1] > 120 and p[1] > p[2] + 40
 
 
 def _light(p):

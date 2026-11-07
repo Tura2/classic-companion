@@ -53,16 +53,18 @@ CASES = Path(__file__).resolve().parent.parent / "samples" / "cases"
 LV = ("LV.", 416.0, 1046.0, 29.0, 19.0)
 
 
-@pytest.mark.parametrize("name,digits,pct", [("hudexp_comma_31576", 5, 5), ("hudexp_30095", 5, 5),
-                                             ("hudexp_29258", 5, 5)])
-def test_live_hud_splits_into_the_right_glyphs(name, digits, pct):
+@pytest.mark.parametrize("name,digits,pct,lv", [("hudexp_comma_31576", 5, 5, LV), ("hudexp_30095", 5, 5, LV),
+                                                ("hudexp_29258", 5, 5, LV),
+                                                ("hudexp_fullscreen_29192", 5, 5, ("LV.", 554.0, 1394.0, 39.0, 26.0))])
+def test_live_hud_splits_into_the_right_glyphs(name, digits, pct, lv):
     """The EXP bar's fill edge isn't a bracket; a narrow 1 by a faint comma doesn't cut the number;
-    the bold "EXP" letters running together aren't digits."""
+    the bold "EXP" letters running together aren't digits; at full screen (2560x1440) the scaled,
+    blurred "[" is still green enough."""
     p = CASES / f"{name}.png"
     if not p.exists():
         pytest.skip("case pictures are local only")
     from PIL import Image
-    g = hudexp.exp_glyphs(Image.open(p).convert("RGB"), LV)
+    g = hudexp.exp_glyphs(Image.open(p).convert("RGB"), lv)
     assert len(g["num"]) == digits and len(g["pct"]) == pct and g["pct"][2] == "."
 
 
