@@ -142,6 +142,12 @@ img.icon{width:36px;height:36px;object-fit:contain;image-rendering:pixelated;fle
 /* Now: the status line and the open shop's rows */
 .status{display:flex;align-items:center;gap:8px;margin:0 2px 12px;font-weight:800;color:var(--muted);font-size:.92rem}
 a.btn{display:inline-flex;align-items:center;text-decoration:none}
+.skh{margin:6px 0 4px;font-size:.9rem}
+.sk{list-style:none;margin:0 0 6px;padding:0;display:grid;gap:4px}
+.sk li{display:flex;gap:8px;align-items:center}
+.sk .grow{display:grid;min-width:0}
+.sk .grow span{font-size:.82rem}
+.star{border:0;background:none;font-size:1.2rem;cursor:pointer;color:var(--warn);min-width:32px;min-height:32px}
 .sales{list-style:none;margin:0;padding:0;display:grid;gap:4px}
 .sales li{display:flex;gap:8px;align-items:baseline;font-size:.9rem}
 .sales b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -636,6 +642,21 @@ function myShopCard(ms, full){
         : `<p class="sub" style="margin:0">No sales yet this session.</p>`}</div>`,
     sales.length ? `${fmt(sum)} mesos` : "");
 }
+/* sell or keep: every item hovered this session, grouped, with the reason and the price */
+const SK = [["npc", "Sell to an NPC"], ["fm", "Sell on the Free Market"], ["keep", "Keep"], ["drop", "Drop it"], ["unknown", "No data"]];
+function sellKeepCard(list){
+  if (!list.length) return `<p class="note"><b>Sell or keep:</b> hover each item in your inventory once (with screen reading on) and it lands here: keep, sell to an NPC or on the Free Market, and why.</p>`;
+  const groups = SK.map(([k, t]) => {
+    const xs = list.filter(x => x.verdict === k);
+    if (!xs.length) return "";
+    const sum = xs.reduce((a, x) => a + (x.price || 0), 0);
+    return `<h4 class="skh">${t}${sum && k !== "keep" ? ` <span class="sub">${fmt(sum)} mesos for one of each</span>` : ""}</h4>
+      <ul class="sk">${xs.map(x => `<li>${slot(x.img, 30)}<div class="grow"><b>${pretty(x.name)}</b><span class="sub">${esc(x.why)}</span></div>
+        <button class="star" data-star="${esc(x.name)}" aria-pressed="${x.starred}" title="${x.starred ? "Starred: always keep" : "Star: always keep"}">${x.starred ? "★" : "☆"}</button></li>`).join("")}</ul>`;
+  }).join("");
+  return win("Sell or keep", `<div class="body">${groups}<div class="btns" style="margin-top:8px"><button class="btn small" id="sk-clear">Clear the list</button></div></div>`, `${list.length} items`);
+}
+
 function discordCard(d){
   if (!d || !d.setup) return win("Discord", `<div class="body"><p class="sub" style="margin:0">Not set up in this build.</p></div>`);
   const what = `<p class="sub" style="margin-top:0">Posts to our server’s <b>#shop-sales</b> when your shop sells something, tagging only you, so your phone pings. Sent: the item, how many, the price, your character’s name and your shop’s total. Nothing else, and nowhere else.</p>`;
@@ -1248,7 +1269,8 @@ async function renderFlips(){
       <span class="noimg" ${e.img ? "hidden" : ""}>${pretty(e.name)}</span>
       <span class="qty">${e.seen}</span>${e.verdict ? `<span class="tagv" data-v="${e.verdict}"></span>` : ""}</button>`).join("");
   const mine = myShopCard((await api("/api/state")).myshop, true);
-  $("#view").innerHTML = `${mine}<p class="note">Items you passed in player shops, cheapest price against <span class="src-msc">MSC</span> and <span class="src-cozy">Cozy</span>. A verdict shows only when both agree. <span class="asof">${pricesAsOf()}</span></p>
+  const sk = sellKeepCard(await api("/api/sellkeep"));
+  $("#view").innerHTML = `${mine}${sk}<p class="note">Items you passed in player shops, cheapest price against <span class="src-msc">MSC</span> and <span class="src-cozy">Cozy</span>. A verdict shows only when both agree. <span class="asof">${pricesAsOf()}</span></p>
     ${all.length ? `<div class="md"><div class="master" style="padding:0;background:none;border:0;box-shadow:none">
         <div class="filters" role="group" aria-label="Show">${[["all","All",""],["deals","Deals","snipe"],["fair","Fair","fair"],["over","Too pricey","over"],["differ","Differ","split"],["other","Other","info"]].map(([k, t, v]) =>
         `<button data-f="${k}" aria-pressed="${seenFilter === k}">${v ? `<span class="tagv" data-v="${v}"></span>` : ""}${t} ${count(k)}</button>`).join("")}</div>
@@ -1256,6 +1278,10 @@ async function renderFlips(){
       <div class="detail">${seenDetail(pick)}</div></div>`
     : `<div class="empty">Nothing yet. With screen reading on, open player shops in the Free Market: every item Companion reads lands here with its picture and what it’s worth.</div>`}`;
   document.querySelectorAll("[data-f]").forEach(b => b.addEventListener("click", () => { seenFilter = b.dataset.f; renderFlips(); }));
+  document.querySelectorAll("[data-star]").forEach(b => b.addEventListener("click", async () => {
+    await api("/api/star", {name:b.dataset.star, on:b.getAttribute("aria-pressed") !== "true"}); renderFlips();
+  }));
+  const skc = $("#sk-clear"); if (skc) skc.addEventListener("click", async () => { await api("/api/sellkeep/clear", {}); renderFlips(); });
   const ok = $("#away-ok"); if (ok) ok.addEventListener("click", async () => { await api("/api/myshop/seen", {}); renderFlips(); });
   document.querySelectorAll(".islot").forEach(b => b.addEventListener("click", () => { seenPick = b.dataset.name; renderFlips(); }));
   fitPanes();

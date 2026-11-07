@@ -40,7 +40,27 @@ def _wears(name, profile, data):
     return any(e.get("name") == name for s in g.get("slots", []) for e in s.get("now", []) + s.get("soon", []))
 
 
+def short(v):
+    """The verdict in a few words, for the strip under the game's item tooltip; None: nothing to add."""
+    if not v or v["verdict"] == "unknown":
+        return None
+    if v["verdict"] == "keep":
+        why = v["why"] if len(v["why"]) <= 44 else v["why"][:43] + "…"
+        return f"KEEP · {why}"
+    if v["verdict"] == "npc":
+        return f"SELL TO NPC {fmt(v['price'])}"
+    if v["verdict"] == "drop":
+        return "DROP IT"
+    return f"SELL ON FM ~{fmt(v['price'])} · {'fast' if v['why'].startswith('Sells fast') else 'slow'}"
+
+
+def _npc_why(npc, count, known):
+    return f"An NPC pays {fmt(npc)} each" + (f" ({fmt(npc * count)} for {count})" if known and count > 1 else "")
+
+
 def verdict(name, count, profile, data, market, untradable=False):
+    """count: how many you have, or None when unknown (an item hovered, not counted)."""
+    known = count is not None
     count = max(1, int(count or 1))
     keep = lambda why: {"verdict": "keep", "why": why, "price": None}
     if name in (profile.get("starred") or []):
@@ -52,7 +72,7 @@ def verdict(name, count, profile, data, market, untradable=False):
         q = by_id.get(qid)
         need = q and _quest_need(name, q)
         if need:
-            return keep(f"{q['name']}: need {need}, have {count}")
+            return keep(f"{q['name']}: need {need}" + (f", have {count}" if known else ""))
     level = int(profile.get("level") or 1)
     soon = [q for q in data.quest_list if str(q.get("id")) not in done and str(q.get("id")) not in active
             and (q.get("level_min") or 0) <= level + LEVELS_AHEAD and _quest_need(name, q)]
@@ -69,13 +89,13 @@ def verdict(name, count, profile, data, market, untradable=False):
     fm = _fm_price(name, market)
     if fm is None:
         if npc:
-            return {"verdict": "npc", "why": f"An NPC pays {fmt(npc)} each ({fmt(npc * count)} for {count})", "price": npc}
+            return {"verdict": "npc", "why": _npc_why(npc, count, known), "price": npc}
         return {"verdict": "unknown", "why": "No market data. Check it yourself.", "price": None}
     net = round(fm * (1 - FM_FEE))
     m = market.items.get(name) or {}
     liquid = (m.get("vol") or 0) >= LIQUID_VOL and (m.get("st") or 0) >= LIQUID_ST
     if npc and (npc >= NPC_IS_ENOUGH * net or not liquid):
-        return {"verdict": "npc", "why": f"An NPC pays {fmt(npc)} each ({fmt(npc * count)} for {count})", "price": npc}
+        return {"verdict": "npc", "why": _npc_why(npc, count, known), "price": npc}
     why = f"{'Sells fast' if liquid else 'Sells slowly'} at about {fmt(fm)} each ({fmt(net)} after the 3% fee)"
     if not npc:
         why += ". NPC price unknown"

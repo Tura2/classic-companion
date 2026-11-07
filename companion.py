@@ -259,6 +259,14 @@ def make_handler(data, state, cfg):
                     return self.send(200, (RES_DIR / "web" / "logo.ico").read_bytes(), "image/x-icon")
                 if url.path == "/discord":           # where Discord sends you back after Authorize
                     return self.send(200, DISCORD_PAGE.encode("utf-8"), "text/html")
+                if url.path == "/api/sellkeep":     # every item hovered this session, with its verdict
+                    import advisor
+                    out = []
+                    for name, h in sorted((state.get("hovered") or {}).items(), key=lambda kv: -kv[1]["ts"]):
+                        v = advisor.verdict(name, None, prof, data, data.market, h.get("untradable"))
+                        out.append({"name": name, "img": data.item_img(name), "ts": h["ts"],
+                                    "starred": name in (prof.get("starred") or []), **v})
+                    return self.send(200, out)
                 if url.path == "/api/myshop":
                     return self.send(200, state.get("myshop") or {"watching": False, "sales": []})
                 if url.path == "/api/state":
@@ -397,6 +405,17 @@ def make_handler(data, state, cfg):
             if path == "/api/discord/test":
                 if not discord_send(state, cfg, "this is a test from Companion."):
                     return self.send(409, {"error": "Connect Discord and turn it on first."})
+                return self.send(200, {"ok": True})
+            if path == "/api/star":            # keep this item, whatever the market says
+                name = str(body["name"])[:100]
+                stars = [n for n in state["profile"].get("starred", []) if n != name]
+                if body.get("on", True):
+                    stars.append(name)
+                state["profile"]["starred"] = stars
+                save_profile(state)
+                return self.send(200, {"ok": True})
+            if path == "/api/sellkeep/clear":
+                state["hovered"] = {}
                 return self.send(200, {"ok": True})
             if path == "/api/myshop/seen":      # the "while you were away" summary, dismissed
                 if state.get("myshop") is not None:

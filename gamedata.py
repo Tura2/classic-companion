@@ -276,6 +276,7 @@ class GameData:
         self.equips = [i for i in items["items"] if i.get("category") == "Equipment"]
         # what an NPC pays for an equip (the game data's "price"); other items only from NPC_PRICES
         self.npc_sell = {i["name"]: int(i["price"]) for i in self.equips if i.get("name") and i.get("price")}
+        self.equip_names = {i["name"] for i in self.equips if i.get("name")}
         self.item_ids = {i["name"]: int(i["id"]) for i in items["items"] + items.get("scrolls", [])
                          if i.get("name") and i.get("id")}
         self.skills = fetch_json(OSMS + "current/skills.json", "skills.json", age)

@@ -27,6 +27,7 @@ import io
 import tkinter as tk
 from PIL import Image, ImageDraw, ImageTk
 
+import advisor
 import overlay_art as art
 import reader
 from trust import Gate
@@ -156,6 +157,14 @@ class SteadyCounts:
                      if (q.get("id"), n["what"]) in self.shown]
             out.append({**q, "needs": needs})
         return out
+
+
+def note_hovered(state, tips):
+    """Remember each item hovered this session, for the dashboard's Sell or keep list."""
+    seen = state.setdefault("hovered", {})
+    for t in tips or []:
+        if t.get("name"):
+            seen[t["name"]] = {"ts": time.time(), "untradable": bool(t.get("untradable"))}
 
 
 def handle_myshop(app, seen, now):
@@ -765,6 +774,7 @@ class App:
         elif kind == "tips_up":
             self.tips_ts = time.time()      # the same tooltip is still up: its prices stay
         elif kind == "tips":
+            note_hovered(self.state, msg[1])
             if self.drawing():
                 self.set_tips(msg[1])
         elif kind == "nav_corner":
@@ -1118,6 +1128,7 @@ class App:
         if seen.get("quick"):        # a shop-only re-read: everything else stays as last seen
             game.update(error="", ts=time.time(), windows={**game.get("windows", {}), **seen["windows"]})
             return
+        note_hovered(self.state, seen.get("tooltips"))
         if self.drawing() and seen.get("tooltips"):
             # only adds: a full read takes about a second and can miss a tooltip that came up
             # meanwhile; the quick tooltip check is what takes them away
@@ -1172,9 +1183,11 @@ class App:
             self.tip_shown[i] = bool(tip and not tip["untradable"])
             if not self.tip_shown[i]:
                 continue
-            npc = NPC_PRICES.get(tip["name"])
+            npc = self.data.npc_price(tip["name"])
+            v = advisor.verdict(tip["name"], None, self.state["profile"], self.data, self.market)
+            note = advisor.short(v) or (f"NPC pays {price_text(npc)}" if npc else None)
             img = art.price_strip(source_prices(tip["name"], self.market), self.scale,
-                                  tip["screen"][2] - tip["screen"][0] + 1, f"NPC pays {price_text(npc)}" if npc else None)
+                                  tip["screen"][2] - tip["screen"][0] + 1, note)
             card.show(img)
             l, t, _, b = tip["screen"]
             gap = round(3 * self.scale)
