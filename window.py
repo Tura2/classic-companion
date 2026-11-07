@@ -66,6 +66,7 @@ class Window:
             self.root.iconbitmap(default=str(RES_DIR / "web" / "logo.ico"))
         except tk.TclError:
             pass
+        self.root.after(0, self.sharp_icons)
         self.root.configure(bg=BG)
         self.root.geometry("620x360")
         self.root.minsize(420, 240)
@@ -115,6 +116,32 @@ class Window:
         self.q.put(("failed", why))
 
     # ------------------------------------------------------------ on the window's thread
+    def sharp_icons(self):
+        """Tk gives Windows a 32 px icon, which the taskbar stretches at 125 % and up (blurry).
+        Hand it the logo.ico frames made for this screen's scale instead."""
+        if sys.platform != "win32":
+            return
+        try:
+            u32 = ctypes.windll.user32
+            u32.LoadImageW.restype = ctypes.c_void_p
+            u32.LoadImageW.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p, ctypes.c_uint,
+                                       ctypes.c_int, ctypes.c_int, ctypes.c_uint]
+            u32.SendMessageW.restype = ctypes.c_void_p
+            u32.SendMessageW.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_void_p, ctypes.c_void_p]
+            self.root.update_idletasks()
+            hwnd = int(self.root.wm_frame(), 16)
+            dpi = u32.GetDpiForWindow(hwnd) or 96
+            path = str(RES_DIR / "web" / "logo.ico")
+            self._icons = []                       # kept: Windows doesn't copy them
+            for which, metric in ((0, 49), (1, 11)):      # ICON_SMALL / SM_CXSMICON, ICON_BIG / SM_CXICON
+                n = u32.GetSystemMetricsForDpi(metric, dpi) or round((16 if which == 0 else 32) * dpi / 96)
+                h = u32.LoadImageW(None, path, 1, n, n, 0x10)   # IMAGE_ICON, LR_LOADFROMFILE
+                if h:
+                    self._icons.append(h)
+                    u32.SendMessageW(hwnd, 0x80, which, h)       # WM_SETICON
+        except Exception:
+            pass
+
     def open(self):
         if self.url:
             webbrowser.open(self.url)
