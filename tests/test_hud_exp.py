@@ -76,3 +76,16 @@ def test_a_near_shape_between_two_digits_is_not_read(tmp_path, monkeypatch):
     assert d.digit("10x10:" + "".join(between)) is None
     clear = nine[:]; clear[70] = "0"          # one pixel off a 9, three off a 3
     assert d.digit("10x10:" + "".join(clear)) is None   # 0.99 vs 0.97: not clear enough either
+
+
+def test_a_digit_one_column_wider_is_compared_too(tmp_path, monkeypatch):
+    """Live: a 9 drawn 8 px wide, with only 7 px 9s known, was read as an 8 (the only 8 px digit
+    near it). Shapes a column apart are compared, slid left and right."""
+    nine7 = ["..###..", ".#####.", "##...##", "##....#", "##...##", ".######", ".....##", "......#",
+             "##....#", ".#####.", "..###.."]
+    eight8 = ["..####..", ".######.", "##....##", "##....##", ".######.", ".######.", "##....##", "##....##",
+              "##....##", ".######.", "..####.."]
+    nine8 = [r + "." for r in nine7]
+    key = lambda rows: f"{len(rows[0])}x{len(rows)}:" + "".join(rows).replace("#", "1").replace(".", "0")
+    d = fresh(tmp_path, monkeypatch, {key(nine7): "9", key(eight8): "8"})
+    assert d.digit(key(nine8)) == "9"

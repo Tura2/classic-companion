@@ -147,6 +147,27 @@ def exp_glyphs(frame, lv_line):
     return {"num": num, "pct": shapes(pct, True)}
 
 
+def _likeness(a, b):
+    """Share of pixels two shapes have alike, or None if they can't be compared: same height, widths
+    at most one column apart (the same digit lands 7 or 8 px wide), the narrower slid left or right."""
+    (sa, ba), (sb, bb) = a.split(":"), b.split(":")
+    wa, ha = map(int, sa.split("x"))
+    wb, hb = map(int, sb.split("x"))
+    if ha != hb or abs(wa - wb) > 1:
+        return None
+    if wa == wb:
+        return sum(x == y for x, y in zip(ba, bb)) / len(ba)
+    if wa < wb:
+        (wa, ba), (wb, bb) = (wb, bb), (wa, ba)
+    rows_a = [ba[r * wa:(r + 1) * wa] for r in range(ha)]
+    rows_b = [bb[r * wb:(r + 1) * wb] for r in range(ha)]
+    out = 0
+    for pad in (0, 1):
+        wide = ["0" * pad + r + "0" * (1 - pad) for r in rows_b]
+        out = max(out, sum(x == y for ra, rb in zip(rows_a, wide) for x, y in zip(ra, rb)) / (wa * ha))
+    return out
+
+
 class ExpDigits:
     """Digit shapes of the HUD's EXP font: shipped ones plus learned ones."""
 
@@ -163,12 +184,10 @@ class ExpDigits:
         it's clearly closer to that digit than to any other (3 and 9, 8 and 9 differ by a few pixels)."""
         if key in self.known:
             return self.known[key]
-        size, bits = key.split(":")
         best = {}
         for k, v in self.known.items():
-            ksize, kbits = k.split(":")
-            if ksize == size:
-                same = sum(a == b for a, b in zip(bits, kbits)) / len(bits)
+            same = _likeness(key, k)
+            if same is not None:
                 best[v] = max(best.get(v, 0), same)
         if not best:
             return None
