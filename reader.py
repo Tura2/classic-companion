@@ -289,27 +289,44 @@ def _my_items(lines, frame, u, item_names):
     return items
 
 
+BUYER = re.compile(r"^\s*bu[yv]er(?![a-z])", re.I)
+PURCHASED = re.compile(r"^\s*number\s*purchased\s*[:;.]?\s*([\dIlOo|]+)", re.I)
+SOLD_ROW = 82             # one row of the SOLD ITEMS panel, at the 1200 px UI size
+
+
 def read_sales_panel(frame, line, item_names):
-    """The SOLD ITEMS panel: Total Sales and Total Received ("0 mesos" each, in that order under
-    its title), then a row per sale."""
+    """The SOLD ITEMS panel, from its "Total Sales / Total Received" line: the two totals under it
+    ("20 mesos" each) and, above it, a row per sale: the item, "Buyer: ..." and "Number purchased: N"
+    (seen 2026-11-07; the totals row moves down one row with each sale). Rows: {"name", "count"},
+    oldest first; the buyer's name isn't kept."""
     u = line[3] / SALES_WIDTH
     x, y = line[1], line[2]
-    lines = read_box(frame, (x - 10 * u, y + 15 * u, x + 230 * u, y + 320 * u), u)
+    lines = read_box(frame, (x - 10 * u, y + 12 * u, x + 230 * u, y + 76 * u), u, pad=4)
     totals = [_num(m.group(1)) for ln in lines[:4] if (m := MESOS.match(ln[0]))]
     rows = []
-    for ln in lines:
-        if ln[2] < y + 60 * u:
+    above = read_box(frame, (x - 10 * u, y - 4 * SOLD_ROW * u - 10 * u, x + 230 * u, y - 4 * u), u)
+    for i, ln in enumerate(above):
+        nxt = above[i + 1:i + 3]
+        if len(nxt) < 2 or not BUYER.match(nxt[0][0]) or not (m := PURCHASED.match(nxt[1][0])):
             continue
-        hit = match_item(ln[0].replace("VV", "W"), item_names)
-        m = LISTING.match(ln[0])
-        if hit:
-            rows.append({"name": hit, "count": None, "price": None, "y": ln[2]})
-        elif rows and m and rows[-1]["count"] is None:
-            rows[-1].update(count=_num(m.group(1)), price=_num(m.group(2)))
-        elif rows and (m2 := MESOS.match(ln[0])) and rows[-1]["price"] is None:
-            rows[-1]["price"] = _num(m2.group(1))
+        if abs(nxt[0][1] - ln[1]) > 12 * u or not (15 * u <= nxt[0][2] - ln[2] <= 35 * u):
+            continue
+        text = ln[0].replace("VV", "W").strip()
+        rows.append({"name": match_item(text, item_names) or text, "count": _num(m.group(1))})
     return {"total_sales": totals[0] if totals else None, "total_received": totals[1] if len(totals) > 1 else None,
-            "rows": [{k: r[k] for k in ("name", "count", "price")} for r in rows], "u": round(u, 3)}
+            "rows": rows, "u": round(u, 3)}
+
+
+def find_sales_panel(frame, fee_line):
+    """The SOLD ITEMS panel's "Total Sales / Total Received" line, looked for right of your store
+    (the panel sits there; its totals line moves down a row with each sale). None if it's closed."""
+    u = _width_from(fee_line, "please") / FEE_WIDTH
+    x = fee_line[1] + fee_line[3] - _width_from(fee_line, "please")
+    y = fee_line[2]
+    for ln in read_box(frame, (x + 600 * u, y - 600 * u, x + 1060 * u, y - 60 * u), u):
+        if my_shop_line(ln[0]) == "mysales":
+            return ln
+    return None
 
 
 def my_shop_still_open(frame, line):
@@ -1354,6 +1371,8 @@ class Reader:
             near = read_box(frame, (panel[1] - 12 * u, panel[2] - 8 * u, panel[1] + panel[3] + 12 * u,
                                     panel[2] + panel[4] + 8 * u), u)
             panel = panel if any(my_shop_line(t) == "mysales" for t, *_ in near) else None
+        if not panel:
+            panel = find_sales_panel(frame, anchor)     # opened since, or moved down a row after a sale
         s = frame.height / REF_HEIGHT
         return {"myshop": self.read_my_shop_at(frame, tuple(anchor), tuple(panel) if panel else None),
                 "scale": round(s, 3), "quick": True,

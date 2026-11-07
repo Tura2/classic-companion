@@ -22,11 +22,18 @@ def _listed_value(items):
 
 
 def _rows(items):
-    """{row text: (bundle price, items per bundle, item name)} for the rows still for sale. A row's
-    "1 for 12,999 mesos" is one bundle; how many bundles are left is the number on its icon, which
-    isn't read, so a row sells partly without changing here."""
-    return {(i.get("text") or i.get("name")): (i["price"], i["count"], i.get("name"))
-            for i in items or [] if not i.get("sold") and i.get("price")}
+    """{(row text, price, per bundle, nth such row): (bundle price, items per bundle, item name)} for
+    the rows still for sale. Two rows of the same item (two "Orange" rows, at 20 and 222,222) are
+    kept apart. A row's "1 for 12,999 mesos" is one bundle; how many bundles are left is the number on
+    its icon, which isn't read, so a row sells partly without changing here."""
+    out, seen = {}, {}
+    for i in items or []:
+        if i.get("sold") or not i.get("price"):
+            continue
+        k = (i.get("text") or i.get("name"), i["price"], i["count"])
+        seen[k] = seen.get(k, 0) + 1
+        out[k + (seen[k],)] = (i["price"], i["count"], i.get("name"))
+    return out
 
 
 class ShopWatch:
@@ -39,6 +46,7 @@ class ShopWatch:
         self.items = None          # the rows as last confirmed
         self.items_pending = None
         self.panel_rows = []       # the panel's rows as last confirmed
+        self.credit = 0            # sales already told from the mesos box, not yet in a Total Sales seen
         self.gone = 0              # reads in a row without the store
         self.sales = []
         self.events = []           # "soldout", once per session
@@ -55,6 +63,7 @@ class ShopWatch:
         self.base = self.pending = self.mesos = self.mesos_pending = None
         self.items = self.items_pending = None
         self.panel_rows = []
+        self.credit = 0
         self.events = [e for e in self.events if e != "soldout"]
 
     def update(self, read, now):
@@ -88,12 +97,22 @@ class ShopWatch:
             elif self.pending == total:
                 delta = total - self.base
                 rows = list(panel.get("rows") or [])
-                item, count = self._from_rows(rows, delta) or self._from_items(items_before, self.items, delta) or (None, None)
-                sales.append({"key": f"{self.session}:{total}", "item": item, "count": count, "price": delta,
-                              "total_sales": total, "ts": now})
+                told = min(self.credit, delta)       # already told from the mesos box while the panel was lost
+                self.credit -= told
+                if delta - told > max(1, 0.01 * delta):
+                    delta -= told
+                    item, count = self._from_rows(rows, delta) or self._from_items(items_before, self.items, delta)                         or (None, None)
+                    sales.append({"key": f"{self.session}:{total}", "item": item, "count": count, "price": delta,
+                                  "total_sales": total, "ts": now})
                 self.base, self.pending, self.panel_rows = total, None, rows
             else:
                 self.pending = total
+            m = read.get("mesos")             # keep the mesos box's baseline current for when the panel is lost
+            if m is not None and m != self.mesos:
+                if self.mesos_pending == m:
+                    self.mesos, self.mesos_pending = m, None
+                else:
+                    self.mesos_pending = m
         else:
             sales += self._from_mesos(read.get("mesos"), items_before, cap, now)
         self.sales += sales
@@ -114,11 +133,21 @@ class ShopWatch:
             self.items_pending = snap
 
     def _from_rows(self, rows, delta):
-        new = rows[len(self.panel_rows):] if len(rows) > len(self.panel_rows) else []
-        named = [r for r in new if r.get("name")]
-        if len(named) == 1:
-            return named[0]["name"], named[0].get("count")
-        return None
+        """(item, how many) from the SOLD ITEMS rows that weren't there before (compared as a
+        multiset: the panel may list newest first or last). None unless it's one item."""
+        old = [(r.get("name"), r.get("count")) for r in self.panel_rows]
+        new = []
+        for r in rows:
+            key = (r.get("name"), r.get("count"))
+            if key in old:
+                old.remove(key)
+            elif r.get("name"):
+                new.append(key)
+        names = {n for n, _ in new}
+        if len(names) != 1:
+            return None
+        counts = [c for _, c in new]
+        return new[0][0], sum(counts) if all(counts) else None
 
     @staticmethod
     def _from_items(before, after, delta, tol=0):
@@ -132,10 +161,12 @@ class ShopWatch:
         for text, (price, per, name) in b.items():
             k = round(delta / price)
             if k >= 1 and abs(k * price - delta) <= tol * delta:
-                fits.append((text not in a, name or text, k * (per or 1)))
+                fits.append((text not in a, name or text[0], k * (per or 1)))
         if len(fits) > 1:
             fits = [f for f in fits if f[0]] or fits
-        return (fits[0][1], fits[0][2]) if len(fits) == 1 else None
+        if len({f[1] for f in fits}) == 1 and len({f[2] for f in fits}) == 1:
+            return fits[0][1], fits[0][2]      # two rows of the same item at the same price
+        return None
 
     def _from_mesos(self, mesos, items_before, cap, now):
         if mesos is None:
@@ -158,5 +189,7 @@ class ShopWatch:
         self.mesos, self.mesos_pending = mesos, None
         if not found:
             return []      # the mesos box alone could be anything (a trade, a misread): needs a row too
+        if self.base is not None:
+            self.credit += gross      # Total Sales will show it too once the panel is seen again
         return [{"key": f"{self.session}:m{mesos}", "item": found[0], "count": found[1], "price": gross,
                  "total_sales": None, "ts": now}]

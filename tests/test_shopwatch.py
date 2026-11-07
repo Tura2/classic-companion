@@ -101,3 +101,61 @@ def test_sold_out_reported_once():
     feed(w, [store(63996, items=gone), store(63996, items=gone), store(63996, items=gone)], 20)
     assert w.events == ["soldout"]
     assert w.status["sales"] and w.status["watching"]
+
+
+# the live test of 2026-11-07: "buy" listed Orange 1 for 20 (twice), Orange 1 for 222,222 and
+# Red Potion 1 for 5; SpookSy bought one Orange, then the other
+LIVE = [{"name": "Orange", "text": "Orange", "count": 1, "price": 20, "sold": False},
+        {"name": "Orange", "text": "Orange", "count": 1, "price": 20, "sold": False},
+        {"name": "Orange", "text": "Orange", "count": 1, "price": 222222, "sold": False},
+        {"name": "Red Potion", "text": "Red Potion", "count": 1, "price": 5, "sold": False}]
+
+
+def test_live_sale_names_the_orange_from_the_sold_row():
+    w = ShopWatch()
+    feed(w, [store(0, LIVE), store(0, LIVE)])
+    after = [LIVE[1], LIVE[2], LIVE[3]]                 # the sold row went gray (not read as for sale)
+    rows = [{"name": "Orange", "count": 1}]
+    sales = feed(w, [store(20, after, rows=rows), store(20, after, rows=rows)], 20)
+    assert [(s["item"], s["count"], s["price"]) for s in sales] == [("Orange", 1, 20)]
+    rows2 = rows + [{"name": "Orange", "count": 1}]
+    sales = feed(w, [store(40, after[1:], rows=rows2), store(40, after[1:], rows=rows2)], 40)
+    assert [(s["item"], s["count"], s["price"]) for s in sales] == [("Orange", 1, 20)]
+
+
+def test_same_named_rows_dont_hide_each_other_without_the_rows():
+    """No SOLD ITEMS rows read: the Orange row that went gray is what sold, not 4 Red Potions."""
+    w = ShopWatch()
+    feed(w, [store(0, LIVE), store(0, LIVE)])
+    after = [LIVE[1], LIVE[2], LIVE[3]]
+    sales = feed(w, [store(20, after), store(20, after)], 20)
+    assert [(s["item"], s["count"]) for s in sales] == [("Orange", 1)]
+
+
+def test_two_items_that_fit_and_nothing_sold_out_names_nothing():
+    w = ShopWatch()
+    feed(w, [store(0, LIVE), store(0, LIVE)])
+    sales = feed(w, [store(20, LIVE), store(20, LIVE)], 20)
+    assert len(sales) == 1 and sales[0]["item"] is None
+
+
+def test_a_sale_told_from_the_mesos_box_isnt_told_again_when_the_panel_returns():
+    """Live, 2026-11-07: the panel was lost, a Red Potion (5) sold, the mesos box went up 5; then
+    the panel was found again with Total Sales 40 -> 45. One sale, not two."""
+    w = ShopWatch()
+    after = [LIVE[2], LIVE[3]]
+    feed(w, [store(40, after, mesos=768883), store(40, after, mesos=768883)])
+    sales = feed(w, [store(None, after, mesos=768883, panel=False)] * 2 + [store(None, after, mesos=768888, panel=False)] * 2, 20)
+    assert [(s["item"], s["price"]) for s in sales] == [("Red Potion", 5)]
+    assert feed(w, [store(45, after, mesos=768888), store(45, after, mesos=768888)], 60) == []
+    assert w.status["total"] == 45
+    more = feed(w, [store(50, after, mesos=768893), store(50, after, mesos=768893)], 80)
+    assert [(s["item"], s["price"]) for s in more] == [("Red Potion", 5)]       # the next one still counts
+
+
+def test_mesos_baseline_follows_while_the_panel_is_open():
+    w = ShopWatch()
+    after = [LIVE[2], LIVE[3]]
+    feed(w, [store(0, after, mesos=1000), store(0, after, mesos=1000)])
+    feed(w, [store(5, after, mesos=1005), store(5, after, mesos=1005)], 20)    # told from the panel
+    assert feed(w, [store(None, after, mesos=1005, panel=False)] * 3, 40) == []  # panel lost: no repeat

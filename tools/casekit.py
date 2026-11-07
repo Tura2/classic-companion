@@ -41,6 +41,9 @@ def computed(seen, name):
     if name == "myshop.list":
         sh = seen.get("myshop")
         return None if sh is None else [[i["name"] or i["text"], i["count"], i["price"]] for i in sh["items"]]
+    if name == "myshop.sold":
+        p = (seen.get("myshop") or {}).get("panel")
+        return None if p is None else [[r["name"], r["count"]] for r in p["rows"]]
     if name == "myshop.totals":
         p = (seen.get("myshop") or {}).get("panel")
         return None if p is None else [p["total_sales"], p["total_received"]]
