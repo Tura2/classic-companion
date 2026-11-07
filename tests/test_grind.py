@@ -126,3 +126,24 @@ def test_the_levels_exp_needs_three_reads_that_agree(tmp_path):
     assert g.need is None
     g.update(50000, pct(50000), 32, 1, "Ant Tunnel I", 4)
     assert abs(g.need - NEED) < NEED * 0.001
+
+
+def test_a_level_exp_set_by_misreads_is_replaced(tmp_path):
+    """Live, 2026-11-07: right after a start, "96 [22.5%]" read three times set the level's EXP to 427."""
+    g = tracker(tmp_path)
+    for i in range(3):
+        g.update(96, 22.5, 32, 1, "Ant Tunnel I", i * 2)
+    t = feed(g, [50000 + 100 * i for i in range(6)], t0=10)
+    assert abs(g.need - NEED) < NEED * 0.001
+    before = g.summary(t)["gained"]
+    assert before < 600                       # nothing counted from 96 up to 50,000
+    t = feed(g, [50600, 50700], t0=t)
+    assert g.summary(t)["gained"] == before + 200
+
+
+def test_a_misread_level_doesnt_stop_counting(tmp_path):
+    g = tracker(tmp_path)
+    for i in range(3):
+        g.update(96, 22.5, 23, 1, "Ant Tunnel I", i * 2)      # the HUD's level misread too
+    t = feed(g, [50000 + 100 * i for i in range(4)], t0=10)
+    assert g.summary(t)["gained"] > 0

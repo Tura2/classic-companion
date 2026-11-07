@@ -17,6 +17,7 @@ WINDOW = 300.0          # "last 5 minutes" rate
 MIN_TTL_DATA = 60.0     # seconds of active time before time-to-level is shown
 MAX_GAIN_SHARE = 0.6    # one step gaining more than this share of a level is a misread
 NEED_READS = 3          # reads that agree on the level's EXP (exp / pct) before any is trusted
+RETHINK_READS = 6       # reads in a row agreeing on another level EXP replace one set by misreads
 
 
 def need_of(exp, pct):
@@ -110,7 +111,10 @@ class Grind:
             self.last = read
             return 0
         gain = self._gain(self.last, read)
+        fresh, self.need_fresh = getattr(self, "need_fresh", False), False
         if gain is None:
+            if fresh:
+                self.last = read          # a level EXP just settled that the old read can't lead to: start here
             return 0                      # a misread: keep what we had
         self.last = read
         if gain <= 0 or self.paused:
@@ -137,7 +141,18 @@ class Grind:
         new_level = level != self.need_level or (self.need is not None and self.last is not None
                                                  and pct + 50 < self.last[1])
         if self.need is not None and not new_level:
-            return abs(need - self.need) <= self.need * need_tol(pct)
+            if abs(need - self.need) <= self.need * need_tol(pct):
+                self.need_other = []
+                return True
+            # a wrong level EXP set by repeated misreads would shut out every right read after it:
+            # RETHINK_READS reads in a row that agree among themselves on another one replace it
+            self.need_other = (getattr(self, "need_other", []) + [(need, pct)])[-RETHINK_READS:]
+            ref = sorted(n for n, _ in self.need_other)[len(self.need_other) // 2]
+            if len(self.need_other) == RETHINK_READS and all(abs(n - ref) <= ref * need_tol(p)
+                                                             for n, p in self.need_other):
+                self.need, self.need_other = ref, []
+                self.last = None          # start again from here: no gain across the bad stretch
+            return False
         if new_level:
             self.need, self.need_level, self.need_seen = None, level, []
         self.need_seen = (self.need_seen + [(need, pct)])[-NEED_READS:]
@@ -145,7 +160,7 @@ class Grind:
             return False
         ref = sorted(n for n, _ in self.need_seen)[NEED_READS // 2]
         if all(abs(n - ref) <= ref * need_tol(p) for n, p in self.need_seen):
-            self.need = ref
+            self.need, self.need_fresh = ref, True
             return True
         return False
 
