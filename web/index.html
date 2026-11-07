@@ -669,25 +669,32 @@ function spark(vals){
 function grindCard(gr, g){
   if (!gr || !gr.available) return "";
   const n = gr.now, hud = !!(g.windows || {}).hud;
-  if (!n.gained){
+  if (!n.gained && !n.pq){
     if (n.exp != null) return "";                     // read fine, no EXP yet: nothing to show while you shop or walk
     if (!hud) return "";
     return win("Grind", `<div class="body"><p style="margin:0">Companion can't read the EXP on your HUD yet: its digits are new to it.
       Open <b>Character Stat (S)</b> and kill a few monsters; it learns every digit in about a minute.</p></div>`);
   }
-  const st = n.paused ? ["warn", "Paused"] : n.running ? ["good", "Grinding"] : ["", "Waiting for EXP"];
+  const st = n.paused ? ["warn", "Paused"] : n.pq ? ["good", "In the PQ"] : n.running ? ["good", "Grinding"] : ["", "Waiting for EXP"];
   const pct = n.pct != null ? Math.min(100, n.pct) : null;
   const rate = n.exp_hr_5m ?? n.exp_hr;
   const maps = (gr.history || []).filter(h => h.active_s >= 30 && h.exp_gained > 0).slice(0, 4);
-  return win("Grind" + (n.map ? ` · ${pretty(n.map)}` : ""), `<div class="body">
-      <div class="gstrip">
+  const q = n.pq;   // in a party quest: counted by the run
+  const strip = q ? `<div class="gstrip">
+        <div><b>${dur(q.run_secs)}</b><span>this run · +${fmt(q.run_exp)} EXP</span></div>
+        <div><b>${q.avg_exp != null ? fmt(q.avg_exp) : "—"}</b><span>EXP a run · ${q.runs} today</span></div>
+        <div><b>${q.runs_to_level ?? "—"}</b><span>runs to level ${n.level ? n.level + 1 : "up"}</span></div></div>
+      ${q.exp_hr ? `<p class="sub" style="margin:4px 0 8px">About <b>${perHr(q.exp_hr)}</b> EXP an hour in the PQ; a run takes ${dur(q.avg_secs)} on average.</p>` : ""}`
+    : `<div class="gstrip">
         <div><b>${perHr(rate)}</b><span>EXP / hour</span></div>
         <div><b>${dur(n.ttl_s)}</b><span>to level ${n.level ? n.level + 1 : "up"}</span></div>
-        <div><b>${dur(n.active_s)}</b><span>grinding</span></div></div>
+        <div><b>${dur(n.active_s)}</b><span>grinding</span></div></div>`;
+  return win("Grind" + (n.map ? ` · ${pretty(n.map)}` : ""), `<div class="body">
+      ${strip}
       ${pct != null ? `<div class="prog"><div class="lbl"><span>Lv. ${n.level ?? "?"} · ${pct.toFixed(2)}%</span>
           <span>${n.left != null ? fmt(n.left) + " EXP to go" : ""}</span></div>
         <div class="bar" role="progressbar" aria-label="EXP to the next level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div>
-        ${n.ttl_s ? `<p class="sub" style="margin:4px 0 0">At this pace, level ${n.level ? n.level + 1 : "up"} at about <b>${clock(Date.now() / 1000 + n.ttl_s)}</b>.</p>` : `<p class="sub" style="margin:4px 0 0">Time to level shows after a minute of grinding.</p>`}</div>` : ""}
+        ${q ? "" : n.ttl_s ? `<p class="sub" style="margin:4px 0 0">At this pace, level ${n.level ? n.level + 1 : "up"} at about <b>${clock(Date.now() / 1000 + n.ttl_s)}</b>.</p>` : `<p class="sub" style="margin:4px 0 0">Time to level shows after a minute of grinding.</p>`}</div>` : ""}
       <div class="gspark">${spark(n.spark || [])}<div class="sub"><span>EXP per minute, last ${(n.spark || []).length} min</span><span>+${fmt(n.gained)} EXP this session</span></div></div>
       ${maps.length > 1 ? `<table class="gmaps"><thead><tr><th>Map</th><th>Time</th><th>EXP/hr</th></tr></thead><tbody>${maps.map(h =>
           `<tr><td>${pretty(h.map || "?")}</td><td>${dur(h.active_s)}</td><td>${perHr(h.exp_gained / h.active_s * 3600)}</td></tr>`).join("")}</tbody></table>` : ""}
@@ -769,7 +776,7 @@ async function renderLive(){
   const ms = state.myshop;
   const gr = on ? await api("/api/grind").catch(() => null) : null;
   if (tab !== "live") return;
-  const key = JSON.stringify([gr && gr.now && [Math.round((gr.now.exp_hr_5m ?? gr.now.exp_hr ?? 0) / 100), gr.now.ttl_s && Math.round(gr.now.ttl_s / 60), gr.now.paused, gr.now.running, gr.now.no_reset, gr.now.map, gr.now.gained, gr.now.exp == null, (g.windows || {}).hud ? 1 : 0, (gr.history || []).length],on, g.helper, g.shop && g.shop.seller, g.shop && g.shop.items, g.level_hint, l.rows, l.note,
+  const key = JSON.stringify([gr && gr.now && [Math.round((gr.now.exp_hr_5m ?? gr.now.exp_hr ?? 0) / 100), gr.now.ttl_s && Math.round(gr.now.ttl_s / 60), gr.now.paused, gr.now.running, gr.now.no_reset, gr.now.map, gr.now.gained, gr.now.exp == null, gr.now.pq && [gr.now.pq.runs, gr.now.pq.run_exp, Math.round(gr.now.pq.run_secs / 15)], (g.windows || {}).hud ? 1 : 0, (gr.history || []).length],on, g.helper, g.shop && g.shop.seller, g.shop && g.shop.items, g.level_hint, l.rows, l.note,
     ms && [ms.watching, ms.reason, ms.panel, (ms.sales || []).length],
     state.deals.length, p.rev, state.screen.drawing, !!shotUrl, state.nav && [state.nav.i, state.nav.to.id, state.nav.steps.length],
     state.guide, next && next.at]);
