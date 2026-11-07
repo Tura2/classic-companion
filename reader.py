@@ -808,6 +808,9 @@ def _text_box(lines, s, left=24, right=40, below=5):
             round(max(ln[1] + ln[3] for ln in lines) + right * s), round(lines[-1][2] + lines[-1][4] + below * s)]
 
 
+MISSED = {"text": None}   # the last mini map title read close up that named no map (for the log)
+
+
 def read_minimap_at(frame, title, s, map_names, buttons=None):
     """(street, map name, title box, False) of the open mini map whose "MINI MAP" title (found by
     its picture) is `title`: its two lines under the title, read close up. The window's own
@@ -820,6 +823,7 @@ def read_minimap_at(frame, title, s, map_names, buttons=None):
         return None, None, None, None
     name = match_place(lines[-1][0], map_names, 86)
     if not name:
+        MISSED["text"] = lines[-1][0]
         return None, None, None, None
     return (lines[-2][0] if len(lines) > 1 else None), name, _text_box(lines, s), False
 
@@ -835,6 +839,7 @@ def read_minibar_at(frame, buttons, s, map_names):
     parts = BAR_SPLIT.split(" : ".join(ln[0] for ln in lines), maxsplit=1)
     name = match_place(parts[1], map_names, 86) if len(parts) == 2 else None
     if not name:
+        MISSED["text"] = parts[-1].strip() or None
         return None, None, None, None
     return parts[0].strip(), name, _text_box(lines, s, 0, 0, 0), True
 
@@ -1302,6 +1307,7 @@ class Reader:
         # the mini map by its picture, read close up: open, by its title (its buttons look like the
         # collapsed bar's, so the bar counts only when there's no open mini map); else as OCR saw it
         mt, street, name = self.map_titles, None, None
+        MISSED["text"] = None
         if "minimap" in mt:
             street, name, title, collapsed = read_minimap_at(frame, mt["minimap"], s, self.map_names, mt.get("minibar"))
         elif "minibar" in mt:
@@ -1309,6 +1315,8 @@ class Reader:
         if not name:
             street, name, title, collapsed = read_minimap([ln for ln in lines if ln[2] < frame.height * 0.9], frame,
                                                           s, self.map_names)
+        if not name and MISSED["text"]:
+            seen["map_missed"] = MISSED["text"]
         if name:
             seen["map"] = {"street": street, "name": name, "title": title, "collapsed": collapsed,
                            "window": None if collapsed else minimap_window(frame, title, s)}

@@ -129,7 +129,10 @@ def fetch_json(url, name, max_age):
 # numeral as l, 1, | or !, and a plain best match then lands on the map next door ("Ant Tunnel Il"
 # scores higher against Ant Tunnel I than Ant Tunnel II). So the number is fixed up, then must match.
 ROMAN_READ = re.compile(r"(?<=\s)([IVXl1|!]*[IVXl|!][IVXl1|!]*)\s*$")
-NUMBER = re.compile(r"(?:(?<=\s)([IVX]+)|(<[^>]*>))\s*$")
+# The <...> part is compared loosely: OCR reads "<1st Stage>" as "<Ist Stage>", "<1 st Stage>" or
+# "<1st Stage)" (seen in Kerning PQ, 2026-11-07), and the game itself writes "<4th stage>".
+NUMBER = re.compile(r"(?:(?<=\s)([IVX]+)|(<[^>)\]}]*[>)\]}]?))\s*$")
+ORDINAL_ONE = re.compile(r"(?<![a-z0-9])[il|!](?=st(?![a-z]))")
 
 
 def fix_numeral(text):
@@ -138,9 +141,15 @@ def fix_numeral(text):
 
 
 def name_number(name):
-    """A map name's number ("II", "<Area 3>"), or None."""
+    """A map name's number ("II", "<area3>"), or None. The <...> part comes back without its
+    brackets, spaces or case, with an I-like stroke before "st" read as 1."""
     m = NUMBER.search(name or "")
-    return re.sub(r"\s+", " ", m.group(1) or m.group(2)) if m else None
+    if not m:
+        return None
+    if m.group(1):
+        return m.group(1)
+    inner = ORDINAL_ONE.sub("1", m.group(2).strip("<>)]}").lower())
+    return "<" + re.sub(r"\s+", "", inner) + ">"
 
 
 def match_place(text, names, cutoff):

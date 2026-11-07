@@ -8,9 +8,30 @@ resumes it. Each map is its own segment in the log; on the dashboard a map chang
 numbers over unless "No reset" is on. One misread never counts: a new EXP needs two reads in a row,
 and EXP going down without a level-up is dropped. The EXP a level needs is exp / pct, so no EXP
 table is needed; a level-up adds what was left of the old level plus the new EXP.
+
+A party quest is counted by the run instead: entering any of its maps starts a run, its stages
+are the same run, and leaving ends it. A run's time is all of it, the quiet puzzle minutes too, so
+"EXP per hour" there is what the PQ really pays for the time it takes.
 """
+import math
 import sqlite3
 import time
+
+# Party quests: every map whose name starts with the prefix belongs to it (stages, bonus, exit).
+PQS = (("Kerning PQ", "1st Accompaniment"),)
+
+
+def pq_of(map_name):
+    """The party quest this map belongs to, or None."""
+    if not map_name:
+        return None
+    return next((pq for pq, prefix in PQS if map_name.lower().startswith(prefix.lower())), None)
+
+
+def day_start(now):
+    """Local midnight before `now`."""
+    t = time.localtime(now)
+    return math.floor(now) - (t.tm_hour * 3600 + t.tm_min * 60 + t.tm_sec)
 
 IDLE = 15.0             # seconds without a gain before the clock stops
 WINDOW = 300.0          # "last 5 minutes" rate
@@ -37,7 +58,12 @@ class Grind:
         self.db.execute("""CREATE TABLE IF NOT EXISTS sessions (id INTEGER PRIMARY KEY, start REAL, end REAL,
             map_id INTEGER, map TEXT, level_start INTEGER, level_end INTEGER, exp_gained INTEGER, active_s REAL,
             mesos_gained INTEGER, potions_cost INTEGER, party INTEGER)""")
+        try:
+            self.db.execute("ALTER TABLE sessions ADD COLUMN pq TEXT")   # logs from before PQ runs
+        except sqlite3.OperationalError:
+            pass
         self.db.commit()
+        self.pq = None               # the party quest you're in, if any
         self.no_reset = False
         self.paused = False          # paused by hand from the dashboard
         self.last = None             # the last accepted (exp, pct, level)
@@ -59,22 +85,27 @@ class Grind:
         self.last_tick = now
 
     def _new_segment(self, now, level):
-        self.seg = {"id": None, "start": now, "map_id": self.map_id, "map": self.map, "level_start": level,
-                    "level_end": level, "exp": 0, "active": 0.0, "mesos0": None, "mesos": None}
+        """A map's stretch in the log, or a whole party quest run (map_id None, map the PQ's name)."""
+        self.seg = {"id": None, "start": now, "map_id": None if self.pq else self.map_id, "map": self.pq or self.map,
+                    "pq": self.pq, "stage": self.map, "level_start": level, "level_end": level, "exp": 0,
+                    "active": 0.0, "mesos0": None, "mesos": None}
 
     def _save_segment(self, now):
         g = self.seg
         if not g or g["exp"] <= 0:
             return
-        row = (g["start"], now, g["map_id"], g["map"], g["level_start"], g["level_end"], g["exp"], g["active"],
-               (g["mesos"] - g["mesos0"]) if g["mesos0"] is not None and g["mesos"] is not None else None, None, 0)
+        active = now - g["start"] if g["pq"] else g["active"]      # a run counts all its time
+        row = (g["start"], now, g["map_id"], g["map"], g["level_start"], g["level_end"], g["exp"], active,
+               (g["mesos"] - g["mesos0"]) if g["mesos0"] is not None and g["mesos"] is not None else None, None,
+               1 if g["pq"] else 0, g["pq"])
         if g["id"] is None:
             cur = self.db.execute("INSERT INTO sessions (start, end, map_id, map, level_start, level_end, exp_gained,"
-                                  " active_s, mesos_gained, potions_cost, party) VALUES (?,?,?,?,?,?,?,?,?,?,?)", row)
+                                  " active_s, mesos_gained, potions_cost, party, pq) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", row)
             g["id"] = cur.lastrowid
         else:
             self.db.execute("UPDATE sessions SET start=?, end=?, map_id=?, map=?, level_start=?, level_end=?,"
-                            " exp_gained=?, active_s=?, mesos_gained=?, potions_cost=?, party=? WHERE id=?", row + (g["id"],))
+                            " exp_gained=?, active_s=?, mesos_gained=?, potions_cost=?, party=?, pq=? WHERE id=?",
+                            row + (g["id"],))
         self.db.commit()
 
     def flush(self, now=None):
@@ -96,11 +127,16 @@ class Grind:
         if exp is None or pct is None:
             return 0
         if map_id is not None and map_id != self.map_id:
-            self._save_segment(now)
+            pq = pq_of(map_name)
             self.map_id, self.map = map_id, map_name
-            self._new_segment(now, level)
-            if not self.no_reset:
-                self._new_session(now)
+            if pq is not None and pq == self.pq and self.seg:
+                self.seg["stage"] = map_name      # the next stage: the same run
+            else:
+                self._save_segment(now)
+                self.pq = pq
+                self._new_segment(now, level)
+                if not self.no_reset:
+                    self._new_session(now)
         elif self.seg is None:
             self._new_segment(now, level)
         self._tick(now)
@@ -241,12 +277,28 @@ class Grind:
                 "left": round(need - self.last[0]) if need and self.last else None,
                 "since": self.s_start, "spark": spark,
                 "active_s": round(self.s_active, 1), "exp_hr": hr, "exp_hr_5m": hr5, "ttl_s": ttl, "mesos_hr": mhr,
-                "map": self.map, "map_id": self.map_id,
+                "map": self.pq or self.map, "map_id": self.map_id,
+                "pq": self.pq_summary(now, need - self.last[0] if need and self.last else None) if self.pq else None,
                 "exp": self.last[0] if self.last else None, "pct": self.last[1] if self.last else None}
+
+    def pq_summary(self, now, left=None):
+        """The run you're in, and today's finished runs of the same party quest."""
+        g = self.seg or {}
+        cur_id = g.get("id") or -1
+        rows = self.db.execute("SELECT exp_gained, active_s FROM sessions WHERE pq=? AND start>=? AND id!=?",
+                               (self.pq, day_start(now), cur_id)).fetchall()
+        runs, exp, secs = len(rows), sum(r[0] for r in rows), sum(r[1] or 0 for r in rows)
+        avg = round(exp / runs) if runs else None
+        return {"name": self.pq, "stage": g.get("stage"), "run_exp": g.get("exp", 0),
+                "run_secs": round(now - g["start"]) if g.get("start") is not None else 0,
+                "runs": runs, "exp": exp, "secs": round(secs), "avg_exp": avg,
+                "avg_secs": round(secs / runs) if runs else None,
+                "exp_hr": exp / secs * 3600 if secs >= 1 else None,
+                "runs_to_level": math.ceil(left / avg) if avg and left and left > 0 else None}
 
     def history(self, limit=20):
         cur = self.db.execute("SELECT start, end, map_id, map, level_start, level_end, exp_gained, active_s,"
-                              " mesos_gained FROM sessions ORDER BY start DESC LIMIT ?", (limit,))
+                              " mesos_gained, pq FROM sessions ORDER BY start DESC LIMIT ?", (limit,))
         cols = [c[0] for c in cur.description]
         return [dict(zip(cols, r)) for r in cur.fetchall()]
 

@@ -1086,6 +1086,10 @@ class App:
                         self.state["nav"] = None
                     self.q.put(("nav",))
         mid = None
+        missed = seen.get("map_missed")
+        if missed and missed != getattr(self, "map_missed", None):
+            print(f"Mini map title not recognised: {missed!r}")   # once per title, to fix the matching
+        self.map_missed = missed or getattr(self, "map_missed", None)
         if seen.get("map"):
             nav = self.state["nav"]
             mid = self.data.match_map_name(seen["map"]["name"], prefer=[s["id"] for s in nav["steps"]] if nav else ())

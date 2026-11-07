@@ -157,3 +157,70 @@ def test_summary_feeds_the_card(tmp_path):
     assert s["left"] == s["need"] - 52000
     assert len(s["spark"]) == grind.SPARK_MINUTES and sum(s["spark"]) == s["gained"] == 2000
     assert s["since"] is not None and s["since"] >= 6000.0
+
+
+# ---- party quests: a run from entering to leaving, its stages one run
+
+KPQ = [(80000000 + 100 * i, f"1st Accompaniment <{s}>") for i, s in
+       enumerate(["1st Stage", "2nd Stage", "3rd Stage", "4th stage", "Last Stage", "Bonus"])]
+
+
+def kpq_run(g, t, exp0, gains=(800, 0, 1200, 1500, 2000, 0)):
+    """One Kerning PQ run: Kerning City, then each stage with a quiet minute and a lump of EXP."""
+    t = feed(g, [exp0] * 3, t0=t, map_id=103000000, name="Kerning City")
+    e = exp0
+    for (mid, name), gain in zip(KPQ, gains):
+        t = feed(g, [e] * 10, t0=t, map_id=mid, name=name)          # a minute on the stage
+        e += gain
+        t = feed(g, [e] * 2, t0=t, map_id=mid, name=name)
+    t = feed(g, [e] * 3, t0=t, map_id=103000000, name="Kerning City")
+    return t, e
+
+
+def test_pq_of_names_kerning_pq_by_its_maps():
+    assert grind.pq_of("1st Accompaniment <2nd Stage>") == "Kerning PQ"
+    assert grind.pq_of("1st Accompaniment <Exit>") == "Kerning PQ"
+    assert grind.pq_of("Kerning City") is None
+    assert grind.pq_of(None) is None
+
+
+def test_a_kpq_run_is_one_row_with_its_whole_time(tmp_path):
+    g = tracker(tmp_path)
+    t, _ = kpq_run(g, 0.0, 50000)
+    g.flush(t)
+    rows = g.history(10)
+    assert len(rows) == 1                               # the stages don't split it
+    r = rows[0]
+    assert r["map"] == "Kerning PQ" and r["pq"] == "Kerning PQ" and r["map_id"] is None
+    assert r["exp_gained"] == 5500
+    assert r["active_s"] > 6 * 60                       # the quiet minutes count: a run is wall time
+
+
+def test_pq_summary_counts_runs_today(tmp_path):
+    g = tracker(tmp_path)
+    t, e = kpq_run(g, 0.0, 50000)
+    t, e = kpq_run(g, t, e)
+    t = feed(g, [e] * 3, t0=t, map_id=KPQ[0][0], name=KPQ[0][1])   # the third run has just begun
+    s = g.summary(t)
+    assert s["map"] == "Kerning PQ"
+    pq = s["pq"]
+    assert pq["name"] == "Kerning PQ" and pq["stage"] == "1st Accompaniment <1st Stage>"
+    assert pq["runs"] == 2 and pq["avg_exp"] == 5500
+    assert abs(pq["exp_hr"] - 11000 / (pq["secs"] / 3600)) < 1
+    assert pq["run_exp"] == 0 and pq["run_secs"] >= 0
+    assert pq["runs_to_level"] == -(-(NEED - e) // 5500)
+
+
+def test_out_of_the_pq_the_card_has_no_run(tmp_path):
+    g = tracker(tmp_path)
+    t, e = kpq_run(g, 0.0, 50000)
+    t = feed(g, [e + 100 * i for i in range(20)], t0=t, map_id=1, name="Ant Tunnel I")
+    s = g.summary(t)
+    assert s["pq"] is None and s["map"] == "Ant Tunnel I"
+
+
+def test_by_map_leaves_pq_runs_out(tmp_path):
+    g = tracker(tmp_path)
+    t, _ = kpq_run(g, 0.0, 50000)
+    g.flush(t)
+    assert g.by_map(min_active=0) == {}
