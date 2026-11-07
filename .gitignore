@@ -2,6 +2,10 @@
 config.json
 profile.json
 scans.sqlite
+grind.sqlite
+discord_outbox.json
+# The group's Discord webhook and app ID: built into the exe, never committed
+discord.json
 cache/
 debug/
 *.tmp
