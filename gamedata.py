@@ -274,6 +274,9 @@ class GameData:
         self.monsters = fetch_json(OSMS + "current/monsters.json", "monsters.json", age)["monsters"]
         items = fetch_json(OSMS + "current/items.json", "items.json", age)
         self.equips = [i for i in items["items"] if i.get("category") == "Equipment"]
+        # what an NPC pays for an equip (the game data's "price"); other items only from NPC_PRICES
+        self.npc_sell = {i["name"]: int(i["price"]) for i in self.equips if i.get("name") and i.get("price")}
+        self.equip_names = {i["name"] for i in self.equips if i.get("name")}
         self.item_ids = {i["name"]: int(i["id"]) for i in items["items"] + items.get("scrolls", [])
                          if i.get("name") and i.get("id")}
         self.skills = fetch_json(OSMS + "current/skills.json", "skills.json", age)
@@ -292,7 +295,15 @@ class GameData:
                 best = self.graph.setdefault(mid, {}).get(dest)
                 if best is None or (p.get("type") == 2 and best.get("type") != 2):
                     self.graph[mid][dest] = p
-        self.quest_list = fetch_json(OSMS + "current/quests.json", "quests.json", age)["quests"]
+        quests = fetch_json(OSMS + "current/quests.json", "quests.json", age)
+        self.quest_list = quests["quests"]
+        # quest lines, as the Quest window names them ("Caretaker's Ledger"): line -> its quest ids, in order
+        self.chains = {c["parent"]: [str(i) for i in c["quest_ids"]] for c in quests.get("chains", []) if c.get("parent")}
+        more = {}         # a few lines are only named on their quests, in the quests' order
+        for q in self.quest_list:
+            if q.get("parent") and q["parent"] not in self.chains:
+                more.setdefault(q["parent"], []).append(str(q["id"]))
+        self.chains.update(more)
         self.npc_maps = {}
         for mid, m in self.maps.items():
             for pos in m.get("npc_positions") or []:
@@ -502,6 +513,10 @@ class GameData:
 
     def refresh_market(self):
         self.market = Market(force=True)
+
+    def npc_price(self, name):
+        """What an NPC pays for one, or None when the game data doesn't say."""
+        return NPC_PRICES.get(name) or self.npc_sell.get(name)
 
     def item_img(self, name):
         i = self.item_ids.get(name)

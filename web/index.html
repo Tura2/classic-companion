@@ -141,6 +141,22 @@ img.icon{width:36px;height:36px;object-fit:contain;image-rendering:pixelated;fle
 
 /* Now: the status line and the open shop's rows */
 .status{display:flex;align-items:center;gap:8px;margin:0 2px 12px;font-weight:800;color:var(--muted);font-size:.92rem}
+a.btn{display:inline-flex;align-items:center;text-decoration:none}
+.gstrip{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;text-align:center}
+.gstrip div{background:var(--cell);border-radius:6px;padding:6px 4px}
+.gstrip b{display:block;font-size:1.15rem}
+.gstrip span{font-size:.78rem;color:var(--muted);font-weight:700}
+.mine{color:var(--good)}
+.skh{margin:6px 0 4px;font-size:.9rem}
+.sk{list-style:none;margin:0 0 6px;padding:0;display:grid;gap:4px}
+.sk li{display:flex;gap:8px;align-items:center}
+.sk .grow{display:grid;min-width:0}
+.sk .grow span{font-size:.82rem}
+.star{border:0;background:none;font-size:1.2rem;cursor:pointer;color:var(--warn);min-width:32px;min-height:32px}
+.sales{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.sales li{display:flex;gap:8px;align-items:baseline;font-size:.9rem}
+.sales b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sales .price{font-weight:800;color:var(--good)}
 .status span:last-child{flex:1;min-width:0}
 .dot{width:10px;height:10px;border-radius:50%;background:var(--good);flex:none;box-shadow:0 0 0 3px var(--goodbg)}
 .dot.off{background:var(--bad);box-shadow:0 0 0 3px var(--badbg)}
@@ -514,7 +530,7 @@ document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click
 
 const VLABEL = {snipe:"Snipe", npc:"NPC flip", fair:"Fair", pricey:"Pricey", over:"Overpriced", check:"Check price",
                 split:"Sources differ", info:"Cozy only"};
-const WINDOWS = {hud:"HUD", stat:"Character Stat", inventory:"Inventory", skills:"Skills", quest:"Quest log", helper:"Quest Helper", shop:"Shop"};
+const WINDOWS = {hud:"HUD", stat:"Character Stat", inventory:"Inventory", skills:"Skills", quest:"Quest log", helper:"Quest Helper", shop:"Shop", myshop:"Your shop"};
 let liveKey = "", shotUrl = "", shotTs = null, moreOpen = false;
 
 async function loadShot(ts){
@@ -609,6 +625,75 @@ function nextUpCard(n){
   return win("Next up", `<div class="body">${rows.join("") || `<div class="sub">Set your job and level at the top.</div>`}</div>`);
 }
 // the route and the quest guide, the way the strip under the mini map shows them
+/* your own store: what sold, and whether Companion can see it */
+const clock = ts => new Date(ts * 1000).toLocaleTimeString("en-US", {hour:"numeric", minute:"2-digit"});
+function saleLine(x){
+  const what = x.item ? `${pretty(x.item)} ×${x.count || 1}` : "Something";
+  return `<li><span class="sub">${clock(x.ts)}</span> <b>${what}</b> <span class="price">${fmt(x.price)}</span></li>`;
+}
+function myShopCard(ms, full){
+  if (!ms || (!ms.watching && !(ms.sales || []).length && !full)) return "";
+  const sales = [...(ms.sales || [])].reverse();
+  const sum = sales.reduce((a, x) => a + x.price, 0);
+  const st = ms.watching ? `<span class="dot"></span><span>Watching your shop${ms.panel ? "" : ". Open SOLD ITEMS in it to see what sold sooner"}</span>`
+    : `<span class="dot off"></span><span>Can’t see your shop. ${esc(ms.reason || "")}</span>`;
+  const away = sales.filter(x => x.ts > (ms.away_from || 0));
+  const awayBox = full && away.length ? `<div class="risk" style="margin:0 0 10px;background:var(--goodbg);color:var(--good);border-color:var(--good)">
+      While you were away: ${away.length} sale${away.length > 1 ? "s" : ""} for ${fmt(away.reduce((a, x) => a + x.price, 0))} mesos.
+      <button class="btn small" id="away-ok" style="margin-inline-start:8px">Got it</button></div>` : "";
+  return win("Your shop" + (ms.title ? ` · ${pretty(ms.title)}` : ""), `<div class="body">
+      <div class="status" style="margin:0 0 8px">${st}</div>${awayBox}
+      ${sales.length ? `<ul class="sales">${sales.slice(0, full ? 50 : 4).map(saleLine).join("")}</ul>`
+        : `<p class="sub" style="margin:0">No sales yet this session.</p>`}</div>`,
+    sales.length ? `${fmt(sum)} mesos` : "");
+}
+/* the grind tracker, small, for the Now tab */
+const dur = s => s == null ? "—" : s >= 3600 ? `${Math.floor(s / 3600)}h ${Math.round(s % 3600 / 60)}m` : s >= 60 ? `${Math.round(s / 60)}m` : `${Math.round(s)}s`;
+const perHr = n => n == null ? "—" : n >= 1e6 ? (n / 1e6).toFixed(2) + "M" : n >= 1e4 ? Math.round(n / 1000) + "K" : fmt(n);
+function grindCard(gr){
+  if (!gr || !gr.available) return "";
+  const n = gr.now;
+  if (!n.gained) return "";          // shows once EXP comes in, not while you stand in town
+  const st = n.paused ? "Paused" : n.running ? "Grinding" : "Waiting for EXP";
+  return win("Grind" + (n.map ? ` · ${pretty(n.map)}` : ""), `<div class="body">
+      <div class="gstrip"><div><b>${perHr(n.exp_hr_5m ?? n.exp_hr)}</b><span>EXP/hr</span></div>
+        <div><b>${dur(n.ttl_s)}</b><span>to level</span></div></div>
+      <p class="sub" style="margin:6px 0 0">${st}. ${fmt(n.gained)} EXP in ${dur(n.active_s)}.</p>
+      <div class="btns" style="margin-top:8px"><button class="btn small" data-grind="pause">${n.paused ? "Resume" : "Pause"}</button>
+        <button class="btn small" data-grind="reset">Reset</button>
+        <label class="toggle" style="margin:0"><input type="checkbox" data-grind="no_reset" ${n.no_reset ? "checked" : ""}> Keep counting across maps</label></div></div>`);
+}
+
+/* sell or keep: every item hovered this session, grouped, with the reason and the price */
+const SK = [["npc", "Sell to an NPC"], ["fm", "Sell on the Free Market"], ["keep", "Keep"], ["drop", "Drop it"], ["unknown", "No data"]];
+function sellKeepCard(list){
+  if (!list.length) return `<p class="note"><b>Sell or keep:</b> hover each item in your inventory once (with screen reading on) and it lands here: keep, sell to an NPC or on the Free Market, and why.</p>`;
+  const groups = SK.map(([k, t]) => {
+    const xs = list.filter(x => x.verdict === k);
+    if (!xs.length) return "";
+    const sum = xs.reduce((a, x) => a + (x.price || 0), 0);
+    return `<h4 class="skh">${t}${sum && k !== "keep" ? ` <span class="sub">${fmt(sum)} mesos for one of each</span>` : ""}</h4>
+      <ul class="sk">${xs.map(x => `<li>${slot(x.img, 30)}<div class="grow"><b>${pretty(x.name)}</b><span class="sub">${esc(x.why)}</span></div>
+        <button class="star" data-star="${esc(x.name)}" aria-pressed="${x.starred}" title="${x.starred ? "Starred: always keep" : "Star: always keep"}">${x.starred ? "★" : "☆"}</button></li>`).join("")}</ul>`;
+  }).join("");
+  return win("Sell or keep", `<div class="body">${groups}<div class="btns" style="margin-top:8px"><button class="btn small" id="sk-clear">Clear the list</button></div></div>`, `${list.length} items`);
+}
+
+function discordCard(d){
+  if (!d || !d.setup) return win("Discord", `<div class="body"><p class="sub" style="margin:0">Not set up in this build.</p></div>`);
+  const what = `<p class="sub" style="margin-top:0">Posts to our server’s <b>#shop-sales</b> when your shop sells something, tagging only you, so your phone pings. Sent: the item, how many, the price, your character’s name and your shop’s total. Nothing else, and nowhere else.</p>`;
+  if (!d.linked) return win("Discord", `<div class="body">${what}
+      ${d.port_ok ? `<a class="btn" href="${esc(d.authorize)}">Connect Discord</a>`
+        : `<p class="sub">Connect works only on port 8765: close other copies of Companion and start it again.</p>`}</div>`);
+  return win("Discord", `<div class="body">${what}
+      <p style="margin:0 0 8px"><b>Connected as ${esc(d.name || "?")} ✓</b></p>
+      <label class="toggle"><input type="checkbox" id="dc-on" ${d.enabled ? "checked" : ""}> Post my shop’s sales</label>
+      ${d.pending ? `<p class="sub" style="margin:6px 0 0">${d.pending} waiting to be sent.</p>` : ""}
+      ${d.error ? `<p class="sub" style="margin:6px 0 0;color:var(--bad)">${esc(d.error)}</p>` : ""}
+      <div class="btns" style="margin-top:10px"><button class="btn" id="dc-test" ${d.enabled ? "" : "disabled"}>Send test message</button>
+        <button class="btn" id="dc-unlink">Unlink</button></div></div>`);
+}
+
 function routeCard(){
   const nav = state.nav, gd = state.guide;
   if (!nav && !gd) return "";
@@ -648,7 +733,11 @@ async function renderLive(){
   const shopWhen = g.shop ? (shopOpen ? "open now" : `closed ${shopAge < 120 ? shopAge + "s" : Math.round(shopAge / 60) + " min"} ago`) : "";
   // rebuild only when what's shown changes; the status, picture and shop age update in place,
   // so nothing flickers and scrolling or a hovered item stay put
-  const key = JSON.stringify([on, g.helper, g.shop && g.shop.seller, g.shop && g.shop.items, g.level_hint, l.rows, l.note,
+  const ms = state.myshop;
+  const gr = on ? await api("/api/grind").catch(() => null) : null;
+  if (tab !== "live") return;
+  const key = JSON.stringify([gr && gr.now && [Math.round((gr.now.exp_hr_5m ?? gr.now.exp_hr ?? 0) / 100), gr.now.ttl_s && Math.round(gr.now.ttl_s / 60), gr.now.paused, gr.now.running, gr.now.no_reset, gr.now.map],on, g.helper, g.shop && g.shop.seller, g.shop && g.shop.items, g.level_hint, l.rows, l.note,
+    ms && [ms.watching, ms.reason, ms.panel, (ms.sales || []).length],
     state.deals.length, p.rev, state.screen.drawing, !!shotUrl, state.nav && [state.nav.i, state.nav.to.id, state.nav.steps.length],
     state.guide, next && next.at]);
   if (key === liveKey && $("#live-status")){
@@ -672,7 +761,7 @@ async function renderLive(){
       <button class="btn" id="now-setup">Set up screen reading</button></div>`);
   // an open shop sits up front; the hint for when none is open goes last
   const shopNow = on && (g.shop || (l.rows || []).length);
-  let left = [routeCard(), shopNow ? shop : ""].filter(Boolean), right = [nextUpCard(next), off, helper,
+  let left = [on ? myShopCard(ms, false) : "", on ? grindCard(gr) : "", routeCard(), shopNow ? shop : ""].filter(Boolean), right = [nextUpCard(next), off, helper,
     deals ? win("Deals this session", `<div class="body"><ul class="chips" style="margin:0">${deals}</ul></div>`) : "",
     shopNow ? "" : shop].filter(Boolean);
   if (!left.length){ left = right; right = []; }
@@ -700,19 +789,25 @@ async function renderLive(){
     await api(state.nav ? "/api/nav/stop" : "/api/guide", state.nav ? {} : {stop:true}); liveKey = ""; renderLive();
   });
   const su = $("#now-setup"); if (su) su.addEventListener("click", () => openSetup(1));
+  document.querySelectorAll("#view [data-grind]").forEach(b => b.addEventListener(b.type === "checkbox" ? "change" : "click", async () => {
+    const a = b.dataset.grind, n = (gr && gr.now) || {};
+    await api("/api/grind", a === "pause" ? {action:"pause", on:!n.paused} : a === "no_reset" ? {action:"no_reset", on:b.checked} : {action:"reset"});
+    liveKey = ""; renderLive();
+  }));
 }
 
 // Train: a tab per map, best first, the chosen map in full beside them
 let trainPick = 0;
 async function renderTrain(){
   const p = state.profile, maps = await api("/api/train");
+  const mine = ((await api("/api/grind").catch(() => null)) || {}).by_map || {};
   const note = `<p class="note">Best maps for level ${p.level}: the most EXP for the HP you chew through, and more monsters count extra.${state.on_island ? " Maple Island only, since you’re still there." : ""}</p>`;
   if (!maps.length){ $("#view").innerHTML = note + `<div class="empty">No spawn data for this level yet.</div>`; return; }
   trainPick = Math.min(trainPick, maps.length - 1);
   const m = maps[trainPick];
   const list = maps.map((x, i) => `<button class="vtab" role="tab" aria-selected="${i === trainPick}" data-i="${i}">
       <span class="rank">${i + 1}</span><span class="grow"><b>${pretty(x.name)}</b><small>${pretty(x.mobs.map(y => y.name).join(", "))}</small></span>
-      <span class="score">${(x.eff * 100).toFixed(1)}<small>per 100 HP, ${fmt(x.count)} mobs</small></span></button>`).join("");
+      <span class="score">${(x.eff * 100).toFixed(1)}<small>per 100 HP, ${fmt(x.count)} mobs${mine[x.id] ? `<br><b class="mine">you: ${perHr(mine[x.id])} EXP/hr</b>` : ""}</small></span></button>`).join("");
   const mobs = m.mobs.map(x => `<tr><td>${x.img ? `<img src="${esc(x.img)}" alt="" loading="lazy">` : ""}</td>
       <td><b>${pretty(x.name)}</b>${x.weak.length ? `<small>weak to ${esc(x.weak.join(", "))}</small>` : ""}</td>
       <td>${x.level}</td><td>${fmt(x.hp)}</td><td>${fmt(x.exp)}</td><td>${x.need_acc}</td><td><b>×${x.count}</b></td></tr>`).join("");
@@ -720,6 +815,7 @@ async function renderTrain(){
   const detail = win(pretty(m.name), `<div class="body">${m.render ? `<div style="margin:-10px 0 12px">${mapBox(m.id, m.render, m.name, null)}</div>` : ""}
       <ul class="chips" style="margin:0"><li>${fmt(m.count)} monsters</li><li>${fmt(m.exp)} EXP per full clear</li>
         <li class="good">${(m.eff * 100).toFixed(1)} EXP per 100 HP</li>
+        ${mine[m.id] ? `<li class="good">Your real EXP/hr here: ${perHr(mine[m.id])}</li>` : ""}
         <li class="${short ? "bad" : ""}">~${m.need_acc} ACC to always hit${short ? `, you have ${p.acc}` : ""}</li></ul>
       <table class="mobtable"><thead><tr><th></th><th>Monster</th><th>Level</th><th>HP</th><th>EXP</th><th>ACC</th><th>Spawns</th></tr></thead><tbody>${mobs}</tbody></table>
       <div class="btns" style="margin:12px 0 0"><button class="btn primary" id="go">Take me there</button></div>
@@ -1203,7 +1299,9 @@ async function renderFlips(){
       ${e.img ? `<img src="${esc(e.img)}" alt="" loading="lazy" onerror="this.nextElementSibling.hidden=false;this.remove()">` : ""}
       <span class="noimg" ${e.img ? "hidden" : ""}>${pretty(e.name)}</span>
       <span class="qty">${e.seen}</span>${e.verdict ? `<span class="tagv" data-v="${e.verdict}"></span>` : ""}</button>`).join("");
-  $("#view").innerHTML = `<p class="note">Items you passed in player shops, cheapest price against <span class="src-msc">MSC</span> and <span class="src-cozy">Cozy</span>. A verdict shows only when both agree. <span class="asof">${pricesAsOf()}</span></p>
+  const mine = myShopCard((await api("/api/state")).myshop, true);
+  const sk = sellKeepCard(await api("/api/sellkeep"));
+  $("#view").innerHTML = `${mine}${sk}<p class="note">Items you passed in player shops, cheapest price against <span class="src-msc">MSC</span> and <span class="src-cozy">Cozy</span>. A verdict shows only when both agree. <span class="asof">${pricesAsOf()}</span></p>
     ${all.length ? `<div class="md"><div class="master" style="padding:0;background:none;border:0;box-shadow:none">
         <div class="filters" role="group" aria-label="Show">${[["all","All",""],["deals","Deals","snipe"],["fair","Fair","fair"],["over","Too pricey","over"],["differ","Differ","split"],["other","Other","info"]].map(([k, t, v]) =>
         `<button data-f="${k}" aria-pressed="${seenFilter === k}">${v ? `<span class="tagv" data-v="${v}"></span>` : ""}${t} ${count(k)}</button>`).join("")}</div>
@@ -1211,6 +1309,11 @@ async function renderFlips(){
       <div class="detail">${seenDetail(pick)}</div></div>`
     : `<div class="empty">Nothing yet. With screen reading on, open player shops in the Free Market: every item Companion reads lands here with its picture and what it’s worth.</div>`}`;
   document.querySelectorAll("[data-f]").forEach(b => b.addEventListener("click", () => { seenFilter = b.dataset.f; renderFlips(); }));
+  document.querySelectorAll("[data-star]").forEach(b => b.addEventListener("click", async () => {
+    await api("/api/star", {name:b.dataset.star, on:b.getAttribute("aria-pressed") !== "true"}); renderFlips();
+  }));
+  const skc = $("#sk-clear"); if (skc) skc.addEventListener("click", async () => { await api("/api/sellkeep/clear", {}); renderFlips(); });
+  const ok = $("#away-ok"); if (ok) ok.addEventListener("click", async () => { await api("/api/myshop/seen", {}); renderFlips(); });
   document.querySelectorAll(".islot").forEach(b => b.addEventListener("click", () => { seenPick = b.dataset.name; renderFlips(); }));
   fitPanes();
 }
@@ -1230,6 +1333,7 @@ async function renderSettings(){
         <label class="toggle" style="margin-top:8px"><input type="checkbox" id="drawing" ${c.draw_overlay ? "checked" : ""} ${c.screen_reading ? "" : "disabled"}> Also draw on the game: prices under items and beside shops, and the route under the mini map</label>`
       : `<p class="sub">Screen reading needs the Windows app.</p>`}</div>`)}
     <div class="list">
+    ${discordCard(c.discord)}
     ${win("Setup and help", `<div class="body"><div class="btns" style="margin:0">
         <button class="btn" id="s-howto">How to use (Hebrew)</button><button class="btn" id="s-setup">Run the setup again</button></div></div>`)}
     ${c.screen_available ? win("Fine-tuning", `<div class="body">
@@ -1240,7 +1344,7 @@ async function renderSettings(){
       <p class="sub" style="margin:8px 0 0">${c.game_found ? "Game window found. On-game drawing shows only while the game is in front." : "No game window found with this in its title, so nothing is read or drawn."}
         Capture: ${c.capture === "window" ? "running on the game window only." : "off."}</p>
       ${c.capture_error ? `<p class="sub" style="margin:4px 0 0;color:var(--bad)">${esc(c.capture_error)}</p>` : ""}
-      <label class="toggle" style="margin-top:10px"><input type="checkbox" id="s-sound" ${c.sound ? "checked" : ""}> Beep on the PC when a deal shows up</label></div>`)
+      <label class="toggle" style="margin-top:10px"><input type="checkbox" id="s-sound" ${c.sound ? "checked" : ""}> Beep on the PC when a deal shows up or your shop sells something</label></div>`)
     + win("Selected shop area", `<div class="body">
       <p class="sub" style="margin-top:0">Not needed: shops are found on their own. Only if a shop isn’t read, select its item list once.</p>
       <div class="mobs">${area("region", "Player shop list", "select", "Open any player shop first.")}</div>
@@ -1268,6 +1372,11 @@ async function renderSettings(){
   on("s-title", e => save({game_title:e.target.value}));
   on("s-bundle", e => save({price_is_per_bundle:e.target.checked}));
   on("s-sound", e => save({sound:e.target.checked}));
+  on("dc-on", e => save({discord_enabled:e.target.checked}));
+  const dcT = $("#dc-test"); if (dcT) dcT.addEventListener("click", async () => {
+    const r = await api("/api/discord/test", {}); dcT.textContent = r.error ? r.error : "Sent ✓";
+  });
+  const dcU = $("#dc-unlink"); if (dcU) dcU.addEventListener("click", async () => { await api("/api/discord/unlink", {}); renderSettings(); });
   document.querySelectorAll("[data-area]").forEach(b => b.addEventListener("click", () => api("/api/" + b.dataset.area, {})));
   $("#s-howto").addEventListener("click", () => openSetup(2));
   $("#s-setup").addEventListener("click", () => openSetup(0));

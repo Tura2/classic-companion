@@ -27,8 +27,12 @@ import io
 import tkinter as tk
 from PIL import Image, ImageDraw, ImageTk
 
+import advisor
 import overlay_art as art
 import reader
+from trust import Gate
+from shopwatch import ShopWatch
+from grind import Grind
 from capture import GameCapture, client_box, find_window, foreground_window, window_bounds
 from gamedata import JOBS, NPC_PRICES
 
@@ -64,6 +68,8 @@ DEFAULTS = {
     "consent": False,          # user confirmed they understand the risk
     "game_title": "MapleStory",  # labels show only while a window with this in its title is in front
     "setup_done": False,       # the dashboard's first-run setup was finished or skipped
+    "discord_enabled": False,  # post your shop's sales to the group's Discord (after Connect Discord)
+    "discord_post_sales": True,
 }
 
 GREEN, AMBER, RED, GREY = "#2EE59D", "#FFC24B", "#FF6B5B", "#C9D3DF"
@@ -82,6 +88,33 @@ PREVIEW_W = 960           # width of the live picture of the game in the dashboa
 SAMPLE_EVERY = 60         # seconds between saved pictures of a shop window (to tune the shop reader)
 SAMPLES_KEPT = 30         # the newest pictures of shops that couldn't be read; older ones are deleted
 CONFIRM_READS = 3         # a quest joins In progress or Done only after this many reads in a row agree
+GRIND_ON = False          # the Grind card: built and tested, its dashboard isn't finished yet
+MYSHOP_EVERY = 6.0        # seconds between looks at your own store while it's open (nobody's using it)
+MYSHOP_FULL_EVERY = 10    # every this many store looks, a full read, so the rest of the dashboard keeps up
+CLOSED_READS = 3          # reads with neither your store nor the HUD before "your shop closed"
+
+
+def current_step(chain_ids, done):
+    """The step of a quest line you're on: its first quest not done, or None when all are."""
+    return next((q for q in chain_ids if q not in done), None)
+
+
+def line_step(chain_ids, done, active):
+    """The quest a line seen In Progress adds to your quests: none when one of its quests is already
+    going (a line can be a set of quests to choose from, like the six Omok sets), else its step."""
+    return None if any(q in active for q in chain_ids) else current_step(chain_ids, done)
+
+
+def skill_rules(data):
+    """({skill: its max level}, {skill: its job}) from the game data, for the save gate."""
+    top, job = {}, {}
+    for groups in data.skills.values():
+        for g in groups if isinstance(groups, list) else []:
+            for sk in (g.get("skills") or []) if isinstance(g, dict) else []:
+                if sk.get("name"):
+                    top[sk["name"]] = sk.get("max_level") or 30
+                    job[sk["name"]] = g.get("job")
+    return top, job
 
 
 class Agree:
@@ -126,6 +159,80 @@ class SteadyCounts:
                      if (q.get("id"), n["what"]) in self.shown]
             out.append({**q, "needs": needs})
         return out
+
+
+def handle_grind(app, seen, prof):
+    """Feed the grind tracker from a full read: the HUD's EXP, where you are, your mesos."""
+    g = getattr(app, "grind", None)
+    if g is None or not seen or seen.get("quick"):
+        return
+    now = time.time()
+    hud = seen.get("hud") or {}
+    if hud.get("exp") is not None:
+        mid = prof.get("current_map")
+        name = (app.data.maps.get(mid) or {}).get("name") if mid else None
+        g.update(hud["exp"], hud.get("exp_pct"), prof.get("level"), mid, name, now)
+    if (seen.get("inventory") or {}).get("mesos") is not None:
+        g.mesos(seen["inventory"]["mesos"], now)
+
+
+def note_hovered(state, tips):
+    """Remember each item hovered this session, for the dashboard's Sell or keep list."""
+    seen = state.setdefault("hovered", {})
+    for t in tips or []:
+        if t.get("name"):
+            seen[t["name"]] = {"ts": time.time(), "untradable": bool(t.get("untradable"))}
+
+
+def handle_myshop(app, seen, now):
+    """Your own store, from one look at the game: sales into the dashboard, a beep, and Discord.
+    `seen` None or with "error": the game couldn't be seen this time."""
+    sw = getattr(app, "shopwatch", None)
+    if sw is None:
+        return []
+    state, cfg = app.state, app.cfg
+    ok = seen is not None and not seen.get("error")
+    mine = seen.get("myshop") if ok else None
+    was = sw.status["watching"] or sw.base is not None
+    sales = sw.update(mine, now)
+    ms = state.setdefault("myshop", {"sales": [], "away_from": now})
+    if not cfg.get("screen_reading"):
+        reason = "Screen reading is off."
+    elif not ok:
+        reason = "Can't see the game: is it minimized?"
+    elif not mine:
+        reason = "Your store isn't on screen."
+    else:
+        reason = ""
+    ms.update(watching=sw.watching, total=sw.status["total"], reason=reason, ts=now,
+              title=mine.get("title") if mine else ms.get("title"), sales=sw.sales[-100:],
+              panel=bool(mine and mine.get("panel")))
+    linked = cfg.get("discord_enabled") and cfg.get("discord_id")
+    for sale in sales:
+        what = f"{sale['item']} x{sale.get('count') or 1}" if sale.get("item") else "something"
+        print(f"Your shop sold {what} for {sale['price']:,} mesos")
+        if cfg.get("sound"):
+            try:
+                import winsound
+                winsound.MessageBeep()
+            except Exception:
+                pass
+        if linked and cfg.get("discord_post_sales") and state.get("outbox"):
+            state["outbox"].add("sale", sale, sale["key"])
+    told = getattr(app, "myshop_told", None)
+    if told is None:
+        told = app.myshop_told = set()
+    send = state.get("discord_send") if linked else None
+    if "soldout" in sw.events and ("soldout", sw.session) not in told:
+        told.add(("soldout", sw.session))
+        send and send("your shop sold out: time to restock.")
+    # gone with the HUD too, while the game window is there: disconnected, or back at the login screen
+    app.closed_reads = (getattr(app, "closed_reads", 0) + 1) if ok and was and not mine and not seen.get("hud") \
+        and not seen.get("quick") else 0
+    if app.closed_reads >= CLOSED_READS and ("closed", sw.session) not in told:
+        told.add(("closed", sw.session))
+        send and send("your shop closed: the game left the Free Market (disconnected, or back at the login screen).")
+    return sales
 
 
 def fmt(n):
@@ -312,7 +419,7 @@ def judge(r, market):
 
 
 WINDOW_LABELS = {"hud": "HUD", "stat": "Character stat", "inventory": "Inventory", "skills": "Skills",
-                 "quest": "Quests", "helper": "Quest Helper", "shop": "Shop"}
+                 "quest": "Quests", "helper": "Quest Helper", "shop": "Shop", "myshop": "Your shop"}
 
 
 def preview(frame, seen):
@@ -588,10 +695,17 @@ class App:
         self.capture = GameCapture(lambda: self.cfg["game_title"])
         self.reader = reader.Reader(data)
         self.agree, self.notice, self.counts = Agree(), Agree(2), SteadyCounts()
+        self.gate = Gate(*skill_rules(data))   # what a read may change in the profile (trust.py)
         self.shop_rows = []         # verdicts for the shop window open in the game (found by the reader)
         self.last_listings = set()  # listings in the previous read: a deal is announced once two reads agree
         self.announced = set()      # deals already announced this session
         self.shop_anchor = None     # where the open shop's LEAVE STORE button was, for the quick re-read
+        self.shopwatch = ShopWatch()  # sales in your own store
+        self.grind = Grind(APP_DIR / "grind.sqlite") if GRIND_ON else None   # EXP/hr per session and per map
+        state["grind"] = self.grind
+        self.myshop_anchor = None   # your own store's fee notice, for the slow store-only look
+        self.myshop_panel = None    # its SOLD ITEMS panel's title, when that's open
+        self.my_reads = 0
         self.last_shop = None       # the open shop's last full read, for when an item's tooltip covers it
         self.watching = False       # a look at the game is in progress
         self.sample_ts = 0.0        # when a shop window's picture was last saved
@@ -679,6 +793,7 @@ class App:
         elif kind == "tips_up":
             self.tips_ts = time.time()      # the same tooltip is still up: its prices stay
         elif kind == "tips":
+            note_hovered(self.state, msg[1])
             if self.drawing():
                 self.set_tips(msg[1])
         elif kind == "nav_corner":
@@ -704,7 +819,8 @@ class App:
         """While screen reading is on, look at the whole game every few seconds and read whatever
         windows are open, wherever they are. Nothing to select. While a shop is open, only its item
         list is re-read, about three times a second, so prices and labels keep up as you scroll."""
-        self.root.after(int((SHOP_EVERY if self.shop_anchor else WATCH_EVERY) * 1000), self.watch_loop)
+        every = SHOP_EVERY if self.shop_anchor else MYSHOP_EVERY if self.myshop_anchor else WATCH_EVERY
+        self.root.after(int(every * 1000), self.watch_loop)
         if self.cfg["screen_reading"] and not self.watching:
             self.watching = True
             threading.Thread(target=self._watch, daemon=True).start()
@@ -758,7 +874,7 @@ class App:
         try:
             frame = self.capture.grab_game()
             if frame is None:
-                self.shop_anchor = None         # no game: back to the slow pace, not shop re-reads
+                self.shop_anchor = self.myshop_anchor = None   # no game: back to the usual pace
                 self.q.put(("seen", None, None))
                 return
             if frame.convert("L").getextrema()[1] < 12:
@@ -779,16 +895,27 @@ class App:
                                      "too_small": [frame.width, frame.height]}, None))
                 return
             self.reader.set_job(self.state["profile"].get("job"))
+            # quests you're known to have going win over look-alikes when the Quest Helper lists too many
+            self.reader.active_ids = {str(a.get("id")) for a in self.state["profile"].get("quests_active", []) if a.get("id")}
             seen = None
             if self.shop_anchor:
                 seen = self.reader.read_shop_only(frame, self.shop_anchor)
                 self.quick_reads = getattr(self, "quick_reads", 0) + 1
                 if seen and self.quick_reads % 6 == 0:
                     seen = None     # a full look now and then, so the rest of the dashboard keeps up
+            elif self.myshop_anchor:
+                # your own store: nobody's using it, so only it, every few seconds
+                seen = self.reader.read_my_shop_only(frame, self.myshop_anchor, self.myshop_panel)
+                self.my_reads += 1
+                if seen and self.my_reads % MYSHOP_FULL_EVERY == 0:
+                    seen = None
             if seen is None:
                 seen = self.reader.read(frame)
             shop = seen.get("shop")
             self.shop_anchor = shop["anchor"] if shop else None
+            mine = seen.get("myshop")
+            self.myshop_anchor = mine["anchor"] if mine else None
+            self.myshop_panel = mine["panel_anchor"] if mine else None
             cl, ct, _, _ = client_box(self.capture.hwnd) if self.capture.hwnd else (0, 0, 0, 0)
             mini, s = seen.get("map"), seen.get("scale", 1)
             if mini and mini.get("window"):
@@ -852,6 +979,7 @@ class App:
         game = self.state.setdefault("game", {})
         if picture:
             self.state["frame"] = picture
+        handle_myshop(self, seen, time.time())
         if seen is None or seen.get("error"):
             game.update(error=(seen or {}).get("error") or self.capture.error or "Can't see the game window.",
                         ts=time.time(), too_small=(seen or {}).get("too_small"))
@@ -874,27 +1002,26 @@ class App:
                 prof[key], changed = value, True
 
         hud, stat = seen.get("hud") or {}, seen.get("stat") or {}
-        put("job", stat.get("job") if stat.get("job") in JOBS else hud.get("job") if hud.get("job") in JOBS else None)
-        put("name", stat.get("name"))
-        if stat.get("dex_base") is not None:     # base stats, for where your next AP should go
-            put("stats", {k: stat.get(k + "_base") for k in ("str", "dex", "int", "luk")})
-        # ACC well past what anyone this level has is a misread (it once read 585 at level 21)
-        acc_cap = 40 + 6 * int(stat.get("level") or prof.get("level") or 1)
-        put("acc", stat.get("acc") if stat.get("acc") and stat["acc"] <= acc_cap else None)
-        if (prof.get("acc") or 0) > acc_cap:
+        # only what fits the game's rules goes in (trust.py): a misread repeats on every read
+        ok = self.gate.check(prof, seen)
+        game["other_name"] = ok.get("other_name")     # another character on screen: none of it is saved
+        if not ok.get("other_name") and not ok.get("blocked"):
+            put("job", stat.get("job") if stat.get("job") in JOBS else hud.get("job") if hud.get("job") in JOBS else None)
+        put("name", ok.get("name"))
+        put("stats", ok.get("stats"))            # base stats, for where your next AP should go
+        put("acc", ok.get("acc"))
+        acc_cap = 40 + 6 * int(ok.get("level") or prof.get("level") or 1)
+        if (prof.get("acc") or 0) > acc_cap:     # ACC well past what anyone this level has is a misread
             prof["acc"], changed = None, True
-        put("mesos", (seen.get("inventory") or {}).get("mesos"))
-        level, hint = stat.get("level"), None
-        if not level and hud.get("level"):
-            if hud.get("level_exact") or hud["level"] == (prof.get("level") or 0) + 1:   # a level up
-                level = hud["level"]
-            elif hud["level"] != prof.get("level"):
-                hint = hud["level"]     # a guess from digit shapes not seen before: ask to confirm
-        put("level", level)
-        if (sk := seen.get("skills")) and sk.get("levels"):
-            now = {**prof.get("skills_now", {}), **sk["levels"]}
-            put("skills_now", now)
-            put("sp", sk.get("sp"))
+        put("mesos", ok.get("mesos"))
+        hint = None
+        if hud.get("level") and not hud.get("level_exact") and "level" not in ok and hud["level"] != prof.get("level"):
+            hint = hud["level"]     # a guess from digit shapes not seen before: ask to confirm
+        put("level", ok.get("level"))
+        if stat.get("level") and stat["level"] == prof.get("level") and not (ok.get("other_name") or ok.get("blocked")):
+            self.reader.learn_level(prof["level"])   # the HUD's digit shapes, from a level the gate let in
+        put("skills_now", ok.get("skills_now"))
+        put("sp", ok.get("sp"))
         if (qw := seen.get("quest")) and qw.get("quests"):
             lv = int(prof.get("level") or 200)
             # the names this read was matched against: the reader's list changes with your job, and
@@ -903,7 +1030,8 @@ class App:
             found = [(x, byname[x["quest"]]) for x in qw["quests"] if x["quest"] in byname]
             # a quest above your level can't be taken yet, let alone done: that's a misread title
             seen_ids = [str(q["id"]) for _, q in found if (q.get("level_min") or 0) <= lv]
-            sure = self.agree.update("tab:" + qw["tab"], seen_ids)
+            lines = [x["line"] for x in qw["quests"] if x.get("line") in self.data.chains] if qw["tab"] == "in_progress" else []
+            sure = self.agree.update("tab:" + qw["tab"], seen_ids + ["line:" + n for n in lines])
             ids = [i for i in dict.fromkeys(seen_ids) if i in sure]
             qw = {**qw, "quests": [{**x, "id": str(q["id"])} for x, q in found if str(q["id"]) in sure]}
             if ids and qw["tab"] == "completed":
@@ -915,6 +1043,16 @@ class App:
                 have = {(a.get("id"), a.get("name")) for a in prof.get("quests_active", [])}
                 new = [{"name": q["quest"], "id": q["id"]} for q in qw["quests"]]
                 new = [a for a in new if (a["id"], a["name"]) not in have]
+                if new:
+                    put("quests_active", prof.get("quests_active", []) + new)
+            if lines:
+                # a quest line In Progress: its step joins your quests, unless one of its quests is
+                # already going (once three reads in a row agree, like any quest seen there)
+                done = set(map(str, prof.get("quests_done", [])))
+                active = {str(a.get("id")) for a in prof.get("quests_active", [])}
+                names = {str(q["id"]): q["name"] for q in self.data.quest_list}
+                steps = [line_step(self.data.chains[n], done, active) for n in dict.fromkeys(lines) if "line:" + n in sure]
+                new = [{"name": names.get(i, i), "id": i} for i in dict.fromkeys(steps) if i]
                 if new:
                     put("quests_active", prof.get("quests_active", []) + new)
         # a quest tracked in the Quest Helper is in progress, and stays so in the Quests tab until the
@@ -1009,6 +1147,7 @@ class App:
         if seen.get("quick"):        # a shop-only re-read: everything else stays as last seen
             game.update(error="", ts=time.time(), windows={**game.get("windows", {}), **seen["windows"]})
             return
+        note_hovered(self.state, seen.get("tooltips"))
         if self.drawing() and seen.get("tooltips"):
             # only adds: a full read takes about a second and can miss a tooltip that came up
             # meanwhile; the quick tooltip check is what takes them away
@@ -1020,6 +1159,7 @@ class App:
                     skills=seen.get("skills") or game.get("skills"))
         if self.state.get("guide") and self.state.get("guide_tick"):
             self.state["guide_tick"]()       # follow the guided quest's counts and where you are
+        handle_grind(self, seen, prof)
 
     def anchor(self):
         """Where the route strip goes under the mini map: where the mini map was last seen, for as
@@ -1063,9 +1203,11 @@ class App:
             self.tip_shown[i] = bool(tip and not tip["untradable"])
             if not self.tip_shown[i]:
                 continue
-            npc = NPC_PRICES.get(tip["name"])
+            npc = self.data.npc_price(tip["name"])
+            v = advisor.verdict(tip["name"], None, self.state["profile"], self.data, self.market)
+            note = advisor.short(v) or (f"NPC pays {price_text(npc)}" if npc else None)
             img = art.price_strip(source_prices(tip["name"], self.market), self.scale,
-                                  tip["screen"][2] - tip["screen"][0] + 1, f"NPC pays {price_text(npc)}" if npc else None)
+                                  tip["screen"][2] - tip["screen"][0] + 1, note)
             card.show(img)
             l, t, _, b = tip["screen"]
             gap = round(3 * self.scale)

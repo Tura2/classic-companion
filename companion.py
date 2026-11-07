@@ -23,6 +23,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 import cozy
+import discord_link
 from reader import MIN_HEIGHT
 from gamedata import JOBS, GameData
 
@@ -119,11 +120,11 @@ def guide_plan(data, state):
 
 SETTINGS = ["screen_reading", "draw_overlay", "consent", "label_side", "row_tolerance", "name_match_min",
             "price_is_per_bundle", "sound", "auto_interval", "ocr_scale", "nav_corner", "game_title",
-            "setup_done"]
+            "setup_done", "discord_enabled", "discord_post_sales"]
 DEFAULT_SETTINGS = {"screen_reading": False, "draw_overlay": False, "consent": False, "label_side": "right",
                     "row_tolerance": 14, "name_match_min": 84, "price_is_per_bundle": False, "sound": True,
                     "auto_interval": 2.0, "ocr_scale": 3, "nav_corner": "top-right", "game_title": "MapleStory",
-                    "setup_done": False}
+                    "setup_done": False, "discord_enabled": False, "discord_post_sales": True}
 RANGES = {"row_tolerance": (4, 60), "name_match_min": (50, 100), "auto_interval": (2.0, 10.0), "ocr_scale": (1, 6)}
 CHOICES = {"label_side": ("right", "left", "inside"), "nav_corner": ("top-right", "bottom-right", "bottom-left", "top-left")}
 
@@ -143,6 +144,65 @@ def clean_setting(k, v):
         return v if v in CHOICES[k] else None
     v = str(v).strip()[:80]       # game_title
     return v or None
+
+
+def make_outbox(data, state, cfg):
+    """The Discord outbox: sales and messages wait on disk until the #shop-sales webhook takes them.
+    Linking your Discord ID is the only way cfg gets discord_id; the token never reaches a file."""
+    setup = discord_link.load_discord_config()
+
+    def webhook():
+        if not setup or not cfg.get("discord_enabled") or not cfg.get("discord_id"):
+            return None
+        return setup["webhook"]
+
+    def build(sales):
+        mk = data.market
+        today = time.strftime("%Y-%m-%d")
+        sold = (state.get("myshop") or {}).get("sales") or []
+        total = sum(x["price"] for x in sold if time.strftime("%Y-%m-%d", time.localtime(x["ts"])) == today)
+        return discord_link.sale_message(sales, cfg["discord_id"], state["profile"].get("name"),
+                                         median=lambda n: (mk.items.get(n) or {}).get("p"),
+                                         img=data.item_img, total_today=total or None)
+    import requests
+    box = discord_link.Outbox(discord_link.OUTBOX, webhook, requests.post, build)
+    box.setup = setup
+    box.start()
+    return box
+
+
+def discord_status(state, cfg, port):
+    box = state.get("outbox")
+    setup = box.setup if box else None
+    return {"setup": bool(setup), "linked": bool(cfg.get("discord_id")), "name": cfg.get("discord_name"),
+            "enabled": bool(cfg.get("discord_enabled")), "post_sales": bool(cfg.get("discord_post_sales")),
+            "authorize": discord_link.authorize_url(setup["client_id"], port) if setup else None,
+            "port_ok": port == PORT, "pending": box.pending() if box else 0, "error": box.error if box else ""}
+
+
+def discord_send(state, cfg, text):
+    """A text message to #shop-sales tagging you, if Discord is linked and on."""
+    box = state.get("outbox")
+    if not (box and box.setup and cfg.get("discord_id") and cfg.get("discord_enabled")):
+        return False
+    msg = discord_link.text_message(cfg["discord_id"], state["profile"].get("name"), text)
+    return box.add("text", msg, f"text:{time.time():.3f}")
+
+
+DISCORD_PAGE = """<!doctype html><meta charset="utf-8"><title>Companion · Discord</title>
+<style>body{font:16px system-ui;background:#16171d;color:#eee;display:grid;place-items:center;height:90vh}
+main{max-width:30em;text-align:center}a{color:#8ab4ff}</style>
+<main><h2 id="t">Connecting…</h2><p id="m"></p><p><a href="/">Back to the dashboard</a></p></main>
+<script>
+const h = new URLSearchParams(location.hash.slice(1)), token = h.get("access_token");
+history.replaceState(null, "", "/discord");     // the token leaves the address bar at once
+const say = (t, m) => { document.getElementById("t").textContent = t; document.getElementById("m").textContent = m; };
+if (!token) say("Not connected", h.get("error_description") || new URLSearchParams(location.search).get("error_description") || "Discord didn't send who you are.");
+else fetch("/api/discord/link", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({token})})
+  .then(r => r.json()).then(j => j.error ? say("Not connected", j.error)
+  : say("Connected as " + j.name + " \u2713", "A test message is on its way to #shop-sales, tagging you."))
+  .catch(() => say("Not connected", "Companion didn't answer."));
+</script>"""
 
 
 def make_handler(data, state, cfg):
@@ -197,10 +257,29 @@ def make_handler(data, state, cfg):
                     if url.path == "/logo.png":
                         return self.send(200, (RES_DIR / "web" / "logo.png").read_bytes(), "image/png")
                     return self.send(200, (RES_DIR / "web" / "logo.ico").read_bytes(), "image/x-icon")
+                if url.path == "/discord":           # where Discord sends you back after Authorize
+                    return self.send(200, DISCORD_PAGE.encode("utf-8"), "text/html")
+                if url.path == "/api/sellkeep":     # every item hovered this session, with its verdict
+                    import advisor
+                    out = []
+                    for name, h in sorted((state.get("hovered") or {}).items(), key=lambda kv: -kv[1]["ts"]):
+                        v = advisor.verdict(name, None, prof, data, data.market, h.get("untradable"))
+                        out.append({"name": name, "img": data.item_img(name), "ts": h["ts"],
+                                    "starred": name in (prof.get("starred") or []), **v})
+                    return self.send(200, out)
+                if url.path == "/api/grind":         # EXP/hr now, the log, and your real EXP/hr per map
+                    g = state.get("grind")
+                    if not g:
+                        return self.send(200, {"available": False})
+                    return self.send(200, {"available": True, "now": g.summary(time.time()), "history": g.history(12),
+                                           "by_map": {str(k): round(v) for k, v in g.by_map().items()}})
+                if url.path == "/api/myshop":
+                    return self.send(200, state.get("myshop") or {"watching": False, "sales": []})
                 if url.path == "/api/state":
                     return self.send(200, {"profile": prof, "jobs": list(JOBS), "live": state["live"],
                                            "game": state.get("game") or {}, "has_frame": bool(state.get("frame")),
                                            "deals": state["deals"], "overlay": state["overlay"],
+                                           "myshop": state.get("myshop"),
                                            "game_size": state.get("game_size") if state.get("game_found") else None,
                                            "min_height": MIN_HEIGHT,
                                            "screen": {"reading": bool(cfg.get("screen_reading")) and state["overlay"],
@@ -233,7 +312,8 @@ def make_handler(data, state, cfg):
                                            "game_found": state.get("game_found"),
                                            "game_size": state.get("game_size") if state.get("game_found") else None,
                                            "capture": (state.get("live") or {}).get("capture", "off"),
-                                           "capture_error": (state.get("live") or {}).get("capture_error", "")})
+                                           "capture_error": (state.get("live") or {}).get("capture_error", ""),
+                                           "discord": discord_status(state, cfg, self.server.server_address[1])})
                 if url.path == "/api/maps":
                     return self.send(200, data.find_maps(q.get("q", "")))
                 if url.path in ("/api/mapimg", "/api/mapsize"):   # a map's picture, kept on disk after the first time
@@ -304,6 +384,61 @@ def make_handler(data, state, cfg):
                 if refused:
                     return self.send(400, {"error": "Confirm the risk notice first."})
                 return self.send(200, {k: cfg.get(k) for k in SETTINGS})
+            if path == "/api/discord/link":     # the token from Discord's redirect: read your ID, drop it
+                box = state.get("outbox")
+                if not (box and box.setup):
+                    return self.send(400, {"error": "Discord isn't set up in this build."})
+                token = str(body.get("token") or "")
+                if not token or len(token) > 200:
+                    return self.send(400, {"error": "No token from Discord."})
+                try:
+                    me = discord_link.who_is(token)
+                except Exception as e:
+                    return self.send(502, {"error": f"Couldn't ask Discord who you are: {e}"})
+                del token
+                cfg.update(discord_id=me["id"], discord_name=me["name"], discord_enabled=True, discord_post_sales=True)
+                if state["save_cfg"]:
+                    state["save_cfg"](cfg)
+                discord_send(state, cfg, "connected Companion: sales from your shop will show up here.")
+                return self.send(200, {"name": me["name"]})
+            if path == "/api/discord/unlink":
+                for k in ("discord_id", "discord_name"):
+                    cfg.pop(k, None)
+                cfg["discord_enabled"] = False
+                if state["save_cfg"]:
+                    state["save_cfg"](cfg)
+                return self.send(200, {"ok": True})
+            if path == "/api/discord/test":
+                if not discord_send(state, cfg, "this is a test from Companion."):
+                    return self.send(409, {"error": "Connect Discord and turn it on first."})
+                return self.send(200, {"ok": True})
+            if path == "/api/grind":            # Pause / Resume, Reset, No reset across maps
+                g = state.get("grind")
+                if not g:
+                    return self.send(409, {"error": "Screen reading isn't available."})
+                act = body.get("action")
+                if act == "pause":
+                    g.pause(bool(body.get("on", True)))
+                elif act == "reset":
+                    g.reset(time.time())
+                elif act == "no_reset":
+                    g.no_reset = bool(body.get("on", True))
+                return self.send(200, g.summary(time.time()))
+            if path == "/api/star":            # keep this item, whatever the market says
+                name = str(body["name"])[:100]
+                stars = [n for n in state["profile"].get("starred", []) if n != name]
+                if body.get("on", True):
+                    stars.append(name)
+                state["profile"]["starred"] = stars
+                save_profile(state)
+                return self.send(200, {"ok": True})
+            if path == "/api/sellkeep/clear":
+                state["hovered"] = {}
+                return self.send(200, {"ok": True})
+            if path == "/api/myshop/seen":      # the "while you were away" summary, dismissed
+                if state.get("myshop") is not None:
+                    state["myshop"]["away_from"] = time.time()
+                return self.send(200, {"ok": True})
             if path == "/api/here":            # "I'm on this map"
                 mid = int(body["id"])
                 if mid not in data.maps:
@@ -449,6 +584,8 @@ def start(win, started):
     state["set_current"] = lambda mid: set_current(data, state, mid)
     state["save_profile"] = lambda: save_profile(state)
     state["guide_tick"] = lambda: guide_plan(data, state)     # the screen reader calls it after each look
+    state["outbox"] = make_outbox(data, state, cfg)
+    state["discord_send"] = lambda text: discord_send(state, cfg, text)
 
     server, port = start_server(make_handler(data, state, cfg))
     started["server"] = server

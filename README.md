@@ -81,6 +81,18 @@ Settings has two separate switches, both off by default:
      Market prices shows **Cozy only**, with no verdict. A price far under every recent sale is
      shown as **check price** (probably misread), and a deal is announced only once two reads in a
      row agree on it.
+   - Your own shop: your personal store, found by the "3% fee" notice under it (and its one orange
+     button, CLOSE STORE). While it's open only it is read, every 6 seconds. When SOLD ITEMS' Total
+     Sales goes up in two reads in a row, something sold: it lands in **Your shop** (Now and Shops,
+     with a "while you were away" summary), the PC beeps, and with Discord connected it's posted to
+     the group's channel (see Discord below). A total that goes down or jumps past what the shop
+     holds is a misread and is dropped. Open SOLD ITEMS once; without it, a sale is seen only when
+     a row sells out and the mesos box goes up. A Hired Merchant (shop while you're offline) can't
+     be seen: there's no game on screen to read.
+   - The HUD's EXP and percent ("73,665 [60.01%]"), read by digit shape: the HUD's tiny font
+     doesn't OCR. Digits not seen yet are learned from CHARACTER STAT (S): keep it open while you
+     kill monsters for about a minute, so every digit shows up once. (For the Grind tracker,
+     coming in the next version.)
    - Player shops: found by their LEAVE STORE button (a shop's title is whatever its owner typed).
      While a shop is open only its list is re-read, about three times a second.
      Each listed item is read with its price ("1 for 4,500 mesos", bundles too), judged against the
@@ -157,12 +169,47 @@ If labels never show, set "Game window title contains" in Settings to match your
 **Tuning the shop reader:** if shop rows read wrong, compare `debug/last_capture.png` and
 `debug/last_ocr.txt` (next to the app) with the game and adjust "Fine-tuning" in Settings.
 
+## Discord (optional, off by default)
+Settings → Discord → **Connect Discord** opens Discord's own page ("Companion wants to know who you
+are", scope `identify`: your user ID and name only, no messages, servers or friends). Companion
+reads your ID once and drops the access token; it's never saved. After that, each sale in your shop
+is posted to our server's **#shop-sales** channel, tagging only you (every message allows a mention
+of your ID and nothing else: no @everyone, no roles, no one else), so your phone pings. Sent: the
+item, how many, the price, your character's name and the shop's total today. Also, once each: "your
+shop sold out" and "your shop closed" (the game left the Free Market). Sales wait in
+`discord_outbox.json` until Discord takes them: no internet or Discord saying "slow down" delays
+them, never loses or repeats them. Sales within a minute of the last message go together. Unlink
+or the switch in Settings stops it. Tip: set #shop-sales → Notification Settings → Only @mentions.
+
+The webhook and the Discord app's client ID come with the build (`discord.json` next to
+`build.bat`, never committed); without it Settings says "Not set up in this build".
+
+**Admin setup (once, about 5 minutes):**
+1. Create a text channel `#shop-sales`. Optional: Edit Channel → Permissions → turn off Send
+   Messages for @everyone, so it holds only sales (webhooks still post).
+2. Edit Channel → Integrations → Webhooks → New Webhook, name it Companion, picture
+   `web/logo.png` → Copy Webhook URL (don't paste it in chat).
+3. https://discord.com/developers/applications → New Application "Companion", with the logo
+   (players see it on the authorize page) → OAuth2: copy the Client ID; Redirects → Add
+   `http://localhost:8765/discord` → Save. No bot, no client secret.
+4. Next to `build.bat`: `discord.json` = `{"webhook": "https://discord.com/api/webhooks/...",
+   "client_id": "123456789012345678"}`. Run `build.bat`, upload `dist\Companion.exe` to Releases.
+5. Test: Settings → Connect Discord → Authorize; a message tagging you arrives in #shop-sales.
+6. If the webhook URL leaks (it's inside a public exe, so someone determined can post to the
+   channel, though never read it): delete the webhook, make a new one, update `discord.json`,
+   rebuild and re-release. Players' links keep working.
+
+Connect needs the dashboard on port 8765 (the only redirect registered): with another copy of
+Companion holding that port, close it first.
+
 ## Your data
 Everything stays on your PC: `profile.json` (job, level, quests done, skill plan, what the game
 showed), `config.json` (settings), `scans.sqlite` (shop prices you've seen, behind Shops;
 `--report` lists them), `cache/` (downloaded game data, learned level digits), `debug/samples/`
 (pictures of shop windows). The Now tab's picture of the game is only served to this PC.
-Nothing is uploaded anywhere.
+`discord_outbox.json` (sales waiting to be posted, and the keys of ones already posted, so none
+goes twice). Nothing is uploaded anywhere unless you connect Discord; then only your shop's sales
+(item, quantity, price, character name, shop total) go to the group's #shop-sales channel.
 
 ## Data sources
 - Game data: OSMS Data Explorer (MIT), github.com/ohmi69/osms_datamine_dashboard. Refreshed every 12h.

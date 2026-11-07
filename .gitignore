@@ -2,6 +2,10 @@
 config.json
 profile.json
 scans.sqlite
+grind.sqlite
+discord_outbox.json
+# The group's Discord webhook and app ID: built into the exe, never committed
+discord.json
 cache/
 debug/
 *.tmp
@@ -17,3 +21,7 @@ dist/
 
 # Pictures of the game, until cropped and cleared for sharing
 samples/raw/
+
+# Reader test cases: pictures of the game, kept on this PC only
+samples/cases/
+*.bak
