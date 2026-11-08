@@ -90,10 +90,25 @@ def test_the_five_minute_rate_is_over_five_minutes_of_grinding(tmp_path):
     g = tracker(tmp_path)
     t = feed(g, [50000 + 100 * i for i in range(51)])        # 5 minutes at 60K/hr
     t = feed(g, [55000] * 40, t0=t)                           # 4 minutes idle
-    t = feed(g, [55000, 60500], t0=t)                         # one big lump
+    t = feed(g, [55000, 60500], t0=t)                         # one big lump (a quest turned in)
     s = g.summary(t)
-    assert s["exp_hr_5m"] < 2 * 60000 + 5500 / 300 * 3600    # at most the lump spread over the window
-    assert s["ttl_s"] > 1500                                  # 62K to go at ~120K/hr: about half an hour
+    assert s["gained"] == 10500                               # the lump is in the total...
+    assert abs(s["exp_hr_5m"] - 60000) / 60000 < 0.05         # ...not in the killing pace
+    assert abs(s["exp_hr"] - 60000) / 60000 < 0.05
+    # time to level goes by the clock: 10,500 EXP over the session's ~9.5 minutes, idle included
+    clock = 10500 / (t - 0.0) * 3600
+    assert abs(s["exp_hr_clock"] - clock) / clock < 0.05
+    assert abs(s["ttl_s"] - (NEED - 60500) / clock * 3600) < 120
+
+
+def test_time_to_level_by_the_clock_counts_idle_minutes(tmp_path):
+    g = tracker(tmp_path)
+    t = feed(g, [50000 + 100 * i for i in range(51)])        # 5 minutes at 60K/hr
+    t = feed(g, [55000] * 50, t0=t)                           # 5 minutes looting and chatting
+    s = g.summary(t)
+    assert abs(s["exp_hr"] - 60000) / 60000 < 0.05            # killing pace
+    assert abs(s["exp_hr_clock"] - 30000) / 30000 < 0.05      # half the time killing
+    assert abs(s["ttl_s"] - (NEED - 55000) / 30000 * 3600) < 120
 
 
 def test_a_lone_lower_read_is_ignored(tmp_path):

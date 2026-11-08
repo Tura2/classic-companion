@@ -685,7 +685,7 @@ function grindCard(gr, g){
         <div><b>${q.runs_to_level ?? "—"}</b><span>runs to level ${n.level ? n.level + 1 : "up"}</span></div></div>
       ${q.exp_hr ? `<p class="sub" style="margin:4px 0 8px">About <b>${perHr(q.exp_hr)}</b> EXP an hour in the PQ; a run takes ${dur(q.avg_secs)} on average.</p>` : ""}`
     : `<div class="gstrip">
-        <div><b>${perHr(rate)}</b><span>EXP / hour</span></div>
+        <div><b>${perHr(rate)}</b><span>EXP / hour killing</span></div>
         <div><b>${dur(n.ttl_s)}</b><span>to level ${n.level ? n.level + 1 : "up"}</span></div>
         <div><b>${dur(n.active_s)}</b><span>grinding</span></div></div>`;
   return win("Grind" + (n.map ? ` · ${pretty(n.map)}` : ""), `<div class="body">
@@ -693,7 +693,7 @@ function grindCard(gr, g){
       ${pct != null ? `<div class="prog"><div class="lbl"><span>Lv. ${n.level ?? "?"} · ${pct.toFixed(2)}%</span>
           <span>${n.left != null ? fmt(n.left) + " EXP to go" : ""}</span></div>
         <div class="bar" role="progressbar" aria-label="EXP to the next level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div>
-        ${q ? "" : n.ttl_s ? `<p class="sub" style="margin:4px 0 0">At this pace, level ${n.level ? n.level + 1 : "up"} at about <b>${clock(Date.now() / 1000 + n.ttl_s)}</b>.</p>` : `<p class="sub" style="margin:4px 0 0">Time to level shows after a minute of grinding.</p>`}</div>` : ""}
+        ${q ? "" : n.ttl_s ? `<p class="sub" style="margin:4px 0 0">By the clock (${perHr(n.exp_hr_clock)} EXP an hour, breaks included), level ${n.level ? n.level + 1 : "up"} at about <b>${clock(Date.now() / 1000 + n.ttl_s)}</b>.</p>` : `<p class="sub" style="margin:4px 0 0">Time to level shows after a minute of grinding.</p>`}</div>` : ""}
       <div class="gspark">${spark(n.spark || [])}<div class="sub"><span>EXP per minute, last ${(n.spark || []).length} min</span><span>+${fmt(n.gained)} EXP this session</span></div></div>
       ${maps.length > 1 ? `<table class="gmaps"><thead><tr><th>Map</th><th>Time</th><th>EXP/hr</th></tr></thead><tbody>${maps.map(h =>
           `<tr><td>${pretty(h.map || "?")}</td><td>${dur(h.active_s)}</td><td>${perHr(h.exp_gained / h.active_s * 3600)}</td></tr>`).join("")}</tbody></table>` : ""}

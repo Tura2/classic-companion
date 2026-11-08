@@ -52,6 +52,8 @@ def day_start(now):
 
 IDLE = 15.0             # seconds without a gain before the clock stops
 WINDOW = 300.0          # "last 5 minutes" rate
+CLOCK_WINDOW = 900.0    # time to level: the clock pace over the last 15 minutes, idle included
+LUMP_SHARE = 0.01       # a gain after a break bigger than this share of the level (a quest) isn't killing pace
 MIN_TTL_DATA = 60.0     # seconds of active time before time-to-level is shown
 MAX_GAIN_SHARE = 0.6    # one step gaining more than this share of a level is a misread
 SPARK_MINUTES = 30      # the chart: EXP per minute over this many minutes
@@ -95,9 +97,11 @@ class Grind:
     # ---- state
     def _new_session(self, now):
         self.s_gained, self.s_active, self.s_mesos0, self.s_mesos = 0, 0.0, None, None
+        self.s_paced = 0             # EXP gained by killing: one-off lumps after a break left out
         self.s_start = None          # the session's first gain
+        self.s_t0 = now              # when the session began watching, for the clock pace
         self.minutes = {}            # minute (epoch // 60) -> EXP gained in it, for the chart
-        self.events = []             # (ts, gain, active seconds before it), for the 5-minute rate
+        self.events = []             # (ts, gain, active seconds before it, lump), for the rates
         self.last_gain = None
         self.last_tick = now
 
@@ -156,6 +160,8 @@ class Grind:
                     self._new_session(now)
         elif self.seg is None:
             self._new_segment(now, level)
+        if self.s_t0 is None:
+            self.s_t0 = now
         self._tick(now)
         read = (exp, pct, level)
         agreed = self.raw == read
@@ -175,11 +181,19 @@ class Grind:
         self.last = read
         if gain <= 0 or self.paused:
             return 0
-        if self.last_gain is None or now - self.last_gain > IDLE:
-            self.last_tick = now           # resuming: the idle time doesn't count
-        self.events.append((now, gain, self.s_active))
-        self.events = [e for e in self.events if e[2] >= self.s_active - WINDOW - 60]
-        self.last_gain = now
+        resumed = self.last_gain is None or now - self.last_gain > IDLE
+        need = self.need or need_of(exp, pct) or 0
+        lump = resumed and gain > LUMP_SHARE * need     # a quest turned in, not a kill
+        if lump:
+            pass                           # not grinding: it doesn't start the clock either
+        else:
+            if resumed:
+                self.last_tick = now       # resuming: the idle time doesn't count
+            self.s_paced += gain
+            self.last_gain = now
+        self.events.append((now, gain, self.s_active, lump))
+        self.events = [e for e in self.events
+                       if e[2] >= self.s_active - WINDOW - 60 or e[0] >= now - CLOCK_WINDOW - 60]
         if self.s_start is None:
             self.s_start = now
         m = int(now // 60)
@@ -275,19 +289,27 @@ class Grind:
     def summary(self, now):
         self._tick(now)
         running = self.last_gain is not None and now - self.last_gain <= IDLE and not self.paused
-        hr = self.s_gained / self.s_active * 3600 if self.s_active >= 1 else None
-        # the last WINDOW seconds of grinding (idle time doesn't count), and the EXP gained in them:
-        # by wall time, a lump after idle minutes came over a few active seconds (931K/hr, 2026-11-08)
+        # EXP/hr is the killing pace: active time only, one-off lumps (quests) left out. The last
+        # WINDOW seconds of grinding for the recent one: by wall time, a lump after idle minutes
+        # came over a few active seconds and showed 931K/hr (2026-11-08)
+        hr = self.s_paced / self.s_active * 3600 if self.s_active >= 1 else None
         span = min(WINDOW, self.s_active)
         hr5 = None
         if span >= MIN_TTL_DATA:
-            gained = sum(e[1] for e in self.events if e[2] > self.s_active - span)
+            gained = sum(e[1] for e in self.events if e[2] > self.s_active - span and not e[3])
             hr5 = gained / span * 3600
+        # time to level goes by the clock: everything gained over the last CLOCK_WINDOW, idle included
+        t0 = self.s_t0 if self.s_t0 is not None else self.s_start
+        clock_hr = None
+        if t0 is not None and self.s_start is not None:
+            wall = min(CLOCK_WINDOW, now - t0)
+            if wall >= MIN_TTL_DATA:
+                clock_hr = sum(e[1] for e in self.events if e[0] > now - wall) / wall * 3600
         ttl = None
-        if self.last and self.s_active >= MIN_TTL_DATA and hr5:
+        if self.last and clock_hr:
             e, p, _ = self.last
             if p:
-                ttl = (e / (p / 100) - e) / (hr5 / 3600)
+                ttl = (e / (p / 100) - e) / (clock_hr / 3600)
         mhr = None
         if self.s_mesos0 is not None and self.s_mesos is not None and self.s_active >= 60:
             mhr = (self.s_mesos - self.s_mesos0) / self.s_active * 3600
@@ -299,7 +321,8 @@ class Grind:
                 "level": level, "need": round(need) if need else None,
                 "left": round(need - self.last[0]) if need and self.last else None,
                 "since": self.s_start, "spark": spark,
-                "active_s": round(self.s_active, 1), "exp_hr": hr, "exp_hr_5m": hr5, "ttl_s": ttl, "mesos_hr": mhr,
+                "active_s": round(self.s_active, 1), "exp_hr": hr, "exp_hr_5m": hr5, "exp_hr_clock": clock_hr,
+                "ttl_s": ttl, "mesos_hr": mhr,
                 "map": self.pq or self.map, "map_id": self.map_id,
                 "pq": self.pq_summary(now, need - self.last[0] if need and self.last else None) if self.pq else None,
                 "exp": self.last[0] if self.last else None, "pct": self.last[1] if self.last else None}
