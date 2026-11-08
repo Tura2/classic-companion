@@ -669,13 +669,12 @@ function spark(vals){
 function grindCard(gr, g){
   if (!gr || !gr.available) return "";
   const n = gr.now, hud = !!(g.windows || {}).hud;
-  if (!n.gained && !n.pq){
-    if (n.exp != null) return "";                     // read fine, no EXP yet: nothing to show while you shop or walk
-    if (!hud) return "";
+  // always shown: before any EXP it says what it's waiting for
+  if (!n.gained && !n.pq && n.exp == null && hud)
     return win("Grind", `<div class="body"><p style="margin:0">Companion can't read the EXP on your HUD yet: its digits are new to it.
       Open <b>Character Stat (S)</b> and kill a few monsters; it learns every digit in about a minute.</p></div>`);
-  }
-  const st = n.paused ? ["warn", "Paused"] : n.pq ? ["good", "In the PQ"] : n.running ? ["good", "Grinding"] : ["", "Waiting for EXP"];
+  const st = n.paused ? ["warn", "Paused"] : n.pq ? ["good", "In the PQ"] : n.running ? ["good", "Grinding"]
+    : n.exp == null ? ["", "Can't see your EXP"] : ["", "Waiting for EXP"];
   const pct = n.pct != null ? Math.min(100, n.pct) : null;
   const rate = n.exp_hr_5m ?? n.exp_hr;
   const maps = (gr.history || []).filter(h => h.active_s >= 30 && h.exp_gained > 0).slice(0, 4);
