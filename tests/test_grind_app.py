@@ -42,6 +42,16 @@ def test_a_cut_short_kpq_title_starts_the_run(tmp_path):
     assert rows[0]["exp_gained"] == 1000
 
 
+def test_another_unread_title_ends_the_guess(tmp_path):
+    a, prof = app(tmp_path), {"current_map": KC, "level": 33}
+    read(a, prof, 50000, "Kerning City")
+    read(a, prof, 50000, missed="1st Accornpanijnent")
+    read(a, prof, 50500)
+    assert a.grind.pq == "Kerning PQ"
+    read(a, prof, 50600, missed="Kerning")             # back in town, its title read short
+    assert a.grind.pq is None and a.grind.map == "Kerning City"
+
+
 def test_other_unread_titles_dont_start_a_run(tmp_path):
     a, prof = app(tmp_path), {"current_map": KC, "level": 33}
     read(a, prof, 50000, "Kerning City")

@@ -169,10 +169,9 @@ def handle_grind(app, seen, prof):
     now = time.time()
     # a party quest's title read too badly to name the stage ("1st Accornpanijnent") leaves the
     # profile on the town you came from; it still means you're in that PQ, until a map is read
-    if seen.get("map"):
-        app.grind_pq = None
-    elif (pq := pq_of_read(seen.get("map_missed"))):
-        app.grind_pq = pq
+    missed = seen.get("map_missed")
+    if seen.get("map") or (missed and len(missed) >= 6):
+        app.grind_pq = pq_of_read(missed) if not seen.get("map") else None   # another title: out of it
     hud = seen.get("hud") or {}
     if hud.get("exp") is not None:
         mid = prof.get("current_map")
