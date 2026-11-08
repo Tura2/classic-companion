@@ -143,6 +143,20 @@ def test_a_level_exp_set_by_misreads_is_replaced(tmp_path):
     assert g.summary(t)["gained"] == before + 200
 
 
+def test_one_misread_held_while_you_stand_still_drops_nothing(tmp_path):
+    """Live, 2026-11-08: standing still between kills, one misread EXP read the same a dozen times
+    'agreed' on another level EXP, replaced the right one and dropped 1,353 EXP across the gap."""
+    g = tracker(tmp_path)
+    t = feed(g, [60000, 60100])
+    before = g.summary(t)["gained"]
+    for _ in range(12):
+        g.update(66100, pct(60100), 32, 1, "Ant Tunnel I", t)   # a 0 read as 6, the same every time
+        t += 2
+    assert abs(g.need - NEED) < NEED * 0.001
+    t = feed(g, [60500], t0=t)
+    assert g.summary(t)["gained"] == before + 400
+
+
 def test_a_misread_level_doesnt_stop_counting(tmp_path):
     g = tracker(tmp_path)
     for i in range(3):

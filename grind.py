@@ -56,7 +56,7 @@ MIN_TTL_DATA = 60.0     # seconds of active time before time-to-level is shown
 MAX_GAIN_SHARE = 0.6    # one step gaining more than this share of a level is a misread
 SPARK_MINUTES = 30      # the chart: EXP per minute over this many minutes
 NEED_READS = 3          # reads that agree on the level's EXP (exp / pct) before any is trusted
-RETHINK_READS = 6       # reads in a row agreeing on another level EXP replace one set by misreads
+RETHINK_VALUES = 3      # different EXPs in a row agreeing on another level EXP replace one set by misreads
 
 
 def need_of(exp, pct):
@@ -207,11 +207,15 @@ class Grind:
                 self.need_other = []
                 return True
             # a wrong level EXP set by repeated misreads would shut out every right read after it:
-            # RETHINK_READS reads in a row that agree among themselves on another one replace it
-            self.need_other = (getattr(self, "need_other", []) + [(need, pct)])[-RETHINK_READS:]
-            ref = sorted(n for n, _ in self.need_other)[len(self.need_other) // 2]
-            if len(self.need_other) == RETHINK_READS and all(abs(n - ref) <= ref * need_tol(p)
-                                                             for n, p in self.need_other):
+            # RETHINK_VALUES different EXPs in a row that agree among themselves on another one
+            # replace it. Different ones: standing still, one misread comes back the same every
+            # read and would "agree" with itself (2026-11-08, it dropped 1,353 EXP)
+            other = getattr(self, "need_other", [])
+            if not other or other[-1][2] != exp:
+                self.need_other = (other + [(need, pct, exp)])[-RETHINK_VALUES:]
+            ref = sorted(n for n, _, _ in self.need_other)[len(self.need_other) // 2]
+            if len(self.need_other) == RETHINK_VALUES and all(abs(n - ref) <= ref * need_tol(p)
+                                                              for n, p, _ in self.need_other):
                 self.need, self.need_other = ref, []
                 self.last = None          # start again from here: no gain across the bad stretch
             return False
