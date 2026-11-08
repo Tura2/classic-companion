@@ -140,17 +140,80 @@ def test_two_items_that_fit_and_nothing_sold_out_names_nothing():
 
 
 def test_a_sale_told_from_the_mesos_box_isnt_told_again_when_the_panel_returns():
-    """Live, 2026-11-07: the panel was lost, a Red Potion (5) sold, the mesos box went up 5; then
-    the panel was found again with Total Sales 40 -> 45. One sale, not two."""
+    """The panel lost, a row sold out and the mesos box went up by it; then the panel was found
+    again with Total Sales showing it. One sale, not two, and the next one still counts."""
     w = ShopWatch()
     after = [LIVE[2], LIVE[3]]
     feed(w, [store(40, after, mesos=768883), store(40, after, mesos=768883)])
-    sales = feed(w, [store(None, after, mesos=768883, panel=False)] * 2 + [store(None, after, mesos=768888, panel=False)] * 2, 20)
+    gone = [LIVE[2]]                                      # the Red Potion row sold out
+    sales = feed(w, [store(None, after, mesos=768883, panel=False)] * 2
+                 + [store(None, gone, mesos=768888, panel=False)] * 2, 20)
     assert [(s["item"], s["price"]) for s in sales] == [("Red Potion", 5)]
-    assert feed(w, [store(45, after, mesos=768888), store(45, after, mesos=768888)], 60) == []
-    assert w.status["total"] == 45
-    more = feed(w, [store(50, after, mesos=768893), store(50, after, mesos=768893)], 80)
-    assert [(s["item"], s["price"]) for s in more] == [("Red Potion", 5)]       # the next one still counts
+    assert feed(w, [store(45, gone, mesos=768888), store(45, gone, mesos=768888)], 60) == []
+    assert w.status["total"] == 45 and w.take_fixes() == []
+    more = feed(w, [store(50, gone, mesos=768893), store(50, gone, mesos=768893)], 80)
+    assert [s["price"] for s in more] == [5]              # the next one still counts
+
+
+def test_a_partial_sale_waits_for_the_panel():
+    """Live, 2026-11-07: a Red Potion (5) sold from a row of several, the row didn't change, the
+    mesos box went up 5. Not told from the box; told when the panel shows Total Sales 40 -> 45."""
+    w = ShopWatch()
+    after = [LIVE[2], LIVE[3]]
+    feed(w, [store(40, after, mesos=768883), store(40, after, mesos=768883)])
+    lost = [store(None, after, mesos=768883, panel=False)] * 2 + [store(None, after, mesos=768888, panel=False)] * 6
+    assert feed(w, lost, 20) == []
+    sales = feed(w, [store(45, after, mesos=768888), store(45, after, mesos=768888)], 80)
+    assert [(s["item"], s["price"]) for s in sales] == [("Red Potion", 5)]
+
+
+MOKBI = [{"name": "Mokbi Throwing Stars", "text": "Mokbi Throwing Stars", "count": 1, "price": 1100, "sold": False},
+         {"name": "Elixir", "text": "Elixir", "count": 5, "price": 3745, "sold": False}]
+
+
+def test_mesos_that_only_fit_a_price_are_not_a_sale():
+    """Live, 2026-11-08: the panel lost, the mesos box went up 6,402 (= 6,600 before the fee, a
+    multiple of the Mokbi row's price) though no row changed; Total Sales later showed only 2,253."""
+    w = ShopWatch()
+    feed(w, [store(5245, MOKBI, mesos=665292), store(5245, MOKBI, mesos=665292)])
+    lost = [store(None, MOKBI, mesos=665292, panel=False)] * 2 + [store(None, MOKBI, mesos=671694, panel=False)] * 6
+    assert feed(w, lost, 20) == []
+    sales = feed(w, [store(7498, MOKBI, mesos=671694), store(7498, MOKBI, mesos=671694)], 80)
+    assert [s["price"] for s in sales] == [2253] and w.take_fixes() == []
+
+
+def test_a_sale_the_panel_doesnt_show_is_taken_back():
+    w = ShopWatch()
+    feed(w, [store(5245, MOKBI, mesos=665292), store(5245, MOKBI, mesos=665292)])
+    gone = MOKBI[1:]                                     # misread: the Mokbi row seemed to go
+    sales = feed(w, [store(None, MOKBI, mesos=665292, panel=False)] * 2
+                 + [store(None, gone, mesos=666359, panel=False)] * 2, 20)
+    assert [s["item"] for s in sales] == ["Mokbi Throwing Stars"]
+    real = feed(w, [store(5245 + 400, MOKBI, mesos=666359), store(5245 + 400, MOKBI, mesos=666359)], 60)
+    fixes = w.take_fixes()
+    assert [f["wrong"][0]["item"] for f in fixes] == ["Mokbi Throwing Stars"] and fixes[0]["real"] == 400
+    assert [s["price"] for s in real] == [400]           # what did sell is still told
+    assert [s["price"] for s in w.status["sales"]] == [400]
+    later = feed(w, [store(5245 + 3745 + 400, MOKBI, mesos=1), store(5245 + 3745 + 400, MOKBI, mesos=1)], 80)
+    assert [s["price"] for s in later] == [3745]         # nothing left over to swallow later sales
+
+
+def test_the_panel_back_with_no_rise_takes_the_sale_back():
+    w = ShopWatch()
+    feed(w, [store(5245, MOKBI, mesos=665292), store(5245, MOKBI, mesos=665292)])
+    gone = MOKBI[1:]
+    feed(w, [store(None, MOKBI, mesos=665292, panel=False)] * 2 + [store(None, gone, mesos=666359, panel=False)] * 2, 20)
+    assert feed(w, [store(5245, MOKBI, mesos=666359)] * 2, 60) == []
+    assert len(w.take_fixes()) == 1 and w.status["sales"] == []
+
+
+def test_the_row_going_gray_a_read_late_still_tells_it():
+    w = ShopWatch()
+    feed(w, [store(None, MOKBI, mesos=1000, panel=False)] * 2)
+    gone = [{**MOKBI[0], "sold": True}, MOKBI[1]]
+    got = 1000 + round(1100 * 0.97)
+    sales = feed(w, [store(None, MOKBI, mesos=got, panel=False)] * 2 + [store(None, gone, mesos=got, panel=False)] * 2, 20)
+    assert [(s["item"], s["price"]) for s in sales] == [("Mokbi Throwing Stars", 1100)]
 
 
 def test_mesos_baseline_follows_while_the_panel_is_open():

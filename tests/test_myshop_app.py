@@ -73,3 +73,19 @@ def test_shop_closed_pings_once():
     for i in range(6):        # the store and the HUD gone: the login screen
         sniper.handle_myshop(a, {"windows": {}}, 20 + i)
     assert len([m for m in a.sent if "closed" in m]) == 1
+
+
+def test_a_wrong_sale_gets_a_correction_on_discord():
+    a = app(discord_enabled=True, discord_id="123")
+    items = [{"name": "Mokbi Throwing Stars", "text": "Mokbi Throwing Stars", "count": 1, "price": 1100, "sold": False}]
+
+    def look(total, mesos, rows_left=True):
+        return {"myshop": {"title": "Scrolls", "mesos": mesos, "items": items if rows_left else [],
+                           "panel": {"total_sales": total, "total_received": 0, "rows": []} if total is not None else None},
+                "hud": {"level": 32}}
+    reads = [look(5245, 1000)] * 2 + [look(None, 1000)] * 2 + [look(None, 1000 + round(1100 * 0.97), False)] * 2         + [look(5245, 2067, False)] * 2
+    for i, r in enumerate(reads):
+        sniper.handle_myshop(a, r, 6 * i)
+    assert [k for k, _ in a.state["outbox"].added] == ["sale"]
+    assert len([m for m in a.sent if m.startswith("correction: Mokbi Throwing Stars")]) == 1
+    assert a.state["myshop"]["sales"] == []

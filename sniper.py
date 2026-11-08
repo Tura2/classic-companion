@@ -231,6 +231,14 @@ def handle_myshop(app, seen, now):
     if told is None:
         told = app.myshop_told = set()
     send = state.get("discord_send") if linked else None
+    for fix in sw.take_fixes():           # Total Sales doesn't show a sale told from the mesos box
+        wrong = ", ".join(f"{s['item']} x{s.get('count') or 1}" if s.get("item") else "something"
+                          for s in fix["wrong"])
+        print(f"Correction: {wrong} didn't sell (Total Sales doesn't show it)")
+        if send and cfg.get("discord_post_sales") and fix["key"] not in told:
+            told.add(fix["key"])
+            send(f"correction: {wrong} didn't sell after all, that post was wrong (your shop's Total Sales "
+                 f"doesn't show it).")
     if "soldout" in sw.events and ("soldout", sw.session) not in told:
         told.add(("soldout", sw.session))
         send and send("your shop sold out: time to restock.")
