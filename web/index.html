@@ -1226,9 +1226,17 @@ function buildTable(t, now, level){
 }
 
 // Skills, like the Skill Inventory window: each skill's level in game, your plan, and what it does
-let skillPick = null, skView = "skills";
-async function renderSkills(){
+let skillPick = null, skView = "skills", skillsKey = "";
+async function renderSkills(quiet){
+  // quiet: a refresh because the game showed a change; skipped while you edit your plan, and only
+  // redrawn when what the tab shows changed, with the list kept where you scrolled it
+  if (quiet && (planSave || document.activeElement === $("#plan"))) return;
   const d = await api("/api/skills"), plan = d.plan || {};
+  const key = JSON.stringify([d, state.profile.level, state.profile.job]);
+  if (quiet && key === skillsKey) return;
+  skillsKey = key;
+  const scrolled = quiet ? ($(".md .master") || {}).scrollTop : 0;
+  if (quiet) requestAnimationFrame(() => { const m = $(".md .master"); if (m) m.scrollTop = scrolled; });
   const total = () => Object.values(plan).reduce((a, b) => a + (+b || 0), 0);
   const tables = (d.next || {}).tables || [];
   const views = `<div class="filters" role="tablist" aria-label="Skills" style="margin-bottom:8px">
@@ -1289,7 +1297,7 @@ async function renderSkills(){
   const inp = $("#plan");
   const setPlan = v => {
     v = Math.max(0, Math.min(s.max, v || 0)); inp.value = v; plan[s.id] = v; $("#sp").textContent = total();
-    clearTimeout(planSave); planSave = setTimeout(() => api("/api/profile", {skill_plan: plan}), 400);
+    clearTimeout(planSave); planSave = setTimeout(() => { planSave = null; api("/api/profile", {skill_plan: plan}); }, 400);
   };
   inp.addEventListener("input", () => setPlan(+inp.value));
   document.querySelectorAll("[data-step]").forEach(b => b.addEventListener("click", () => setPlan(+inp.value + +b.dataset.step)));
@@ -1456,7 +1464,8 @@ setInterval(async () => {
     profRev = state.profile.rev;
     if (prev !== null && prev !== profRev){
       fillProfile(state.profile);
-      if (!["live","nav","skills"].includes(tab)) render();
+      if (tab === "skills") renderSkills(true);
+      else if (!["live","nav"].includes(tab)) render();
     }
   }catch(e){}
 }, 4000);
