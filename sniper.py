@@ -32,7 +32,7 @@ import overlay_art as art
 import reader
 from trust import Gate
 from shopwatch import ShopWatch
-from grind import Grind
+from grind import PQS, Grind, pq_of, pq_of_read
 from capture import GameCapture, client_box, find_window, foreground_window, window_bounds
 from gamedata import JOBS, NPC_PRICES
 
@@ -167,10 +167,19 @@ def handle_grind(app, seen, prof):
     if g is None or not seen or seen.get("quick"):
         return
     now = time.time()
+    # a party quest's title read too badly to name the stage ("1st Accornpanijnent") leaves the
+    # profile on the town you came from; it still means you're in that PQ, until a map is read
+    if seen.get("map"):
+        app.grind_pq = None
+    elif (pq := pq_of_read(seen.get("map_missed"))):
+        app.grind_pq = pq
     hud = seen.get("hud") or {}
     if hud.get("exp") is not None:
         mid = prof.get("current_map")
         name = (app.data.maps.get(mid) or {}).get("name") if mid else None
+        pq = getattr(app, "grind_pq", None)
+        if pq and pq_of(name) != pq:
+            mid, name = -1, dict(PQS)[pq]       # the PQ by its prefix: no stage known
         g.update(hud["exp"], hud.get("exp_pct"), prof.get("level"), mid, name, now)
     if (seen.get("inventory") or {}).get("mesos") is not None:
         g.mesos(seen["inventory"]["mesos"], now)

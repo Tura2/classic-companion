@@ -1,4 +1,6 @@
 """The grind tracker: EXP/hr, time to level and a per-map log, from the HUD's EXP."""
+import pytest
+
 import grind
 
 NEED = 122755          # EXP for level 32 (73,665 at 60.01%)
@@ -182,6 +184,16 @@ def test_pq_of_names_kerning_pq_by_its_maps():
     assert grind.pq_of("1st Accompaniment <Exit>") == "Kerning PQ"
     assert grind.pq_of("Kerning City") is None
     assert grind.pq_of(None) is None
+
+
+@pytest.mark.parametrize("text", ["1st Accornpanijnent", "1 st Accompaniment", "1st Accompanirnent <4tIi stage>"])
+def test_pq_of_read_knows_kpq_from_a_title_cut_short(text):
+    assert grind.pq_of_read(text) == "Kerning PQ"
+
+
+@pytest.mark.parametrize("text", [None, "", "Kerning City", "Ant Tunnel I", "1st"])
+def test_pq_of_read_leaves_other_titles(text):
+    assert grind.pq_of_read(text) is None
 
 
 def test_a_kpq_run_is_one_row_with_its_whole_time(tmp_path):

@@ -28,6 +28,23 @@ def pq_of(map_name):
     return next((pq for pq, prefix in PQS if map_name.lower().startswith(prefix.lower())), None)
 
 
+PQ_READ_CUTOFF = 85
+
+
+def pq_of_read(text):
+    """The party quest a mini map title belongs to, from a read too poor to name the map
+    ("1st Accornpanijnent", the stage cut off): its start is close to the PQ's prefix."""
+    if not text or len(text) < 6:
+        return None
+    from rapidfuzz import fuzz
+    low = text.lower().replace("rn", "m").replace("jn", "m")     # OCR reads an "m" as "rn" or "jn"
+    for pq, prefix in PQS:
+        p = prefix.lower()
+        if max(fuzz.ratio(p, low[:len(p) + d]) for d in (-1, 0, 1, 2)) >= PQ_READ_CUTOFF:
+            return pq
+    return None
+
+
 def day_start(now):
     """Local midnight before `now`."""
     t = time.localtime(now)

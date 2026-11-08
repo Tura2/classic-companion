@@ -152,6 +152,39 @@ def name_number(name):
     return "<" + re.sub(r"\s+", "", inner) + ">"
 
 
+# Stage titles ("1st Accompaniment <2nd Stage>") read far worse in a live run (2026-11-08): the
+# ordinal comes out as "cist", "end", "Ord" or "4tIi", the "<" is often lost and junk follows the
+# ">". The stage is then told by the ordinal's ending, and the rest of the title is matched alone.
+STAGE_WORD = re.compile(r"<?\s*([a-z0-9|!]{1,5}(?:\s+[a-z]{2})?)\s*stag")
+STAGE_BASE_CUTOFF = 80
+
+
+def stage_of(text):
+    """(the title before its stage, the stage: "1"-"4" or "last"), or None if it names no stage."""
+    low = (text or "").lower()
+    m = None
+    for m in STAGE_WORD.finditer(low):
+        pass
+    if not m:
+        return None
+    word = re.sub(r"\s+", "", m.group(1))
+    if "a" in word:
+        stage = "last"
+    elif word[0] in "234":
+        stage = word[0]
+    elif word.endswith("st") or word[0] == "1":
+        stage = "1"
+    elif word.endswith("nd"):
+        stage = "2"
+    elif word.endswith("rd"):
+        stage = "3"
+    elif re.search(r"t[hil|!]*$", word):
+        stage = "4"
+    else:
+        return None
+    return text[:m.start()].strip(" <"), stage
+
+
 def match_place(text, names, cutoff):
     """The name in names the text is, or None: the closest one with the same number as the text.
     A text whose number doesn't match any close name is left unread, never read as the next map."""
@@ -163,7 +196,17 @@ def match_place(text, names, cutoff):
     for name, _, _ in process.extract(text, names, scorer=fuzz.ratio, score_cutoff=cutoff, limit=8):
         if name_number(name) == want:
             return name
-    return None
+    read = stage_of(text)
+    if not read or len(read[0]) < 3:
+        return None
+    best = None
+    for name in names:
+        st = stage_of(name)
+        if st and st[1] == read[1]:
+            score = fuzz.ratio(read[0].lower(), st[0].lower())
+            if score >= STAGE_BASE_CUTOFF and (best is None or score > best[0]):
+                best = (score, name)
+    return best[1] if best else None
 
 
 # ---------------------------------------------------------------- market prices
