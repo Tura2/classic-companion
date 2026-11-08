@@ -69,6 +69,33 @@ def test_level_up_keeps_counting(tmp_path):
     assert abs(g.summary(t)["gained"] - before - ((NEED - 122000) + 500)) <= NEED * 0.001
 
 
+def test_a_level_shown_before_its_exp_adds_no_extra_level(tmp_path):
+    """Live, 2026-11-08: the level went 33 -> 34 a few reads before the HUD's EXP did, and the old
+    level's EXP read as the new one's added a whole level (a KPQ run logged at 161,522 EXP)."""
+    g = tracker(tmp_path)
+    t = feed(g, [121000, 122000])
+    before = g.summary(t)["gained"]
+    for _ in range(4):
+        g.update(122000, pct(122000), 33, 1, "Ant Tunnel I", t)    # the new level, the old EXP
+        t += 2
+    for _ in range(4):
+        g.update(500, 0.2, 33, 1, "Ant Tunnel I", t)
+        t += 2
+    assert abs(g.summary(t)["gained"] - before - ((NEED - 122000) + 500)) <= NEED * 0.001
+
+
+def test_the_five_minute_rate_is_over_five_minutes_of_grinding(tmp_path):
+    """Live, 2026-11-08: 4 idle minutes, then one minute of 5,524 EXP showed 931K EXP/hr and
+    level 35 in 8 minutes. The rate is the EXP of the last 5 minutes of grinding, over those."""
+    g = tracker(tmp_path)
+    t = feed(g, [50000 + 100 * i for i in range(51)])        # 5 minutes at 60K/hr
+    t = feed(g, [55000] * 40, t0=t)                           # 4 minutes idle
+    t = feed(g, [55000, 60500], t0=t)                         # one big lump
+    s = g.summary(t)
+    assert s["exp_hr_5m"] < 2 * 60000 + 5500 / 300 * 3600    # at most the lump spread over the window
+    assert s["ttl_s"] > 1500                                  # 62K to go at ~120K/hr: about half an hour
+
+
 def test_a_lone_lower_read_is_ignored(tmp_path):
     g = tracker(tmp_path)
     t = feed(g, [60000, 60100])

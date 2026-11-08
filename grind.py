@@ -178,7 +178,7 @@ class Grind:
         if self.last_gain is None or now - self.last_gain > IDLE:
             self.last_tick = now           # resuming: the idle time doesn't count
         self.events.append((now, gain, self.s_active))
-        self.events = [e for e in self.events if e[0] >= now - WINDOW - 60]
+        self.events = [e for e in self.events if e[2] >= self.s_active - WINDOW - 60]
         self.last_gain = now
         if self.s_start is None:
             self.s_start = now
@@ -200,7 +200,10 @@ class Grind:
         need = need_of(exp, pct)
         if not need:
             return False
-        new_level = level != self.need_level or (self.need is not None and self.last is not None
+        if self.last and level is not None and self.last[2] is not None and level == self.last[2] + 1 \
+                and pct >= self.last[1]:
+            return False                  # the new level shows before its EXP: the old level's EXP still
+        new_level =level != self.need_level or (self.need is not None and self.last is not None
                                                  and pct + 50 < self.last[1])
         if self.need is not None and not new_level:
             if abs(need - self.need) <= self.need * need_tol(pct):
@@ -237,8 +240,8 @@ class Grind:
         need0 = e0 / (p0 / 100) if p0 else None
         up = (l0 is not None and l1 is not None and l1 == l0 + 1) or (l0 is None or l1 is None) and p1 + 50 < p0
         if up:
-            if not need0:
-                return None
+            if not need0 or p1 >= p0:
+                return None               # a level-up starts the bar over: a fuller bar is the old level's
             return round(need0 - e0) + e1
         if l0 is not None and l1 is not None and l1 != l0:
             return None
@@ -273,14 +276,13 @@ class Grind:
         self._tick(now)
         running = self.last_gain is not None and now - self.last_gain <= IDLE and not self.paused
         hr = self.s_gained / self.s_active * 3600 if self.s_active >= 1 else None
-        recent = [e for e in self.events if e[0] >= now - WINDOW]
+        # the last WINDOW seconds of grinding (idle time doesn't count), and the EXP gained in them:
+        # by wall time, a lump after idle minutes came over a few active seconds (931K/hr, 2026-11-08)
+        span = min(WINDOW, self.s_active)
         hr5 = None
-        if recent:
-            start = [e for e in self.events if e[0] < now - WINDOW]
-            act0 = start[-1][2] if start else (recent[0][2] if len(recent) > 1 else 0)
-            gained = sum(e[1] for e in recent if e[2] >= act0) if start else sum(e[1] for e in recent[1:])
-            span = self.s_active - act0
-            hr5 = gained / span * 3600 if span >= 1 else None
+        if span >= MIN_TTL_DATA:
+            gained = sum(e[1] for e in self.events if e[2] > self.s_active - span)
+            hr5 = gained / span * 3600
         ttl = None
         if self.last and self.s_active >= MIN_TTL_DATA and hr5:
             e, p, _ = self.last
