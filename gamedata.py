@@ -130,6 +130,34 @@ def single_points(steps, now, n=3):
     return out
 
 
+# The game's portal (the blue swirl), 8 frames from the game files, each with the point that sits on the ground
+PORTAL_URL = "https://maplestory.io/api/wz/GMS/83/Map/MapHelper.img/portal/game/pv/{n}"
+PORTAL_FRAMES = 8
+
+
+def compose_frames(frames):
+    """[(picture, (origin x, y))] -> (pictures on one canvas with every origin at the same spot, that spot)."""
+    left = max(ox for _, (ox, oy) in frames)
+    top = max(oy for _, (ox, oy) in frames)
+    w = left + max(im.width - ox for im, (ox, oy) in frames)
+    h = top + max(im.height - oy for im, (ox, oy) in frames)
+    from PIL import Image
+    out = []
+    for im, (ox, oy) in frames:
+        c = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        c.paste(im, (left - ox, top - oy))
+        out.append(c)
+    return out, (left, top)
+
+
+def portal_meta():
+    """{"anchor": [x, y], "size": [w, h]} of the kept portal picture, or None."""
+    try:
+        return json.loads((CACHE / "portal.json").read_text("utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
 def fetch_json(url, name, max_age):
     path = CACHE / name
     if path.exists() and time.time() - path.stat().st_mtime < max_age and (data := read_cache(path)) is not None:
@@ -961,6 +989,35 @@ class GameData:
             "mobs": [{"x": q["x"], "y": q["y"]} for q in (m.get("mob_positions") or [])],
             "npcs": [{"x": q["x"], "y": q["y"], "name": self.npc_names.get(q["id"], "")} for q in (m.get("npc_positions") or [])],
         }
+
+    def portal_sprite(self):
+        """The game's portal as an animated picture on disk, built once from its frames; None when they
+        can't be downloaded (the map then rings portals without the sprite)."""
+        path = CACHE / "portal.webp"
+        if path.exists() and portal_meta():
+            return path
+        try:
+            import base64
+            import io
+            from PIL import Image
+            frames = []
+            for n in range(PORTAL_FRAMES):
+                url = PORTAL_URL.format(n=n)
+                r = requests.get(url, timeout=30, headers=UA)
+                r.raise_for_status()
+                im = Image.open(io.BytesIO(base64.b64decode(r.json()["value"]))).convert("RGBA")
+                o = requests.get(url + "/origin", timeout=30, headers=UA)
+                o.raise_for_status()
+                frames.append((im, (int(o.json()["value"]["x"]), int(o.json()["value"]["y"]))))
+            pics, anchor = compose_frames(frames)
+            tmp = path.with_name("portal.tmp.webp")
+            pics[0].save(tmp, save_all=True, append_images=pics[1:], duration=110, loop=0, lossless=True)
+            os.replace(tmp, path)
+            (CACHE / "portal.json").write_text(json.dumps({"anchor": list(anchor), "size": list(pics[0].size)}), "utf-8")
+            return path
+        except Exception as e:
+            print("Portal picture unavailable:", e)
+            return None
 
     def here(self, mid):
         """The map you're on, for Now and Go to: its monsters, every item they drop (most valuable on

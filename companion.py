@@ -25,7 +25,7 @@ from urllib.parse import parse_qs, urlparse
 import cozy
 import discord_link
 from reader import MIN_HEIGHT
-from gamedata import JOBS, GameData
+from gamedata import JOBS, GameData, portal_meta
 
 from paths import APP_DIR, RES_DIR, load_json, save_json
 
@@ -257,6 +257,13 @@ def make_handler(data, state, cfg):
                     if url.path == "/logo.png":
                         return self.send(200, (RES_DIR / "web" / "logo.png").read_bytes(), "image/png")
                     return self.send(200, (RES_DIR / "web" / "logo.ico").read_bytes(), "image/x-icon")
+                if url.path == "/equip_classic.png":   # Classic's Equipment Inventory window, for the Gear tab
+                    return self.send(200, (RES_DIR / "web" / "equip_classic.png").read_bytes(), "image/png", "max-age=86400")
+                if url.path == "/api/portal.webp":   # the game's portal, drawn on maps
+                    p = data.portal_sprite()
+                    return self.send(200, p.read_bytes(), "image/webp", "max-age=86400") if p else self.send(404, {"error": "no portal picture"})
+                if url.path == "/api/portal":
+                    return self.send(200, (portal_meta() or {}) if data.portal_sprite() else {})
                 if url.path == "/discord":           # where Discord sends you back after Authorize
                     return self.send(200, DISCORD_PAGE.encode("utf-8"), "text/html")
                 if url.path == "/api/sellkeep":     # every item hovered this session, with its verdict
