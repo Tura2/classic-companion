@@ -634,6 +634,37 @@ body[data-full] .tabs{margin-bottom:8px}
 #tip .twhy{margin:10px 0 0;padding-top:8px;border-top:1px solid #4A5590;font-weight:600;font-size:.88rem;color:#E3E7FF}
 #tip .tsub{margin:4px 0 0}
 @media (max-width:760px),(max-height:600px){.shpage{grid-template-columns:1fr}.skgwin{height:520px}}
+
+/* ---- Settings ---- */
+.setpage{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
+.setpage .col{display:flex;flex-direction:column;gap:12px;min-width:0}
+.setpage .win{margin:0}.setpage .win > .title{padding:6px 12px}.setpage .win > .body{padding:8px 14px 12px}
+.pill{display:inline-flex;align-items:center;gap:6px;font:800 .78rem "Nunito",sans-serif;border-radius:999px;padding:2px 10px;background:var(--cell);color:var(--muted);white-space:nowrap}
+.pill i{width:8px;height:8px;border-radius:50%;background:currentColor}.pill.ok{background:var(--goodbg);color:var(--good)}
+.swrow{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:9px 2px;border-bottom:1px solid var(--rim-soft);cursor:pointer}
+.swrow b{display:block;font-size:.98rem}.swrow small{display:block;font-size:.8rem;color:var(--muted);font-weight:700}
+.swrow.dis{opacity:.45;cursor:not-allowed}
+input.sw{appearance:none;-webkit-appearance:none;width:46px;height:26px;border-radius:999px;background:#C3CDDA;position:relative;flex:none;cursor:pointer;margin:0;transition:background .15s}
+input.sw::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:left .15s}
+input.sw:checked{background:#2E9F59}input.sw:checked::after{left:23px}
+input.sw:disabled{cursor:not-allowed}
+.risk2{margin-top:8px;background:var(--warnbg);border:1px solid #E7B860;border-radius:6px;padding:6px 10px}
+.risk2 summary{font-weight:800;color:var(--warn);cursor:pointer;font-size:.88rem}
+.risk2 p{margin:6px 0;font-size:.82rem;color:var(--ink)}
+.ck{font-size:.85rem;font-weight:800;display:flex;gap:6px;align-items:center;cursor:pointer}
+.hb{display:flex;flex-wrap:wrap;gap:8px}.hb .btn{display:inline-flex;align-items:center;gap:7px}
+.dct{color:#5865F2}
+.dcwho{display:flex;align-items:center;gap:10px;padding:4px 0 8px;border-bottom:1px solid var(--rim-soft)}
+.dcav{width:42px;height:42px;border-radius:50%;background:#5865F2;color:#fff;display:grid;place-items:center;flex:none}
+.dcwho b{display:block}.dcwho small{font-size:.8rem;color:var(--muted);font-weight:700}
+.chan{color:#5865F2;font-weight:900}
+.btn.dbtn{color:#fff;background:#5865F2;border-color:#4752C4;display:inline-flex;align-items:center;gap:7px}
+.btn.dbtn:disabled{opacity:.5}
+.adv > summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+.adv > summary::-webkit-details-marker{display:none}
+.adv > summary small{font:800 .8rem "Nunito",sans-serif;color:var(--muted)}
+.advh{font:400 .9rem "DotGothic16",sans-serif;margin:14px 0 6px;color:var(--muted)}
+@media (max-width:760px){.setpage{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -926,19 +957,26 @@ function spark(vals){
   return `<svg class="spark" viewBox="0 0 ${vals.length * (w + gap)} ${h}" preserveAspectRatio="none" role="img" aria-label="EXP per minute, the last ${vals.length} minutes">${
     vals.map((v, i) => `<rect x="${i * (w + gap)}" y="${v ? h - Math.max(2, v / max * h) : h - 1}" width="${w}" height="${v ? Math.max(2, v / max * h) : 1}" class="${v ? "on" : ""}"><title>${fmt(v)} EXP</title></rect>`).join("")}</svg>`;
 }
+const DISCORD_SVG = s => `<svg viewBox="0 0 24 24" width="${s}" height="${s}" fill="currentColor" aria-hidden="true"><path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"/></svg>`;
+// a switch with one bold line and one short line
+const swRow = (id, label, sub, on, disabled) => `<label class="swrow${disabled ? " dis" : ""}"><span><b>${label}</b><small>${sub}</small></span>
+  <input type="checkbox" class="sw" id="${id}" ${on ? "checked" : ""} ${disabled ? "disabled" : ""}></label>`;
+const pill = (ok, text) => `<span class="pill${ok ? " ok" : ""}"><i></i>${text}</span>`;
 function discordCard(d){
-  if (!d || !d.setup) return win("Discord", `<div class="body"><p class="sub" style="margin:0">Not set up in this build.</p></div>`);
-  const what = `<p class="sub" style="margin-top:0">Posts to our server’s <b>#shop-sales</b> when your shop sells something, tagging only you, so your phone pings. Sent: the item, how many, the price, your character’s name and your shop’s total. Nothing else, and nowhere else.</p>`;
-  if (!d.linked) return win("Discord", `<div class="body">${what}
-      ${d.port_ok ? `<a class="btn" href="${esc(d.authorize)}">Connect Discord</a>`
-        : `<p class="sub">Connect works only on port 8765: close other copies of Companion and start it again.</p>`}</div>`);
-  return win("Discord", `<div class="body">${what}
-      <p style="margin:0 0 8px"><b>Connected as ${esc(d.name || "?")} ✓</b></p>
-      <label class="toggle"><input type="checkbox" id="dc-on" ${d.enabled ? "checked" : ""}> Post my shop’s sales</label>
+  const title = `<span class="dct">${DISCORD_SVG(20)} Discord</span>`;
+  if (!d || !d.setup) return `<section class="card win dcard"><div class="title">${title}${pill(false, "Not set up")}</div>
+    <div class="body"><p class="sub" style="margin:0">Not set up in this build.</p></div></section>`;
+  if (!d.linked) return `<section class="card win dcard"><div class="title">${title}${pill(false, "Not connected")}</div><div class="body">
+      <p class="sub" style="margin:0 0 10px">Get a ping on your phone when your shop sells something: Companion posts to our server’s <span class="chan">#shop-sales</span>, tagging only you.</p>
+      ${d.port_ok ? `<a class="btn dbtn" href="${esc(d.authorize)}">${DISCORD_SVG(16)} Connect Discord</a>`
+        : `<p class="sub">Connect works only on port 8765: close other copies of Companion and start it again.</p>`}</div></section>`;
+  return `<section class="card win dcard"><div class="title">${title}${pill(true, "Connected")}</div><div class="body">
+      <div class="dcwho"><span class="dcav">${DISCORD_SVG(26)}</span><div><b>${esc(d.name || "?")}</b><small>Posts to <span class="chan">#shop-sales</span> on our server, tagging only you</small></div></div>
+      ${swRow("dc-on", "Post my shop’s sales", "The item, how many, the price and your shop’s total", d.enabled)}
       ${d.pending ? `<p class="sub" style="margin:6px 0 0">${d.pending} waiting to be sent.</p>` : ""}
       ${d.error ? `<p class="sub" style="margin:6px 0 0;color:var(--bad)">${esc(d.error)}</p>` : ""}
-      <div class="btns" style="margin-top:10px"><button class="btn" id="dc-test" ${d.enabled ? "" : "disabled"}>Send test message</button>
-        <button class="btn" id="dc-unlink">Unlink</button></div></div>`);
+      <div class="hb" style="margin-top:8px"><button class="btn dbtn" id="dc-test" ${d.enabled ? "" : "disabled"}>${DISCORD_SVG(16)} Send a test message</button>
+        <button class="btn" id="dc-unlink">Unlink</button></div></div></section>`;
 }
 
 /* ---- Now: Grind with your best maps, Next up, and the map you're on with what's worth picking up ---- */
@@ -1723,64 +1761,74 @@ async function renderFlips(){
 
 async function renderSettings(){
   const c = await api("/api/settings");
+  if (tab !== "settings") return;
+  const on = c.screen_reading, g = state.game || {}, l = state.live || {};
+  const status = !c.screen_available ? pill(false, "Needs the Windows app") : !on ? pill(false, "Off")
+    : c.game_found ? pill(true, "Game found · reading") : pill(false, "No game window");
+  if (on && state.has_frame) await loadShot(g.ts);
   const area = (k, label, cmd, help) => `<div class="mob"><div class="grow"><b>${label}</b> <span class="sub">${c.areas[k] ? "set" : "not set"}. ${help}</span></div>
-      <button class="btn small" data-area="${cmd}" ${c.screen_reading ? "" : "disabled"}>${c.areas[k] ? "Change" : "Select"}</button></div>`;
-  $("#view").innerHTML = `<div class="cols">
-    ${win("Screen reading", `<div class="body">
-      <p class="sub" style="margin-top:0">Off by default. Without it you still get training spots, quests, gear, skills and routes, and nothing touches the game.</p>
-      <p class="sub">With it on, Companion captures the game window up to 7 times a second, the way Discord or OBS window sharing does. It reads what’s open every 1.5 seconds, an open shop’s list about 3 times a second, and looks for item tooltips in between. It never touches game memory, never presses keys or clicks, and installs no keyboard hooks.</p>
-      <div class="risk">This is an unofficial tool, not authorized by Nexon. Nexon’s terms ban unauthorized third-party software, and Nexon has named screen recognition in its enforcement policy for another game. There’s no guarantee. A ban applies to both Classic World and Global MapleStory. Only turn this on if you accept that risk.</div>
+      <button class="btn small" data-area="${cmd}" ${on ? "" : "disabled"}>${c.areas[k] ? "Change" : "Select"}</button></div>`;
+  const reading = `<section class="card win"><div class="title"><span>${itemIcon(4031138, 22)} Screen reading</span>${status}</div><div class="body">
       ${c.screen_available ? `
-        <label class="toggle"><input type="checkbox" id="consent" ${c.consent ? "checked" : ""}> I understand the risk and use this at my own responsibility</label>
-        <label class="toggle" style="margin-top:8px"><input type="checkbox" id="reading" ${c.screen_reading ? "checked" : ""} ${c.consent ? "" : "disabled"}> Turn on screen reading</label>
-        <label class="toggle" style="margin-top:8px"><input type="checkbox" id="drawing" ${c.draw_overlay ? "checked" : ""} ${c.screen_reading ? "" : "disabled"}> Also draw on the game: prices under items and beside shops, and the route under the mini map</label>`
-      : `<p class="sub">Screen reading needs the Windows app.</p>`}</div>`)}
-    <div class="list">
-    ${discordCard(c.discord)}
-    ${win("Setup and help", `<div class="body"><div class="btns" style="margin:0">
-        <button class="btn" id="s-howto">How to use (Hebrew)</button><button class="btn" id="s-setup">Run the setup again</button></div></div>`)}
-    ${c.screen_available ? win("Fine-tuning", `<div class="body">
-      <div class="grid2" style="margin-top:0">
-        <div><label class="sub" for="s-side">Labels on the game</label><select id="s-side">${["right","left","inside"].map(x => `<option${x === c.label_side ? " selected" : ""}>${x}</option>`).join("")}</select></div>
-        <div><label class="sub" for="s-title">Game window title contains</label><input id="s-title" value="${esc(c.game_title)}"></div>
-      </div>
-      <p class="sub" style="margin:8px 0 0">${c.game_found ? "Game window found. On-game drawing shows only while the game is in front." : "No game window found with this in its title, so nothing is read or drawn."}
-        Capture: ${c.capture === "window" ? "running on the game window only." : "off."}</p>
-      ${c.capture_error ? `<p class="sub" style="margin:4px 0 0;color:var(--bad)">${esc(c.capture_error)}</p>` : ""}
-      <label class="toggle" style="margin-top:10px"><input type="checkbox" id="s-sound" ${c.sound ? "checked" : ""}> Beep on the PC when a deal shows up or your shop sells something</label></div>`)
-    + win("Selected shop area", `<div class="body">
-      <p class="sub" style="margin-top:0">Not needed: shops are found on their own. Only if a shop isn’t read, select its item list once.</p>
-      <div class="mobs">${area("region", "Player shop list", "select", "Open any player shop first.")}</div>
-      <div class="grid2">
-        <div><label class="sub" for="s-match">Name match (0–100)</label><input id="s-match" type="number" min="50" max="100" value="${c.name_match_min}"></div>
-        <div><label class="sub" for="s-tol">Row height (px)</label><input id="s-tol" type="number" min="4" max="60" value="${c.row_tolerance}"></div>
-        <div><label class="sub" for="s-int">Auto-scan every (s)</label><input id="s-int" type="number" min="2" max="10" step="0.5" value="${c.auto_interval}"></div>
-        <div style="align-self:end"><label class="toggle"><input type="checkbox" id="s-bundle" ${c.price_is_per_bundle ? "checked" : ""}> Prices are per stack</label></div>
-      </div></div>`, "fallback") : ""}
-    </div></div>`;
-
+        ${swRow("reading", "Read the game", "Your level, map, EXP, shops and tooltips, from the game window", on, !c.consent)}
+        ${swRow("drawing", "Draw on the game", "Prices under items and the route under the mini map", c.draw_overlay, !on)}
+        ${swRow("s-sound", "Beep on a deal or a sale", "A short sound on this PC", c.sound)}
+        <details class="risk2"${c.consent ? "" : " open"}><summary>⚠ Unofficial tool: use at your own risk</summary>
+          <p>Not authorized by Nexon; its terms ban unauthorized third-party software, and Nexon has named screen recognition in its enforcement policy for another game. A ban would cover Classic World and Global MapleStory. Companion only captures the game window, the way Discord or OBS window sharing does, up to 7 times a second. It never touches game memory, never presses keys or clicks, and installs no keyboard hooks.</p>
+          <label class="ck"><input type="checkbox" id="consent" ${c.consent ? "checked" : ""}> I understand the risk and use this at my own responsibility</label></details>`
+      : `<p class="sub" style="margin:0">Screen reading needs the Windows app. Everything else works without it.</p>`}</div></section>`;
+  const help = `<section class="card win"><div class="title"><span>${itemIcon(GI.quests, 22)} Help</span></div>
+      <div class="body hb"><button class="btn" id="s-howto">${itemIcon(GI.skills, 18)} How to use (Hebrew)</button><button class="btn" id="s-setup">${itemIcon(GI.settings, 18)} Run the setup again</button></div></section>`;
+  const sees = Object.keys(g.windows || {}).map(k => WINDOWS[k] || k).join(", ");
+  const adv = c.screen_available ? `<details class="card win adv" id="adv"${moreOpen ? " open" : ""}><summary class="title"><span>${itemIcon(GI.settings, 22)} Advanced</span><small>rarely needed</small></summary>
+      <div class="body">
+        <div class="grid2" style="margin-top:0">
+          <div><label class="sub" for="s-side">Labels on the game</label><select id="s-side">${["right", "left", "inside"].map(x => `<option${x === c.label_side ? " selected" : ""}>${x}</option>`).join("")}</select></div>
+          <div><label class="sub" for="s-title">Game window title contains</label><input id="s-title" value="${esc(c.game_title)}"></div></div>
+        <p class="sub" style="margin:8px 0 0">${c.game_found ? "Game window found. On-game drawing shows only while the game is in front." : "No game window found with this in its title, so nothing is read or drawn."}
+          Capture: ${c.capture === "window" ? "running on the game window only." : "off."}</p>
+        ${c.capture_error ? `<p class="sub" style="margin:4px 0 0;color:var(--bad)">${esc(c.capture_error)}</p>` : ""}
+        <h4 class="advh">What Companion sees</h4>
+        ${shotUrl && on ? `<img class="thumb" id="shot" alt="What Companion sees of the game" src="${shotUrl}">` : `<p class="sub" style="margin:0">${on ? "No picture yet. Is the game minimized?" : "Turn on screen reading to see it."}</p>`}
+        ${on && sees ? `<p class="sub" style="margin:6px 0 0">Sees: ${esc(sees)}</p>` : ""}
+        <div class="btns" style="margin:8px 0 0">
+          <button class="btn small" data-cmd="scan" ${on ? "" : "disabled"}>Scan now</button>
+          <button class="btn small ${l.auto ? "on" : ""}" data-cmd="auto" ${on ? "" : "disabled"}>${l.auto ? "Auto-scan on" : "Auto-scan off"}</button>
+          ${state.screen.drawing ? `<button class="btn small" data-cmd="toggle">Hide or show labels on the game</button>` : ""}</div>
+        <h4 class="advh">If a player shop isn’t read</h4>
+        <p class="sub" style="margin:0">Shops are found on their own. Only if one isn’t read, select its item list once.${l.note ? " " + esc(l.note) : ""}</p>
+        <div class="mobs">${area("region", "Player shop list", "select", "Open any player shop first.")}</div>
+        <div class="grid2">
+          <div><label class="sub" for="s-match">Name match (0–100)</label><input id="s-match" type="number" min="50" max="100" value="${c.name_match_min}"></div>
+          <div><label class="sub" for="s-tol">Row height (px)</label><input id="s-tol" type="number" min="4" max="60" value="${c.row_tolerance}"></div>
+          <div><label class="sub" for="s-int">Auto-scan every (s)</label><input id="s-int" type="number" min="2" max="10" step="0.5" value="${c.auto_interval}"></div>
+          <div style="align-self:end"><label class="toggle"><input type="checkbox" id="s-bundle" ${c.price_is_per_bundle ? "checked" : ""}> Prices are per stack</label></div></div>
+      </div></details>` : "";
+  $("#view").innerHTML = `<div class="setpage"><div class="col">${reading}${help}</div><div class="col">${discordCard(c.discord)}${adv}</div></div>`;
   const save = async body => {
     const r = await api("/api/settings", body);
     if (r.error) alert(r.error);
     await loadState(); renderSettings();
   };
-  const on = (id, fn) => { const el = $("#" + id); if (el) el.addEventListener("change", fn); };
-  on("consent", e => save({consent:e.target.checked, ...(e.target.checked ? {} : {screen_reading:false, draw_overlay:false})}));
-  on("reading", e => save({screen_reading:e.target.checked}));
-  on("drawing", e => save({draw_overlay:e.target.checked}));
-  on("s-tol", e => save({row_tolerance:+e.target.value}));
-  on("s-match", e => save({name_match_min:+e.target.value}));
-  on("s-side", e => save({label_side:e.target.value}));
-  on("s-int", e => save({auto_interval:+e.target.value}));
-  on("s-title", e => save({game_title:e.target.value}));
-  on("s-bundle", e => save({price_is_per_bundle:e.target.checked}));
-  on("s-sound", e => save({sound:e.target.checked}));
-  on("dc-on", e => save({discord_enabled:e.target.checked}));
+  const onc = (id, fn) => { const el = $("#" + id); if (el) el.addEventListener("change", fn); };
+  onc("consent", e => save({consent:e.target.checked, ...(e.target.checked ? {} : {screen_reading:false, draw_overlay:false})}));
+  onc("reading", e => save({screen_reading:e.target.checked}));
+  onc("drawing", e => save({draw_overlay:e.target.checked}));
+  onc("s-tol", e => save({row_tolerance:+e.target.value}));
+  onc("s-match", e => save({name_match_min:+e.target.value}));
+  onc("s-side", e => save({label_side:e.target.value}));
+  onc("s-int", e => save({auto_interval:+e.target.value}));
+  onc("s-title", e => save({game_title:e.target.value}));
+  onc("s-bundle", e => save({price_is_per_bundle:e.target.checked}));
+  onc("s-sound", e => save({sound:e.target.checked}));
+  onc("dc-on", e => save({discord_enabled:e.target.checked}));
   const dcT = $("#dc-test"); if (dcT) dcT.addEventListener("click", async () => {
     const r = await api("/api/discord/test", {}); dcT.textContent = r.error ? r.error : "Sent ✓";
   });
   const dcU = $("#dc-unlink"); if (dcU) dcU.addEventListener("click", async () => { await api("/api/discord/unlink", {}); renderSettings(); });
   document.querySelectorAll("[data-area]").forEach(b => b.addEventListener("click", () => api("/api/" + b.dataset.area, {})));
+  document.querySelectorAll("#view [data-cmd]").forEach(b => b.addEventListener("click", async () => { await api("/api/" + b.dataset.cmd, {}); setTimeout(renderSettings, 300); }));
+  const advEl = $("#adv"); if (advEl) advEl.addEventListener("toggle", e => { moreOpen = e.target.open; });
   $("#s-howto").addEventListener("click", () => openSetup(2));
   $("#s-setup").addEventListener("click", () => openSetup(0));
 }
