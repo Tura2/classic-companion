@@ -1092,10 +1092,12 @@ async function renderLive(){
   const hint = g.level_hint ? `<p class="risk" style="margin:0 0 8px">The HUD seems to show level ${g.level_hint}, but those digits are new to Companion. Open Character Stat (S) once so it learns them.</p>` : "";
   $("#view").innerHTML = `${hint}<div class="now2"><div class="colL">${grindCard(gr, g)}${nextUpCard(next)}</div>${hereCard(h)}</div>`;
   if (h && h.drops && h.drops_ok){      // the page of drops you're on stays put when Now redraws
-    const dl = $("#dlist");
-    dl.dataset.page = dropPage[h.id] || 0;
-    dl.addEventListener("paged", () => { dropPage[h.id] = +dl.dataset.page; });
-    pageFit(dl, h.drops, dropRow, $("#dpager"));
+    const dl = $("#dlist");             // none in a town: no monsters, so no drop list
+    if (dl){
+      dl.dataset.page = dropPage[h.id] || 0;
+      dl.addEventListener("paged", () => { dropPage[h.id] = +dl.dataset.page; });
+      pageFit(dl, h.drops, dropRow, $("#dpager"));
+    }
   }
   document.querySelectorAll("#view [data-go]").forEach(b => b.addEventListener("click", () => goTo(+b.dataset.go, b.dataset.name)));
   const rt = $("#now-route"); if (rt) rt.addEventListener("click", () => switchTab("nav"));
