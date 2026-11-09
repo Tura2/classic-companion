@@ -326,6 +326,9 @@ def make_handler(data, state, cfg):
                     return self.send(200, path.read_bytes(), "image/webp", "max-age=86400")
                 if url.path == "/api/layout":
                     return self.send(200, data.layout(int(q["id"])))
+                if url.path == "/api/here":          # the map you're on (or ?id=): monsters, drops, NPCs, portals
+                    mid = int(q.get("id") or prof.get("current_map") or 0)
+                    return self.send(200, data.here(mid) if mid in data.maps else {"error": "no map set"})
                 if url.path == "/api/nav":
                     return self.send(200, state["nav"])
                 if url.path == "/api/quests":

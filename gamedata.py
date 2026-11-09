@@ -32,6 +32,8 @@ OSMS = "https://raw.githubusercontent.com/ohmi69/osms_datamine_dashboard/main/da
 # contributors (classicmaple.wiki), much of it from MapleClassic Wiki (mapleclassic.wiki), under
 # CC BY-NC-SA 4.0. Reformatted here; credited with links wherever it's shown.
 WIKI = "https://classicmaple.wiki/data/"
+# Every monster's drop list (rates only where players counted them), from MapleClassic Wiki via Club FM
+CLUBFM = "https://raw.githubusercontent.com/maplefm/maplefm.github.io/live/data/itemguide.json"
 MARKET_URL = "https://maplestory-classic.com/market.json"
 UA = {"User-Agent": "companion/1.0 (personal use)"}
 
@@ -103,6 +105,17 @@ def read_cache(path):
         return json.loads(path.read_text("utf-8"))
     except (OSError, ValueError):
         return None
+
+
+def load_drops(guide):
+    """Club FM's item guide -> {monster id: [{"item", "rate"}]}. A row is [monster, level, rate or None,
+    kills, map, ?, monster id]."""
+    out = {}
+    for item, entry in (guide.get("items") or {}).items():
+        for row in entry.get("d") or []:
+            if len(row) > 6 and row[6] is not None:
+                out.setdefault(int(row[6]), []).append({"item": item, "rate": row[2]})
+    return out
 
 
 def fetch_json(url, name, max_age):
@@ -331,6 +344,13 @@ class GameData:
         self.equip_names = {i["name"] for i in self.equips if i.get("name")}
         self.item_ids = {i["name"]: int(i["id"]) for i in items["items"] + items.get("scrolls", [])
                          if i.get("name") and i.get("id")}
+        self.scroll_rates = {s["name"]: s["success_rate"] for s in items.get("scrolls", [])
+                             if s.get("name") and s.get("success_rate") is not None}
+        try:            # optional: without it, the map you're on shows its monsters and no drops
+            self.drops_by_mob = load_drops(fetch_json(CLUBFM, "clubfm_itemguide.json", age))
+        except (Exception, SystemExit) as e:
+            print("Drop lists unavailable:", e)
+            self.drops_by_mob = {}
         self.skills = fetch_json(OSMS + "current/skills.json", "skills.json", age)
         maps = fetch_json(OSMS + "current/maps.json", "maps.json", age)
         portals = fetch_json(OSMS + "current/portals.json", "portals.json", age)
@@ -928,6 +948,41 @@ class GameData:
             "mobs": [{"x": q["x"], "y": q["y"]} for q in (m.get("mob_positions") or [])],
             "npcs": [{"x": q["x"], "y": q["y"], "name": self.npc_names.get(q["id"], "")} for q in (m.get("npc_positions") or [])],
         }
+
+    def here(self, mid):
+        """The map you're on, for Now and Go to: its monsters, every item they drop (most valuable on
+        the market first, unpriced last), its NPCs with what they do, and where its portals lead."""
+        m = self.maps.get(mid, {})
+        mobs = []
+        for mob in self.monsters:
+            spot = next((x for x in mob.get("maps") or [] if x.get("id") == mid), None)
+            if spot:
+                mobs.append({"id": mob.get("id"), "name": mob["name"], "level": mob.get("level"),
+                             "count": spot.get("count"), "exp": mob.get("exp"), "img": self.mob_img(mob.get("id"))})
+        drops, seen = [], set()
+        for mob in mobs:
+            for d in self.drops_by_mob.get(mob["id"], []):
+                if d["item"] in seen:
+                    continue
+                seen.add(d["item"])
+                price = (self.market.items.get(d["item"]) or {}).get("p")
+                drops.append({"item": d["item"], "img": self.item_img(d["item"]), "from": mob["name"],
+                              "rate": d["rate"], "price": price, "success": self.scroll_rates.get(d["item"])})
+        drops.sort(key=lambda d: -(d["price"] or -1))
+        givers = {q.get("npc_id") for q in self.quest_list}
+        npcs = []
+        for p in m.get("npc_positions") or []:
+            name = self.npc_names.get(p["id"], "")
+            role = "Taxi" if "Cab" in name else "Quests" if p["id"] in givers else None
+            npcs.append({"id": p["id"], "name": name, "x": p["x"], "y": p["y"], "role": role,
+                         "img": f"{OSMS}current/images/npcs/{int(p['id']):07d}.png"})
+        portals = [{"x": p["x"], "y": p["y"], "to": self.maps[int(p["dest_map"])]["name"], "to_id": int(p["dest_map"])}
+                   for p in self.portals.get(mid, []) if int(p.get("dest_map") or 0) in self.maps
+                   and int(p["dest_map"]) != mid]
+        mark = m.get("map_mark")
+        return {"id": mid, "name": m.get("name", "?"), "street": m.get("street_name") or m.get("region", ""),
+                "town": bool(m.get("is_town")), "mark": f"{OSMS}current/images/map_marks/{mark}.png" if mark else None,
+                "mobs": mobs, "drops": drops, "drops_ok": bool(self.drops_by_mob), "npcs": npcs, "portals": portals}
 
 
     # ---- quests
