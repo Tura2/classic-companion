@@ -21,12 +21,23 @@ def bare():
 
 # ---- the street line read without the name under it
 NAMES = ["East Rocky Mountain VI", "East Rocky Mountain VII", "Victoria Road", "Perion", "Henesys"]
-STREETS = {"Victoria Road", "Yellow Mushroom House"}
+STREETS = {"Victoria Road": "Yellow Mushroom House", "Yellow Mushroom House": "Victoria Road"}
 
 
 def test_a_lone_street_line_names_no_map():
     assert reader.title_map(None, "Victoria Road", NAMES, STREETS) is None
     assert reader.title_map(None, "Victoria Roa", NAMES, STREETS) is None
+
+
+def test_a_street_name_under_the_mini_map_title_names_no_map():
+    # the 1x fallback paired the "MINI MAP" title with the street line under it (seen live after
+    # the first fix, 2026-11-09)
+    assert reader.title_map("MINI MAP", "Victoria Road", NAMES, STREETS) is None
+    assert reader.title_map("reunl mep", "Victoria Road", NAMES, STREETS) is None
+
+
+def test_a_street_named_map_under_its_own_street_reads():
+    assert reader.title_map("Yellow Mushroom House", "Victoria Road", NAMES, STREETS) == "Victoria Road"
 
 
 def test_the_name_under_the_street_still_reads():
