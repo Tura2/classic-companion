@@ -570,6 +570,40 @@ body[data-full] .tabs{margin-bottom:8px}
 #tip .tprice span{display:block;font-size:.7rem;color:#9AA3D0}#tip .tprice b{font-size:1rem}
 #tip .tprice .msc{color:#7FB2F0}#tip .tprice .cozy{color:#C79BFF}#tip .tprice.none{display:block;color:#9AA3D0;font-size:.85rem}
 @media (max-width:760px),(max-height:600px){.gearpage{grid-template-columns:1fr;height:auto}.ewbox{height:480px}}
+
+/* ---- Skills ---- */
+.skpage{height:100%;display:grid;grid-template-columns:minmax(340px,420px) minmax(0,1fr);gap:14px;align-items:stretch}
+.skwin .gjob{display:flex;align-items:baseline;justify-content:space-between;padding:6px 10px;background:linear-gradient(#F4F7FB,#E8EEF5);border-bottom:1px solid #C6D3E3}
+.skwin .gjob b{font:400 17px "DotGothic16",sans-serif;color:#1D2433}.skwin .gjob span{color:#6B7486;font-weight:700;font-size:.78rem}
+.skwin .gbody{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:5px 8px 8px;display:flex;flex-direction:column;gap:5px}
+.skr{flex:1 1 0;max-height:78px;min-height:50px;display:grid;grid-template-columns:48px minmax(0,1fr) auto;align-items:center;gap:10px;background:#fff;border:1px solid #D5DEE8;border-radius:6px;padding:4px 10px 4px 6px;text-align:left;cursor:pointer;color:#1D2433;box-shadow:0 1px 0 #E6EDF5}
+.skr:hover{border-color:#8FA7C4}.skr.on{background:#FFF6E3;border-color:#E7A93C;box-shadow:inset 3px 0 0 #E7A93C}
+.sic{width:44px;height:44px;display:grid;place-items:center;background:linear-gradient(#fff,#EEF2F7);border:1px solid #C6D3E3;border-radius:4px;flex:none}
+.sic img{width:32px;height:32px;image-rendering:pixelated}
+.sic.big{width:58px;height:58px}.sic.big img{width:48px;height:48px}
+.skn b{display:block;font-size:.95rem;line-height:1.2}.skn small{display:block;font-size:.74rem;color:#6B7486;font-weight:700}
+.skl{display:block;height:5px;background:#E1E7EF;border-radius:3px;margin-top:4px;overflow:hidden}
+.skl i{display:block;height:100%;background:linear-gradient(90deg,#F2A541,#F7C46E);border-radius:3px}.skr.maxed .skl i{background:#2E9F59}
+.skv{display:flex;align-items:baseline;gap:3px;white-space:nowrap}.skv b{font:900 1.15rem "Nunito",sans-serif}.skv span{font-weight:800;color:#8A93A5;font-size:.8rem}
+.skside{display:flex;flex-direction:column;gap:10px;min-height:0}
+.skside .win{margin:0}.skside .win > .title{padding:4px 10px}.skside .win > .body{padding:8px 12px}
+.skdetail{flex:1;min-height:0;overflow-y:auto}
+.nxg{display:grid;gap:4px}
+.np{display:grid;grid-template-columns:26px 30px minmax(0,1fr) auto;align-items:center;gap:8px;background:var(--cell);border-radius:6px;padding:3px 10px 3px 6px}
+.np em{font-style:normal;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font:900 13px "Nunito",sans-serif;color:#fff;background:linear-gradient(#5CC27F,#2E9F59)}
+.np img{width:28px;height:28px;image-rendering:pixelated}.np b{font-size:.93rem}.np .nv{font-size:.9rem;font-weight:900}
+.skhead{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.lvbig{font-size:1.1rem;font-weight:800;color:var(--muted)}.lvbig b{font-size:1.7rem;color:var(--ink)}
+.splan{margin-left:auto;display:flex;align-items:center;gap:6px}
+.splan input[type=number]{width:56px;flex:none;text-align:center;font-weight:900}
+.splan label{white-space:nowrap}
+.skdetail > .win{min-height:100%}
+.desc{margin:10px 0;line-height:1.5}
+.cmp{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.cmp div{background:var(--cell);border-radius:6px;padding:8px 10px}.cmp .mx{background:var(--goodbg)}
+.cmp span{font:400 .82rem "DotGothic16",sans-serif;color:var(--muted)}.cmp .mx span{color:var(--good)}
+.cmp p{margin:4px 0 0;font-size:.88rem;font-weight:700}
+@media (max-width:760px),(max-height:600px){.skpage{grid-template-columns:1fr;height:auto}.skwin{height:560px}}
 </style>
 </head>
 <body>
@@ -1488,83 +1522,69 @@ function buildTable(t, now, level){
       <p class="sub" style="margin:10px 0 0">From NiaDB’s <a href="https://${esc(t.source)}" target="_blank" rel="noopener">${esc(t.source.split("/").pop().replace(/-class-guide$/, "").replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase()).replace("Fp", "F/P").replace("Il", "I/L"))} class guide</a>.${t.yours ? " Done means your skills in the game already reach that row; Now is your level." : ` You pick ${esc(t.job)} or another second job at level 30.`}</p></div>`);
 }
 
-// Skills, like the Skill Inventory window: each skill's level in game, your plan, and what it does
-let skillPick = null, skView = "skills", skillsKey = "";
+// Skills: the game's skill window with a tab per job you have, the next three points beside it
+let skillPick = null, skView = "skills", skillsKey = "", skJob = null;
 async function renderSkills(quiet){
-  // quiet: a refresh because the game showed a change; skipped while you edit your plan, and only
-  // redrawn when what the tab shows changed, with the list kept where you scrolled it
+  // quiet: a refresh because the game showed a change; skipped while you edit your plan
   if (quiet && (planSave || document.activeElement === $("#plan"))) return;
   const d = await api("/api/skills"), plan = d.plan || {};
-  const key = JSON.stringify([d, state.profile.level, state.profile.job]);
+  if (tab !== "skills") return;
+  const key = JSON.stringify([d, state.profile.level, state.profile.job, skView, skJob, skillPick]);
   if (quiet && key === skillsKey) return;
   skillsKey = key;
-  const scrolled = quiet ? ($(".md .master") || {}).scrollTop : 0;
-  if (quiet) requestAnimationFrame(() => { const m = $(".md .master"); if (m) m.scrollTop = scrolled; });
-  const total = () => Object.values(plan).reduce((a, b) => a + (+b || 0), 0);
-  const tables = (d.next || {}).tables || [];
-  const views = `<div class="filters" role="tablist" aria-label="Skills" style="margin-bottom:8px">
-      <button role="tab" data-v="skills" aria-pressed="${skView === "skills"}">Your skills</button>
-      ${tables.map(t => `<button role="tab" data-v="${esc(t.job)}" aria-pressed="${skView === t.job}">${esc(t.job)} build${t.yours ? "" : ", at 30"}</button>`).join("")}</div>`;
-  const wireViews = () => document.querySelectorAll("[data-v]").forEach(b => b.addEventListener("click", () => { skView = b.dataset.v; renderSkills(); }));
-  const table = tables.find(t => t.job === skView);
-  if (table){
-    $("#view").innerHTML = views + buildTable(table, d.now, state.profile.level);
-    wireViews();
-    return;
-  }
-  skView = "skills";
-  if (!d.skills.length){ $("#view").innerHTML = views + `<div class="empty">No skills listed for ${esc(state.profile.job)} yet.</div>`; wireViews(); return; }
-  const s = d.skills.find(x => x.id === skillPick) || d.skills[0];
+  if (!d.skills.length){ $("#view").innerHTML = `<div class="empty">No skills listed for ${esc(state.profile.job)} yet.</div>`; return; }
+  const jobs = [...new Set(d.skills.map(s => s.job))];
+  if (!jobs.includes(skJob)) skJob = jobs.includes(state.profile.job) ? state.profile.job : jobs[jobs.length - 1];
+  const list = d.skills.filter(s => s.job === skJob);
+  const s = list.find(x => x.id === skillPick) || d.skills.find(x => x.id === skillPick) || list[0];
   skillPick = s.id;
-  let group = "", rows = "";
-  d.skills.forEach(x => {
-    const g = x.tier + ": " + x.job;
-    if (g !== group){ group = g; rows += `<div class="vgroup">${esc(g)}</div>`; }
-    const now = d.now[x.name];
-    rows += `<button class="vtab" role="tab" aria-selected="${x.id === s.id}" data-skill="${esc(x.id)}">${slot(x.img, 36)}
-      <span class="grow"><b>${pretty(x.name)}</b><small>${esc(x.kind)}${plan[x.id] ? `, plan ${plan[x.id]}` : ""}</small>
-        <div class="lvbar"><i style="width:${now != null ? Math.round(now / x.max * 100) : 0}%"></i></div></span>
-      <span class="lv">${now ?? "–"}<small> / ${x.max}</small></span></button>`;
-  });
-  const now = d.now[s.name], nx = d.next || {};
-  const spNext = nx.sp && nx.sp.length
-    ? nx.sp.map((x, i) => `<div class="mob"${i ? ' style="opacity:.75"' : ""}><div class="grow"><b>${pretty(x.skill)}</b>
-        <span class="sub" style="display:block">${x.from} → ${x.to}${x.level > state.profile.level ? `, around level ${x.level}` : ""}</span></div>
-        ${i === 0 ? `<span class="verdict v-snipe">Next</span>` : ""}</div>`).join("")
-    : `<p class="sub" style="margin:0">${!(nx.sources || []).length ? "No guide plan for this job yet." : nx.known ? "You’ve reached the guide’s plan for your job. Spare points go into what you use most." : "Open Skills (K) in the game so Companion knows your skill levels."}</p>`;
+  const spent = list.reduce((a, x) => a + (d.now[x.name] || 0), 0), tier = (list[0].tier || "").replace(" Job", " job");
+  const tabs = jobs.map(j => { const first = d.skills.find(x => x.job === j);
+    return [j, `${first && first.img ? `<img src="${esc(first.img)}" alt="">` : ""}${esc(j)}`, j === skJob]; });
+  const rows = list.map(x => { const n = d.now[x.name];
+    return `<button class="skr${x.id === s.id ? " on" : ""}${n != null && n >= x.max ? " maxed" : ""}" data-skill="${esc(x.id)}">
+      <span class="sic">${x.img ? `<img src="${esc(x.img)}" alt="">` : ""}</span>
+      <span class="skn"><b>${pretty(x.name)}</b><small>${esc(x.kind)}</small><span class="skl"><i style="width:${n != null ? Math.round(n / x.max * 100) : 0}%"></i></span></span>
+      <span class="skv"><b>${n ?? "–"}</b><span>/ ${x.max}</span></span></button>`; }).join("");
+  const left = gameWin("SKILL INVENTORY", tabs, `<div class="gjob"><b>${esc(skJob)}</b><span>${esc(tier)} · ${spent} SP spent here</span></div>
+      <div class="gbody">${rows}</div>`, "skwin");
+  // the next three single points, then what the guide does after them
+  const nx = d.next || {}, three = nx.sp3 || [], icon = name => (d.skills.find(x => x.name === name) || {}).img;
+  const reached = {};
+  three.forEach(x => { reached[x.skill] = x.to; });
+  const then = (nx.sp || []).filter(r => r.to > (reached[r.skill] ?? r.from)).slice(0, 2).map(r => `${pretty(r.skill)} up to ${r.to}`);
   const ap = nx.ap || {};
-  const nextBox = win("Where your next points go", `<div class="body">
-      <div class="grid2" style="margin-top:0">
-        <div><div class="sub" style="font-weight:800;margin-bottom:4px">SP${d.sp != null ? `, ${d.sp} to spend now` : ""}</div><div class="mobs" style="margin:0">${spNext}</div></div>
-        <div><div class="sub" style="font-weight:800;margin-bottom:4px">AP</div>
-          ${ap.stat ? `<div class="mob"><div class="grow"><b>${esc(ap.stat)}${ap.until ? ` until ${ap.until}` : ""}</b></div><span class="verdict v-snipe">Next</span></div>` : ""}
-          <p class="sub" style="margin:6px 0 0">${esc(ap.why || "")}</p></div>
-      </div>
-      ${(nx.sources || []).length ? `<p class="sub" style="margin:10px 0 0">SP order from NiaDB’s ${nx.sources.map(u => `<a href="https://${esc(u)}" target="_blank" rel="noopener">${esc(u.split("/").pop().replace(/-class-guide$/, "").replace(/-/g, " "))} class guide</a>`).join(" and ")}.</p>` : ""}
-    </div>`);
-  const detail = nextBox + `<div style="height:12px"></div>` + win(pretty(s.name), `<div class="body">
-      <div class="row">${slot(s.img, 52)}<div class="grow"><h3>${pretty(s.name)}</h3><div class="sub">${esc(s.kind)}, max level ${s.max}${s.mobs ? `, hits up to ${s.mobs} ${s.mobs > 1 ? "monsters" : "monster"}` : ""}</div></div>
-        <div class="pr"><b style="color:var(--ink)">${now ?? "?"}<span class="sub"> / ${s.max}</span></b><small>${now != null ? "level in the game" : "open Skills (K) in the game"}</small></div></div>
-      <p style="margin:12px 0 0">${pretty(s.desc)}</p>
-      <dl class="kv2"><dt>At level 1</dt><dd>${esc(s.first) || "?"}</dd><dt>At max</dt><dd>${esc(s.maxed) || "?"}</dd></dl>
-      <div class="row" style="margin-top:14px"><label for="plan" style="font-weight:800">Plan to take it to level</label>
-        <span class="stepper"><button class="btn small" data-step="-1" aria-label="One less">−</button>
-        <input id="plan" type="number" min="0" max="${s.max}" value="${plan[s.id] || 0}">
-        <button class="btn small" data-step="1" aria-label="One more">+</button></span>
-        <span class="sub">Your plan: <b id="sp">${total()}</b> SP in all</span></div>
-    </div>`, now != null && now >= s.max ? "maxed" : "");
-  $("#view").innerHTML = `${views}
-    <div class="md"><div class="master" role="tablist" aria-label="Skills">${rows}</div><div class="detail">${detail}</div></div>`;
-  wireViews();
-  document.querySelectorAll(".vtab[data-skill]").forEach(b => b.addEventListener("click", () => { skillPick = b.dataset.skill; renderSkills(); }));
+  const nextCard = win(`${itemIcon(GI.skills, 22)} Your next 3 skill points`, `<div class="body nxg">
+      ${three.length ? three.map((x, k) => `<div class="np"><em>${k + 1}</em>${icon(x.skill) ? `<img src="${esc(icon(x.skill))}" alt="">` : "<span></span>"}
+        <b>${pretty(x.skill)}</b><span class="nv">${x.from} → ${x.to}</span></div>`).join("")
+        : `<p class="sub" style="margin:0">${!(nx.sources || []).length ? "No guide plan for this job yet." : nx.known ? "You’ve reached the guide’s plan for your job." : "Open Skills (K) in the game so Companion knows your skill levels."}</p>`}
+      <p class="sub" style="margin:4px 2px 0">${then.length ? `Then ${then.join(", then ")}. ` : ""}${d.sp ? `<b style="color:var(--good)">${d.sp} SP to spend now.</b> ` : ""}${ap.stat ? `AP: ${esc(ap.stat)}${ap.until ? ` until ${ap.until}` : ""}.` : ""}</p>
+    </div>`, (nx.sources || []).length ? `NiaDB ${esc(skJob)} class guide` : "");
+  const tables = nx.tables || [], table = tables.find(x => x.job === skView);
+  const now = d.now[s.name];
+  const detail = table ? buildTable(table, d.now, state.profile.level).replace('<div class="title">', `<div class="title"><button class="btn mini" id="skback">← Back</button>`)
+    : win(`${s.img ? `<img class="gi" src="${esc(s.img)}" width="22" height="22" alt="">` : ""} ${pretty(s.name)}`, `<div class="body">
+      <div class="skhead"><span class="sic big">${s.img ? `<img src="${esc(s.img)}" alt="">` : ""}</span>
+        <div><div class="lvbig"><b>${now ?? "?"}</b> / ${s.max}</div><div class="sub">${now != null ? "your level in the game" : "open Skills (K) in the game"}</div></div>
+        <div class="splan"><label class="sub" for="plan">Your plan</label><button class="btn small" data-step="-1" aria-label="One less">−</button>
+          <input id="plan" type="number" min="0" max="${s.max}" value="${plan[s.id] || 0}"><button class="btn small" data-step="1" aria-label="One more">+</button></div></div>
+      <p class="desc">${pretty(s.desc)}</p>
+      <div class="cmp"><div><span>At level 1</span><p>${esc(s.first) || "?"}</p></div><div class="mx"><span>At max</span><p>${esc(s.maxed) || "?"}</p></div></div>
+      ${tables.length ? `<div class="btns" style="margin:10px 0 0">${tables.map(x => `<button class="btn" data-v="${esc(x.job)}">See the ${esc(x.job)} build, level by level${x.yours ? "" : " (at 30)"}</button>`).join("")}</div>` : ""}
+    </div>`, `${esc(s.kind)} · max ${s.max}`);
+  $("#view").innerHTML = `<div class="skpage">${left}<div class="skside">${nextCard}<div class="skdetail">${detail}</div></div></div>`;
+  document.querySelectorAll("#view [data-gtab]").forEach(b => b.addEventListener("click", () => { skJob = b.dataset.gtab; skillPick = null; skView = "skills"; renderSkills(); }));
+  document.querySelectorAll("#view [data-skill]").forEach(b => b.addEventListener("click", () => { skillPick = b.dataset.skill; skView = "skills"; renderSkills(); }));
+  document.querySelectorAll("#view [data-v]").forEach(b => b.addEventListener("click", () => { skView = b.dataset.v; renderSkills(); }));
+  const back = $("#skback"); if (back) back.addEventListener("click", () => { skView = "skills"; renderSkills(); });
   const inp = $("#plan");
+  if (!inp) return;
   const setPlan = v => {
-    v = Math.max(0, Math.min(s.max, v || 0)); inp.value = v; plan[s.id] = v; $("#sp").textContent = total();
+    v = Math.max(0, Math.min(s.max, v || 0)); inp.value = v; plan[s.id] = v;
     clearTimeout(planSave); planSave = setTimeout(() => { planSave = null; api("/api/profile", {skill_plan: plan}); }, 400);
   };
   inp.addEventListener("input", () => setPlan(+inp.value));
-  document.querySelectorAll("[data-step]").forEach(b => b.addEventListener("click", () => setPlan(+inp.value + +b.dataset.step)));
-  fitPanes();
+  document.querySelectorAll("#view [data-step]").forEach(b => b.addEventListener("click", () => setPlan(+inp.value + +b.dataset.step)));
 }
 
 const VRANK = {snipe:0, npc:0, fair:1, pricey:2, over:3, split:4, check:4, info:5};

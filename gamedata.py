@@ -744,9 +744,13 @@ class GameData:
         return {"main": main, "sub": sub, "slots": out, "overall_instead": overall}
 
     # ---- skills
-    def skill_list(self, job):
+    def skill_list(self, job, with_beginner=False):
+        """Your job's skills; with_beginner puts the Beginner skills first too (the Skills window's tabs)."""
         fam, _, groups = JOBS.get(job, JOBS["Beginner"])
-        src = self.skills.get(fam or "beginner", [])
+        src = list(self.skills.get(fam or "beginner", []))
+        if with_beginner and fam:
+            src = self.skills.get("beginner", []) + src
+            groups = ["Beginner"] + list(groups)
         out = []
         for g in src:
             if g["class_name"] not in groups:
@@ -781,7 +785,7 @@ class GameData:
                     "first": stats[0] if stats else "", "maxed": stats[-1] if stats else "",
                     "img": f"{OSMS}current/{s['thumbnail']}" if s.get("thumbnail") else None,
                 })
-        out.sort(key=lambda s: (s["tier"], s["prio"]))
+        out.sort(key=lambda s: (s["job"] != "Beginner", s["tier"], s["prio"]))
         return out
 
 

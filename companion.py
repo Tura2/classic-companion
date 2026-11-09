@@ -305,7 +305,7 @@ def make_handler(data, state, cfg):
                     return self.send(200, data.gear(prof["job"], int(prof["level"])))
                 if url.path == "/api/skills":
                     now = prof.get("skills_now") or {}
-                    return self.send(200, {"skills": data.skill_list(prof["job"]), "plan": prof.get("skill_plan", {}),
+                    return self.send(200, {"skills": data.skill_list(prof["job"], with_beginner=True), "plan": prof.get("skill_plan", {}),
                                            "now": now, "sp": prof.get("sp"),
                                            "next": data.next_points(prof["job"], int(prof["level"]), now, prof.get("stats"))})
                 if url.path == "/api/frame.jpg":     # the latest look at the game, for the Live tab
