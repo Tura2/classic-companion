@@ -505,6 +505,44 @@ body[data-full] .tabs{margin-bottom:8px}
 .dp{font-size:1rem;white-space:nowrap}
 .credit{margin:6px 0 0;font-size:.72rem}.credit a{color:var(--blue)}
 @media (max-width:760px),(max-height:600px){.now2{grid-template-columns:1fr;height:auto}.dlist{min-height:320px}}
+
+/* ---- Go to ---- */
+.go{height:100%;display:grid;grid-template-columns:minmax(300px,2fr) minmax(0,3fr);gap:10px;align-items:stretch}
+.go > .colL{display:flex;flex-direction:column;gap:10px;min-height:0}
+.go .win{margin:0}.go .win > .title{padding:4px 10px}.go .win > .body{padding:8px 12px}
+.go .colL .grow{flex:1;min-height:0;display:flex;flex-direction:column}
+.scrolly{flex:1;min-height:0;overflow-y:auto}
+.qh{font:400 .85rem "DotGothic16",sans-serif;color:var(--muted);margin:10px 0 4px}
+.qgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin-top:6px}
+.qb{display:flex;align-items:center;gap:6px;background:var(--strip);border:1px solid var(--rim);border-radius:6px;padding:4px 8px;font-weight:800;font-size:.86rem;cursor:pointer;color:var(--ink);box-shadow:0 1px 0 var(--rim-soft);white-space:nowrap;overflow:hidden}
+.qb:hover{border-color:var(--blue)}
+.qlist{display:grid;gap:4px}
+.qr{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;background:var(--cell);border:0;border-radius:6px;padding:4px 8px;text-align:left;cursor:pointer;color:var(--ink)}
+.qr b{font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.qr span{font-size:.78rem;color:var(--good);font-weight:800}
+.qchips{display:flex;flex-wrap:wrap;gap:5px}
+.qc{background:var(--cell);border:0;border-radius:5px;padding:3px 9px;font-weight:800;font-size:.82rem;color:var(--muted);cursor:pointer}
+.npcs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
+.npc{display:grid;grid-template-columns:34px minmax(0,1fr) auto;align-items:center;gap:6px;background:var(--cell);border:1px solid transparent;border-radius:6px;padding:2px 8px 2px 4px;text-align:left;cursor:pointer;color:var(--ink);min-height:38px}
+.npc img{width:34px;height:34px;object-fit:contain;object-position:bottom;image-rendering:pixelated}
+.npc b{font-size:.86rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.npc.on{background:var(--warnbg);border-color:#E7B860}
+.role{font-size:.7rem;font-weight:900;border-radius:4px;padding:1px 6px;background:var(--strip);color:var(--muted)}
+.r-quests{color:var(--warn)}.r-taxi{color:var(--blue)}
+.route{display:flex;flex-direction:column;min-height:0}
+.route > .body{flex:1;display:flex;flex-direction:column;min-height:0;gap:8px}
+.route .mapview{flex:1;height:auto;min-height:220px;margin-top:0}
+.rhead{display:flex;align-items:center;gap:12px}.rhead h3{margin:0}
+.arrow{font-size:1.8rem;line-height:1;width:44px;height:44px;flex:none;display:grid;place-items:center;background:var(--amber);color:var(--gold-ink);border-radius:8px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.15)}
+.arrow.ok{background:var(--goodbg);color:var(--good)}
+.npcbig{width:44px;height:44px;object-fit:contain;object-position:bottom}
+.rbtns{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.steps2{margin-left:auto;display:flex;gap:4px;flex-wrap:wrap}
+.st{background:var(--cell);border:0;border-radius:5px;padding:3px 9px;font-weight:800;font-size:.84rem;color:var(--muted);cursor:pointer}
+.st.cur{background:var(--tab-on);color:#fff}.st.done{opacity:.55}
+.ring{stroke:#E8322B;stroke-width:6px}.ring.halo{stroke:#fff;stroke-width:12px;opacity:.85;animation:none}
+.plabel rect{fill:rgba(43,111,208,.85)}.plabel.t rect{fill:rgba(20,26,38,.88)}
+.plabel text{fill:#fff;font-family:"Nunito",sans-serif;font-weight:800}
+@media (max-width:760px),(max-height:600px){.go{grid-template-columns:1fr;height:auto}.route .mapview{min-height:360px}}
 </style>
 </head>
 <body>
@@ -1007,10 +1045,33 @@ function wireSearch(id, onPick){
 // +/- to zoom. The picture comes from Companion's own copy (fetched once, shrunk), else from OSMS.
 const FOCUS_SPAN = 1100;          // map pixels across the box's shorter side when zoomed on a target
 const mapViews = new Map();       // kept between redraws, so a poll doesn't reload the picture or undo your zoom
-function mapBox(id, remote, name, target){
+const mapExtras = new Map();      // what to draw on a map: the game's portals with where they lead, NPCs standing
+let portalMeta = null;            // the portal picture's anchor and size, or false when there's none
+function mapBox(id, remote, name, target, extras){
   if (!id) return "";
-  const key = `${id}:${target ? target.x + "," + target.y : ""}`;
-  return `<div class="mapview" data-mapview="${esc(key)}" data-id="${id}" data-remote="${esc(remote || "")}" data-name="${esc(name || "")}"${target ? ` data-x="${target.x}" data-y="${target.y}"` : ""}></div>`;
+  const key = `${id}:${target ? target.x + "," + target.y : ""}:${extras ? extras.key || "x" : ""}`;
+  if (extras) mapExtras.set(key, extras);
+  return `<div class="mapview" data-mapview="${esc(key)}" data-id="${id}" data-remote="${esc(remote || "")}" data-name="${esc(name || "")}"${target ? ` data-x="${target.x}" data-y="${target.y}" data-lift="${target.lift || 0}"` : ""}></div>`;
+}
+// a name tag on the map, in map pixels
+function mapLabel(x, y, text, fs, cls){
+  const w = Math.round(text.length * fs * 0.56 + fs), h = Math.round(fs * 1.7);
+  return `<g class="plabel ${cls}" transform="translate(${x} ${y})"><rect x="${-w / 2}" y="0" width="${w}" height="${h}" rx="${fs * 0.45}"/>
+    <text y="${fs * 1.2}" text-anchor="middle" style="font-size:${fs}px">${esc(text)}</text></g>`;
+}
+function drawExtras(ex, W, H){
+  if (!ex) return "";
+  const fs = Math.max(20, Math.round(Math.min(W, H) * 0.014)), pm = portalMeta;
+  let out = "";
+  for (const p of ex.portals || []){
+    if (pm) out += `<image href="/api/portal.webp" x="${p.x - pm.anchor[0]}" y="${p.y - pm.anchor[1]}" width="${pm.size[0]}" height="${pm.size[1]}"/>`;
+    out += mapLabel(p.x, p.y + fs * 0.4, p.to, fs, p.target ? "t" : "");
+  }
+  for (const n of ex.npcs || []){
+    out += `<image href="${esc(n.img)}" x="${n.x - 70}" y="${n.y - 150}" width="140" height="150" preserveAspectRatio="xMidYMax meet"/>`;
+    if (n.on) out += mapLabel(n.x, n.y + fs * 0.3, n.name, fs, "t");
+  }
+  return out;
 }
 function wireMaps(){
   document.querySelectorAll("#view [data-mapview]").forEach(ph => {
@@ -1023,7 +1084,7 @@ function wireMaps(){
 }
 function preloadMap(id){ if (id) new Image().src = "/api/mapimg?id=" + id; }
 function buildMap(el){
-  const d = el.dataset, target = d.x != null ? {x:+d.x, y:+d.y} : null;
+  const d = el.dataset, target = d.x != null ? {x:+d.x, y:+d.y, lift:+(d.lift || 0)} : null;
   el.innerHTML = `<div class="stage"><img alt="Map of ${esc(d.name)}" draggable="false"><svg preserveAspectRatio="none"></svg></div>
     <div class="maploading">Loading the map…</div>
     <div class="mapctl"><button type="button" data-z="in" aria-label="Zoom in">+</button><button type="button" data-z="out" aria-label="Zoom out">−</button>
@@ -1037,7 +1098,7 @@ function buildMap(el){
     tx = iw <= w ? (w - iw) / 2 : Math.min(0, Math.max(w - iw, tx));   // never past the map's edge
     ty = ih <= h ? (h - ih) / 2 : Math.min(0, Math.max(h - ih, ty));
     stage.style.transform = `translate(${tx}px,${ty}px) scale(${z})`;
-    if (ring) ring.setAttribute("r", Math.max(base, 20 / (z * scale)));   // still easy to spot with the whole map showing
+    if (ring) ring.forEach(c => c.setAttribute("r", Math.max(base, 20 / (z * scale))));   // still easy to spot with the whole map showing
   }
   function view(mode){
     if (!ready || !el.clientWidth) return;
@@ -1045,7 +1106,7 @@ function buildMap(el){
     if (mode === "fit" || !target) z = fitZ();
     else {
       z = Math.min(3, Math.max(fitZ(), Math.min(w, h) / (FOCUS_SPAN * scale)));
-      tx = w / 2 - target.x * scale * z; ty = h / 2 - target.y * scale * z;
+      tx = w / 2 - target.x * scale * z; ty = h / 2 - (target.y - target.lift) * scale * z;
     }
     apply();
   }
@@ -1059,10 +1120,13 @@ function buildMap(el){
     const W = img.naturalWidth / scale, H = img.naturalHeight / scale;
     svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
     svg.setAttribute("width", img.naturalWidth); svg.setAttribute("height", img.naturalHeight);
+    svg.innerHTML = drawExtras(mapExtras.get(d.mapview), W, H);
     if (target){
-      base = Math.max(50, Math.min(W, H) * 0.06);
-      svg.innerHTML = `<circle class="ring" vector-effect="non-scaling-stroke" cx="${target.x}" cy="${target.y}" r="${base}"/>`;
-      ring = svg.querySelector("circle");
+      base = Math.max(target.lift ? 130 : 50, Math.min(W, H) * 0.06);
+      const cy = target.y - target.lift;
+      svg.insertAdjacentHTML("beforeend", `<circle class="ring halo" vector-effect="non-scaling-stroke" cx="${target.x}" cy="${cy}" r="${base}"/>
+        <circle class="ring" vector-effect="non-scaling-stroke" cx="${target.x}" cy="${cy}" r="${base}"/>`);
+      ring = [...svg.querySelectorAll("circle")];
     }
     el.classList.add("ready");
     view("focus");
@@ -1125,50 +1189,102 @@ function guideBox(gd){
     gd.where ? `to ${pretty(gd.where.name)}` : "");
 }
 
+/* ---- Go to: where you are (its monsters, or who's in town), quick picks, and the map with the game's portals ---- */
+const TOWNS = [["Henesys", "Henesys"], ["Ellinia", "Ellinia"], ["Perion", "Perion"], ["Kerning City", "KerningCity"], ["Sleepywood", "Dungeon"], ["Lith Harbor", "Rith"]];
+let townIds = null, navNpc = null, navWrong = false;
+const hereById = new Map();
+async function hereOf(id){
+  if (!hereById.has(id)) hereById.set(id, await api("/api/here?id=" + id).catch(() => null));
+  return hereById.get(id);
+}
+async function loadTowns(){
+  if (townIds) return townIds;
+  const found = await Promise.all(TOWNS.map(([n]) => api("/api/maps?q=" + encodeURIComponent(n)).catch(() => [])));
+  townIds = TOWNS.map(([n, mark], k) => ({name: n, mark, id: ((found[k] || []).find(m => m.name === n) || {}).id})).filter(x => x.id);
+  return townIds;
+}
+const markUrl = mark => `${OSMS_IMG}map_marks/${mark}.png`;
+// where on the map someone stands, in words: "on the upper left, by the Henesys Park door"
+function whereOnMap(x, y, size, portals){
+  if (!size || !size.w) return "";
+  const col = x < size.w / 3 ? "left" : x > size.w * 2 / 3 ? "right" : "middle", row = y < size.h * 0.45 ? "upper " : "";
+  const near = (portals || []).map(p => [Math.hypot(p.x - x, p.y - y), p]).sort((a, b) => a[0] - b[0])[0];
+  return `stands on the ${row}${col}${near && near[0] < 600 ? `, by the ${near[1].to} door` : ""}`;
+}
+function hereLeft(h){
+  if (!h) return win(`${itemIcon(GI.nav, 22)} Where you are`, `<div class="body">${searchBox("here", "Set the map you’re on")}</div>`);
+  const fix = navWrong ? searchBox("here", "Set the map you’re on") : "";
+  const people = h.town ? `<div class="qh" style="margin-top:0">People here · tap one to see where they stand</div>
+      <div class="npcs">${h.npcs.map(n => `<button class="npc${navNpc === n.id ? " on" : ""}" data-npc="${n.id}"><img src="${esc(n.img)}" alt="" loading="lazy">
+        <b>${pretty(n.name)}</b>${n.role ? `<span class="role r-${n.role.toLowerCase()}">${n.role}</span>` : "<span></span>"}</button>`).join("")}</div>`
+    : h.mobs.length ? `<div class="mobs2">${h.mobs.map(m => `<div class="mobc">${m.img ? `<img src="${esc(m.img)}" alt="" loading="lazy">` : ""}
+        <div><b>${pretty(m.name)}</b><span>Lv ${m.level}${m.count ? ` · ×${m.count}` : ""}</span></div></div>`).join("")}</div>`
+    : `<p class="sub" style="margin:0">No monsters here.</p>`;
+  return `<section class="card win${h.town ? " grow" : ""}"><div class="title"><span>${markIcon(h.mark, 22)} You’re here · ${pretty(h.name)}</span>
+      <small>${h.town ? "Town · " : ""}<a href="#" id="wrongmap">Wrong map?</a></small></div><div class="body${h.town ? " scrolly" : ""}">${fix}${people}</div></section>`;
+}
+function whereTo(towns, train, mine, recent, short){
+  const quick = `<div class="qgrid">${towns.map(x => `<button class="qb" data-goid="${x.id}" data-name="${esc(x.name)}">${markIcon(markUrl(x.mark), 22)} ${esc(x.name)}</button>`).join("")}</div>`;
+  const more = short ? "" : `${train.length ? `<div class="qh">Train for your level</div><div class="qlist">${train.map(m => `<button class="qr" data-goid="${m.id}" data-name="${esc(m.name)}">
+        ${itemIcon(GI.train, 18)}<b>${pretty(m.name)}</b><span>${mine[m.id] ? `${perHr(mine[m.id])} EXP/hr` : `${fmt(m.count)} monsters`}</span></button>`).join("")}</div>` : ""}
+      ${recent.length ? `<div class="qh">Recent</div><div class="qchips">${recent.map(m => `<button class="qc" data-goid="${m.id}" data-name="${esc(m.name)}">${pretty(m.name)}</button>`).join("")}</div>` : ""}`;
+  return `<section class="card win${short ? "" : " grow"}"><div class="title"><span>${itemIcon(GI.nav, 22)} Where to</span></div>
+    <div class="body${short ? "" : " scrolly"}">${pendingTo ? `<p style="margin:0 0 8px">Going to <b>${pretty(pendingTo.name)}</b>. Set where you are first.</p>` : ""}
+      ${searchBox("dest", "Search")}${quick}${more}</div></section>`;
+}
 async function renderNav(force){
   await loadState();
   if (tab !== "nav") return;
-  const nav = state.nav, gd = state.guide;
-  const key = JSON.stringify([nav && nav.i, nav && nav.steps.length, nav && nav.to.id, state.current && state.current.id, gd]);
+  const nav = state.nav, gd = state.guide, cur = state.current && state.current.id;
+  const key = JSON.stringify([nav && nav.i, nav && nav.steps.length, nav && nav.to.id, cur, gd, navNpc, navWrong]);
   if (!force && key === navKey) return;
   navKey = key;
-  const cur = state.current ? `<b>${pretty(state.current.name)}</b>` : "not set";
-  let left = win("Where you are", `<div class="body"><p style="margin:0 0 10px">You’re on: ${cur}</p>${searchBox("here", "Change where you are")}</div>`,
-    state.screen.reading ? "follows the mini map" : "");
-  let right = "";
-  if (gd) left += `<div style="height:12px"></div>` + guideBox(gd);
-  if (!nav){
-    left += `<div style="height:12px"></div>` + win("Where to", `<div class="body">${pendingTo ? `<p style="margin:0 0 10px">Going to <b>${pretty(pendingTo.name)}</b>. Set where you are first.</p>` : ""}${searchBox("dest", "Where do you want to go?")}
-      <p class="sub" style="margin:4px 0 0">Or tap Go on a map in Train or Now, or Guide me in game on a quest.</p></div>`);
-  } else {
-    const st = nav.steps[nav.i], last = nav.steps.length - 1;
+  if (portalMeta === null) portalMeta = await api("/api/portal").then(j => j && j.anchor ? j : false).catch(() => false);
+  const h = cur ? await hereOf(cur) : null;
+  const [towns, train, gr] = await Promise.all([loadTowns(), api("/api/train").catch(() => []), api("/api/grind").catch(() => null)]);
+  if (tab !== "nav") return;
+  const mine = (gr && gr.by_map) || {};
+  let left = hereLeft(h) + (gd ? guideBox(gd) : whereTo(towns, train.slice(0, 3), mine, state.recent || [], !!(h && h.town)));
+  let right;
+  if (nav){
+    const st = nav.steps[nav.i], last = nav.steps.length - 1, sh = await hereOf(st.id);
+    const extras = {key: "route" + nav.i, portals: ((sh && sh.portals) || []).map(p => ({...p, target: st.portal && p.x === st.portal.x && p.y === st.portal.y}))};
     const head = st.arrived
-      ? `<h3 style="color:var(--good)">You’re there: ${pretty(st.name)}</h3>${st.npc ? `<div class="sub">Find ${pretty(st.npc.name)}, circled on the map.</div>` : ""}`
-      : `<div class="row"><div class="big" aria-hidden="true">${esc(st.hint.arrow)}</div><div class="grow"><h3>Portal on the ${esc(st.hint.text)}</h3>
-         <div class="sub">in ${pretty(st.name)}, leads to ${pretty(st.to.name)}</div></div></div>`;
-    right = win(st.arrived ? "Arrived" : `Step ${nav.i + 1} of ${last}`, `<div class="body">${head}${mapBox(st.id, st.render, st.name, st.portal || st.npc)}
-      <div class="btns" style="margin:12px 0 0">
-        ${st.arrived ? "" : `<button class="btn primary" data-step="${nav.i + 1}">I went through</button>`}
-        <button class="btn" id="stop">Stop route</button>
-        ${state.screen.drawing ? `<button class="btn" data-cmd="nav_corner">Move the card on the game</button>` : ""}
-      </div></div>`, `to ${pretty(nav.to.name)}`)
-      + `<div class="steps">${nav.steps.map((s, i) => `<button data-step="${i}" class="${i === nav.i ? "cur" : i < nav.i ? "done" : ""}"${i === nav.i ? ' aria-current="step"' : ""}>${i + 1}. ${pretty(s.name)}${s.hint ? ` <span class="sub">${esc(s.hint.arrow)} ${esc(s.hint.text)}</span>` : ""}</button>`).join("")}</div>
-      <p class="note" style="margin-top:10px">${state.screen.reading ? "The route moves on by itself as the mini map changes." : "Tap I went through after each portal."} Tap a step if it gets out of sync.</p>`;
-  }
-  $("#view").innerHTML = `<div class="md"><div class="master" style="background:none;border:0;box-shadow:none;padding:0">${left}</div><div class="detail">${right}</div></div>`;
-  wireSearch("here", async id => { await api("/api/here", {id}); if (pendingTo){ const t = pendingTo; pendingTo = null; await goTo(t.id, t.name, t.npc); } else renderNav(true); });
+      ? `<div class="rhead"><div class="arrow ok">✓</div><div><h3>You’re there: ${pretty(st.name)}</h3>${st.npc ? `<div class="sub">Find ${pretty(st.npc.name)}, circled on the map.</div>` : ""}</div></div>`
+      : `<div class="rhead"><div class="arrow">${esc(st.hint.arrow)}</div><div><h3>Portal on the ${esc(st.hint.text)}</h3><div class="sub">in ${pretty(st.name)}, leads to ${pretty(st.to.name)}</div></div></div>`;
+    const target = st.portal ? {...st.portal, lift: portalMeta ? 110 : 0} : st.npc ? {...st.npc, lift: 75} : null;
+    right = `<section class="card win route"><div class="title"><span>${st.arrived ? "Arrived" : `Step ${nav.i + 1} of ${last}`}</span><small>to ${pretty(nav.to.name)}</small></div>
+      <div class="body">${head}${mapBox(st.id, st.render, st.name, target, extras)}
+        <div class="rbtns">${st.arrived ? "" : `<button class="btn primary" data-step="${nav.i + 1}">I went through</button>`}
+          <button class="btn" id="stop">Stop route</button>
+          ${state.screen.drawing ? `<button class="btn" data-cmd="nav_corner">Move the card on the game</button>` : ""}
+          <div class="steps2">${nav.steps.map((s, i) => `<button class="st${i === nav.i ? " cur" : i < nav.i ? " done" : ""}" data-step="${i}">${i + 1}. ${pretty(s.name)}</button>`).join("")}</div></div>
+      </div></section>`;
+  } else if (h){
+    const pick = h.npcs.find(n => n.id === navNpc);
+    const size = pick ? await api("/api/mapsize?id=" + h.id).catch(() => null) : null;
+    const extras = {key: "here" + (navNpc || ""), portals: h.portals, npcs: h.town ? h.npcs.map(n => ({...n, on: n.id === navNpc})) : []};
+    const head = pick ? `<div class="rhead"><img class="npcbig" src="${esc(pick.img)}" alt=""><div><h3>${pretty(pick.name)}</h3>
+        <div class="sub">${pick.role === "Quests" ? "Gives quests · " : pick.role === "Taxi" ? "Taxi · " : ""}${esc(whereOnMap(pick.x, pick.y, size, h.portals))}</div></div></div>`
+      : `<p class="sub" style="margin:0">${h.town ? "Tap someone on the left to see where they stand. " : ""}Every portal shows where it leads.</p>`;
+    right = `<section class="card win route"><div class="title"><span>${markIcon(h.mark, 22)} ${pretty(h.name)}</span>
+      <small>${h.town ? `${h.npcs.length} people · ` : ""}${h.portals.length} portals</small></div>
+      <div class="body">${head}${mapBox(h.id, null, h.name, pick ? {x: pick.x, y: pick.y, lift: 75} : null, extras)}</div></section>`;
+  } else right = `<div class="empty">Set the map you’re on, on the left, and its map shows here.</div>`;
+  $("#view").innerHTML = `<div class="go"><div class="colL">${left}</div>${right}</div>`;
+  const wm = $("#wrongmap"); if (wm) wm.addEventListener("click", e => { e.preventDefault(); navWrong = !navWrong; renderNav(true); });
+  if ($("#here")) wireSearch("here", async id => { navWrong = false; navNpc = null; await api("/api/here", {id}); if (pendingTo){ const t = pendingTo; pendingTo = null; await goTo(t.id, t.name, t.npc); } else renderNav(true); });
+  if ($("#dest")) wireSearch("dest", async (id, name) => { pendingTo = null; const r = await api("/api/nav", {to:id, from: cur}); if (r.error) alert(r.error); renderNav(true); });
+  document.querySelectorAll("[data-goid]").forEach(b => b.addEventListener("click", () => goTo(+b.dataset.goid, b.dataset.name)));
+  document.querySelectorAll("[data-npc]").forEach(b => b.addEventListener("click", () => { navNpc = navNpc === +b.dataset.npc ? null : +b.dataset.npc; renderNav(true); }));
   const sg = $("#stopguide"); if (sg) sg.addEventListener("click", async () => { await api("/api/guide", {stop:true}); renderNav(true); });
   document.querySelectorAll("#view [data-check]").forEach(b => b.addEventListener("click", async () => {
     await api("/api/guide", {id: state.guide.id, check: b.dataset.check, on: !!b.dataset.on}); renderNav(true); }));
-  if (!nav) wireSearch("dest", async (id, name) => { pendingTo = null; const r = await api("/api/nav", {to:id, from: state.current && state.current.id}); if (r.error){ alert(r.error); } renderNav(true); });
-  else {
-    wireMaps();
-    const next = nav.steps[nav.i + 1]; if (next) preloadMap(next.id);      // the next map shows at once too
-    document.querySelectorAll("[data-step]").forEach(b => b.addEventListener("click", async () => { await api("/api/nav/step", {i:+b.dataset.step}); renderNav(true); }));
-    $("#stop").addEventListener("click", async () => { await api("/api/nav/stop", {}); renderNav(true); });
-    document.querySelectorAll("[data-cmd]").forEach(b => b.addEventListener("click", () => api("/api/" + b.dataset.cmd, {})));
-  }
-  fitPanes();
+  document.querySelectorAll("#view [data-step]").forEach(b => b.addEventListener("click", async () => { await api("/api/nav/step", {i:+b.dataset.step}); renderNav(true); }));
+  const stop = $("#stop"); if (stop) stop.addEventListener("click", async () => { await api("/api/nav/stop", {}); renderNav(true); });
+  document.querySelectorAll("#view [data-cmd]").forEach(b => b.addEventListener("click", () => api("/api/" + b.dataset.cmd, {})));
+  wireMaps();
+  if (nav){ const next = nav.steps[nav.i + 1]; if (next) preloadMap(next.id); }
 }
 
 // Quests: In progress / Can take / Locked (needs an earlier quest) / Done, the chosen quest in full

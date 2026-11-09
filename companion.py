@@ -297,6 +297,7 @@ def make_handler(data, state, cfg):
                                                     "items": len(data.market.cozy.items)},
                                            "guide": (state.get("guide") or {}).get("info"),
                                            "on_island": on_island(data, prof),
+                                           "recent": [data.map_info(m) for m in prof.get("recent_nav") or [] if m in data.maps],
                                            "current": data.map_info(prof["current_map"]) if prof.get("current_map") else None})
                 if url.path == "/api/train":
                     return self.send(200, data.train(int(q.get("level", prof["level"])), prof.get("acc"), on_island(data, prof)))
@@ -481,6 +482,7 @@ def make_handler(data, state, cfg):
                         steps[-1]["npc"] = {"x": place["x"], "y": place["y"], "name": body.get("npc_name", "")}
                 state["nav"] = {"steps": steps, "i": 0, "to": data.map_info(goal)}
                 state["guide"] = None          # a route you picked replaces the quest guide
+                remember_recent(state["profile"], goal)
                 set_current(data, state, start)
                 return self.send(200, state["nav"])
             if path == "/api/nav/step":
@@ -529,6 +531,11 @@ class Server(ThreadingHTTPServer):
     # Python's HTTP server asks for SO_REUSEADDR, which on Windows lets a second copy bind a port
     # the first still holds, and then requests land on either copy
     allow_reuse_address = sys.platform != "win32"
+
+
+def remember_recent(prof, map_id, keep=5):
+    """Go to's Recent: the last places you navigated to, newest first, each once."""
+    prof["recent_nav"] = ([int(map_id)] + [m for m in prof.get("recent_nav") or [] if m != int(map_id)])[:keep]
 
 
 def start_server(handler):
