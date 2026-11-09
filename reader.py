@@ -828,7 +828,18 @@ def _text_box(lines, s, left=24, right=40, below=5):
 MISSED = {"text": None}   # the last mini map title read close up that named no map (for the log)
 
 
-def read_minimap_at(frame, title, s, map_names, buttons=None):
+def title_map(street, last, map_names, streets=()):
+    """The map a mini map title names: its last row matched to the game's maps. A lone row that is
+    a street is the street line read without the name under it, so it names no map: "Victoria
+    Road", the street of most of Victoria Island, is also one map's name in the data, and read
+    alone it moved you there every few seconds (2026-11-09, East Rocky Mountain VI)."""
+    name = match_place(last, map_names, 86)
+    if name and street is None and name in streets:
+        return None
+    return name
+
+
+def read_minimap_at(frame, title, s, map_names, buttons=None, streets=()):
     """(street, map name, title box, False) of the open mini map whose "MINI MAP" title (found by
     its picture) is `title`: its two lines under the title, read close up. The window's own
     "– + WORLD" buttons, when found, mark its right edge (8 px past them), so a window beside the
@@ -839,7 +850,7 @@ def read_minimap_at(frame, title, s, map_names, buttons=None):
     if not lines:
         return None, None, None, None
     street, last = title_lines(lines)
-    name = match_place(last, map_names, 86)
+    name = title_map(street, last, map_names, streets)
     if not name:
         MISSED["text"] = last
         return None, None, None, None
@@ -1222,6 +1233,7 @@ class Reader:
         self.skill_names = sorted({s["name"] for fam, groups in data.skills.items() if isinstance(groups, list)
                                    for g in groups if isinstance(g, dict) for s in g.get("skills", [])})
         self.map_names = sorted({m["name"].strip() for m in data.maps.values() if m.get("name")})
+        self.street_names = {m["street_name"].strip() for m in data.maps.values() if m.get("street_name")}
         self.item_names = sorted(set(data.item_ids) | set(data.market.names))
         from gamedata import JOBS
         self.job_names = list(JOBS)
@@ -1327,7 +1339,8 @@ class Reader:
         mt, street, name = self.map_titles, None, None
         MISSED["text"] = None
         if "minimap" in mt:
-            street, name, title, collapsed = read_minimap_at(frame, mt["minimap"], s, self.map_names, mt.get("minibar"))
+            street, name, title, collapsed = read_minimap_at(frame, mt["minimap"], s, self.map_names, mt.get("minibar"),
+                                                             self.street_names)
         elif "minibar" in mt:
             street, name, title, collapsed = read_minibar_at(frame, mt["minibar"], s, self.map_names)
         if not name:

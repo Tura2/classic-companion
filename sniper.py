@@ -34,7 +34,7 @@ from trust import Gate
 from shopwatch import ShopWatch
 from grind import PQS, Grind, pq_of, pq_of_read
 from capture import GameCapture, client_box, find_window, foreground_window, window_bounds
-from gamedata import JOBS, NPC_PRICES
+from gamedata import JOBS, NPC_PRICES, MapMove
 
 if sys.platform == "win32":  # make Tk and window capture use the same physical pixels
     try:
@@ -706,6 +706,7 @@ class App:
         self.bounds = None          # the game window (left, top, right, bottom), for the corner
         self.mini = None            # where the route strip goes under the mini map, as last seen
         self.mini_next = None       # a new place for it, waiting for a second read to agree
+        self.map_move = MapMove()   # a new map read from the mini map, waiting for enough reads to agree
         self.strip_key = None       # what the route strip was last drawn for
         # prices under the game's item tooltips: two, since an equip's comes with the one you wear
         self.tip_cards = [Card(self.root, STRIP_ALPHA), Card(self.root, STRIP_ALPHA)]
@@ -1115,17 +1116,10 @@ class App:
         if seen.get("map"):
             nav = self.state["nav"]
             mid = self.data.match_map_name(seen["map"]["name"], prefer=[s["id"] for s in nav["steps"]] if nav else ())
-            if mid and mid != prof.get("current_map"):
-                # the route's next map is taken at once; any other only once two reads in a row agree,
-                # so one misread title doesn't move the route or re-plan it from the wrong map
-                nxt = nav and nav["i"] + 1 < len(nav["steps"]) and nav["steps"][nav["i"] + 1]["id"] == mid
-                if nxt or getattr(self, "map_next", None) == mid:
-                    self.map_next = None
-                    self.state["set_current"](mid)     # saves the profile and moves an active route along
-                else:
-                    self.map_next = mid
-            else:
-                self.map_next = None
+            # a move counts only once a few reads in a row agree (gamedata.MapMove): a misread title
+            # moved Grind and the route, and re-planned the route from the wrong map
+            if self.map_move.read(self.data, prof.get("current_map"), mid):
+                self.state["set_current"](mid)         # saves the profile and moves an active route along
             at = seen["map"].get("strip_at")
             if at:
                 m, name = self.mini, seen["map"]["name"]
