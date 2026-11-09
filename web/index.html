@@ -411,6 +411,52 @@ kbd.wide{font-size:.82rem}
 
 .foot{margin-top:26px;color:var(--muted);font-size:.85rem}
 .foot a{color:var(--blue);font-weight:800}
+
+/* ---- the redesign's shared pieces: game icons, a game window, the game's tooltip, pages, full height ---- */
+.gi{image-rendering:pixelated;object-fit:contain;flex:none;vertical-align:middle}
+.tabs button{display:inline-flex;align-items:center;gap:6px}
+.tabs button .gi{margin:-4px 0}
+.win > .title > span{display:inline-flex;align-items:center;gap:7px}
+/* a full-height tab: the page never scrolls, the view takes what's left under the HUD and the tabs */
+body[data-full] .wrap{height:100vh;display:flex;flex-direction:column;padding-bottom:10px}
+body[data-full] #view{flex:1;min-height:0}
+body[data-full] .tabs{margin-bottom:8px}
+@media (max-width:760px),(max-height:600px){
+  body[data-full] .wrap{height:auto;display:block}
+}
+/* a window in the game's style: blue rim, a white title strip in pixel caps, grey tabs on a red rule */
+.gwin{display:flex;flex-direction:column;min-height:0;background:linear-gradient(#E9EFF6,#DCE5EF);border:1px solid #7E97B7;border-radius:7px;padding:3px;box-shadow:inset 0 0 0 2px #fff,0 3px 8px rgba(0,0,0,.18);color:#1D2433}
+.gwin > *:not(.gtitle){background:#fff;margin-left:2px;margin-right:2px}
+.gwin > :last-child{border-radius:0 0 5px 5px;margin-bottom:2px}
+.gtitle{margin:2px 2px 0;padding:5px 6px 5px 10px;background:#fff;border:1px solid #9FB3CB;border-radius:5px 5px 0 0;font:400 13px "DotGothic16",sans-serif;color:#111;letter-spacing:.08em;display:flex;justify-content:space-between;align-items:center}
+.gx{width:18px;height:18px;border-radius:3px;background:linear-gradient(#6FB6F5,#2C7AD6);box-shadow:inset 0 0 0 1px #1C5BA6,inset 0 0 0 2px rgba(255,255,255,.35);position:relative;flex:none}
+.gx::before,.gx::after{content:"";position:absolute;left:4px;right:4px;top:8px;height:2px;background:#fff;border-radius:1px}
+.gx::before{transform:rotate(45deg)}.gx::after{transform:rotate(-45deg)}
+.gtabs{display:flex;gap:3px;padding:6px 8px 0;border-bottom:3px solid #D23A3A}
+.gtabs button{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;font:800 13px "Nunito",sans-serif;color:#525C6F;background:linear-gradient(#F3F5F8,#DCE2EA);border:1px solid #B9C4D2;border-bottom:0;border-radius:7px 7px 0 0;padding:6px 6px 5px;cursor:pointer}
+.gtabs button:hover{background:#fff}
+.gtabs button small{font-weight:900;opacity:.7}
+.gtabs button[aria-selected="true"]{color:#fff;background:linear-gradient(#EE6A7E,#D23A50);border-color:#B42A3E;text-shadow:0 1px 0 rgba(0,0,0,.25)}
+.gtabs button img{width:18px;height:18px;image-rendering:pixelated;margin:-3px 0}
+/* the game's item tooltip */
+#tip{position:fixed;display:none;z-index:50;width:330px;padding:12px 14px;background:rgba(27,32,72,.985);border:1px solid #5C6BB0;border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,.45);color:#fff;font:700 15px/1.35 "Nunito",sans-serif;pointer-events:none}
+#tip .tname{display:flex;align-items:center;gap:8px;font-size:1.25rem;font-weight:900;margin-bottom:8px}
+#tip .tname i{width:9px;height:9px;border-radius:50%;background:#7FB2F0;flex:none}
+#tip .ttop{display:flex;gap:14px;align-items:center}
+#tip .timg{width:100px;height:100px;background:#D5D6DC;border-radius:4px;display:grid;place-items:center;flex:none}
+#tip .timg img{width:76px;height:76px;image-rendering:pixelated;object-fit:contain}
+#tip hr{border:0;border-top:1px solid #4A5590;margin:8px 0}
+#tip ul{list-style:none;margin:0;padding:0}
+#tip li{padding-left:18px;position:relative;font-weight:600}
+#tip li::before{content:"\2726";position:absolute;left:0;color:#F2A541;font-size:.8em;top:2px}
+#tip .tsub{color:#9AA3D0;font-size:.78rem}
+/* pages: the game's orange arrow buttons */
+.pager{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:6px;font-weight:800;color:var(--muted)}
+.pager:empty{display:none}
+.pager b{color:var(--ink)}
+.pg{width:30px;height:26px;border-radius:5px;border:1px solid #C77A1C;background:linear-gradient(#FBC46E,#F2A541);color:#4A2600;font-size:.8rem;cursor:pointer;box-shadow:inset 0 -2px 0 rgba(0,0,0,.15)}
+.pg:disabled{opacity:.35;cursor:default}
+.pfit{min-height:0;overflow:hidden}
 </style>
 </head>
 <body>
@@ -465,6 +511,54 @@ function pricesAsOf(){
 const STAT = {incPAD:"ATT",incMAD:"M.ATT",incSTR:"STR",incDEX:"DEX",incINT:"INT",incLUK:"LUK",incACC:"ACC",incEVA:"Avoid",
   incPDD:"W.DEF",incMDD:"M.DEF",incMHP:"HP",incMMP:"MP",incSpeed:"Speed",incJump:"Jump",incCRT:"Crit %",incCRD:"Crit dmg",tuc:"Slots"};
 let tab = "live", state = null, timer = null, planSave = null, navKey = "", pendingTo = null, profRev = null;
+
+/* ---- the redesign's shared pieces ---- */
+const OSMS_IMG = "https://raw.githubusercontent.com/ohmi69/osms_datamine_dashboard/main/data/current/images/";
+// each tab's icon: an item from the game
+const GI = {live:4000094, nav:2030000, train:1452002, quests:4031001, gear:1002032, skills:4031032, flips:2028001, settings:4000089};
+const itemIcon = (id, size = 20) => `<img class="gi" src="${OSMS_IMG}items/${String(id).padStart(8, "0")}.png" width="${size}" height="${size}" alt="">`;
+const markIcon = (url, size = 22) => url ? `<img class="gi" src="${esc(url)}" width="${size}" height="${size}" alt="">` : "";
+// a window in the game's style; tabs: [[key, label html, selected]]
+function gameWin(title, tabs, body, cls = ""){
+  const t = tabs && tabs.length ? `<div class="gtabs" role="tablist">${tabs.map(([k, label, on]) =>
+    `<button role="tab" data-gtab="${esc(k)}" aria-selected="${!!on}">${label}</button>`).join("")}</div>` : "";
+  return `<div class="gwin ${cls}"><div class="gtitle"><span>${esc(title)}</span><span class="gx" aria-hidden="true"></span></div>${t}${body}</div>`;
+}
+// the game's tooltip, beside what's hovered and kept on screen
+function showTip(html, el){
+  let tip = $("#tip");
+  if (!tip){ tip = document.createElement("div"); tip.id = "tip"; tip.setAttribute("role", "tooltip"); document.body.append(tip); }
+  tip.innerHTML = html; tip.style.display = "block";
+  const r = el.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
+  let x = r.right + 10;
+  if (x + w > innerWidth - 8) x = Math.max(8, r.left - w - 10);
+  tip.style.left = x + "px";
+  tip.style.top = Math.max(8, Math.min(innerHeight - h - 8, r.top - 6)) + "px";
+}
+function hideTip(){ const tip = $("#tip"); if (tip) tip.style.display = "none"; }
+// as many rows as fit the box, the rest on pages with arrows; cols > 1 for a grid of slots
+function pageFit(listEl, items, renderRow, pagerEl, cols = 1){
+  if (!listEl) return;
+  const draw = () => {
+    let page = +(listEl.dataset.page || 0);
+    listEl.innerHTML = items.length ? renderRow(items[0], 0) : "";
+    const first = listEl.firstElementChild, gap = parseFloat(getComputedStyle(listEl).rowGap) || 0;
+    const rh = first ? first.getBoundingClientRect().height + gap : 40;
+    const fitRows = Math.max(1, Math.floor((listEl.clientHeight + gap) / Math.max(rh, 1)));
+    const per = fitRows * cols, pages = Math.max(1, Math.ceil(items.length / per));
+    page = Math.max(0, Math.min(page, pages - 1)); listEl.dataset.page = page;
+    listEl.innerHTML = items.slice(page * per, page * per + per).map((x, i) => renderRow(x, page * per + i)).join("");
+    if (pagerEl){
+      pagerEl.innerHTML = pages > 1 ? `<button class="pg" data-pg="-1" aria-label="Previous page" ${page ? "" : "disabled"}>&#9664;</button>
+        <span><b>${page + 1}</b> / ${pages}</span><button class="pg" data-pg="1" aria-label="Next page" ${page < pages - 1 ? "" : "disabled"}>&#9654;</button>` : "";
+      pagerEl.querySelectorAll("[data-pg]").forEach(b => b.addEventListener("click", () => { listEl.dataset.page = page + +b.dataset.pg; draw(); }));
+    }
+    listEl.dispatchEvent(new Event("paged"));
+  };
+  listEl._draw = draw;
+  draw();
+  if (!listEl._ro){ let h = listEl.clientHeight; listEl._ro = new ResizeObserver(() => { if (listEl.clientHeight !== h){ h = listEl.clientHeight; listEl._draw(); } }); listEl._ro.observe(listEl); }
+}
 
 async function api(path, body){
   const r = await fetch(path, body === undefined ? {} : {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
@@ -533,6 +627,8 @@ function saveProfile(id){
 ["job","level","mesos","acc"].forEach(id => $("#"+id).addEventListener(id === "job" ? "change" : "input", () => saveProfile(id)));
 $("#mesos").addEventListener("blur", () => { $("#mesos").value = fmt(+$("#mesos").value.replace(/[^\d]/g, "") || 0); });
 
+document.querySelectorAll(".tabs button").forEach(b => b.insertAdjacentHTML("afterbegin", itemIcon(GI[b.dataset.tab], 20)));
+const FULL = new Set(["live", "nav", "gear", "skills", "flips"]);   // tabs that fit the window, no page scroll
 document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => {
   tab = b.dataset.tab;
   document.querySelectorAll(".tabs button").forEach(x => x.setAttribute("aria-selected", x === b));
@@ -559,6 +655,7 @@ async function loadShot(ts){
 function win(title, body, aside){
   return `<section class="card win"><div class="title"><span>${title}</span>${aside ? `<small>${aside}</small>` : ""}</div>${body}</section>`;
 }
+
 function slot(img, size){
   return `<div class="slot"${size ? ` style="--s:${size}px"` : ""}>${img ? `<img src="${esc(img)}" alt="" loading="lazy" onerror="this.remove()">` : ""}</div>`;
 }
@@ -1442,6 +1539,8 @@ async function render(){
   clearInterval(timer);
   const seq = ++renderSeq;
   document.querySelector(".foot").hidden = tab !== "settings";
+  hideTip();
+  if (FULL.has(tab)) document.body.dataset.full = ""; else delete document.body.dataset.full;
   try{
     if (tab === "live"){ liveKey = ""; await renderLive(); if (seq === renderSeq) timer = setInterval(renderLive, 1000); }
     else if (tab === "nav"){ navKey = ""; await renderNav(true); if (seq === renderSeq) timer = setInterval(() => renderNav(false), 2000); }
