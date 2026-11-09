@@ -133,6 +133,7 @@ def single_points(steps, now, n=3):
 # The game's portal (the blue swirl), 8 frames from the game files, each with the point that sits on the ground
 PORTAL_URL = "https://maplestory.io/api/wz/GMS/83/Map/MapHelper.img/portal/game/pv/{n}"
 PORTAL_FRAMES = 8
+PORTAL_RETRY = 600      # seconds before trying the download again after it failed
 
 
 def compose_frames(frames):
@@ -1004,6 +1005,8 @@ class GameData:
         path = CACHE / "portal.webp"
         if path.exists() and portal_meta():
             return path
+        if time.time() - getattr(self, "_portal_failed", 0) < PORTAL_RETRY:
+            return None                     # it just failed: try again later, not on every request
         try:
             import base64
             import io
@@ -1011,10 +1014,10 @@ class GameData:
             frames = []
             for n in range(PORTAL_FRAMES):
                 url = PORTAL_URL.format(n=n)
-                r = requests.get(url, timeout=30, headers=UA)
+                r = requests.get(url, timeout=10, headers=UA)
                 r.raise_for_status()
                 im = Image.open(io.BytesIO(base64.b64decode(r.json()["value"]))).convert("RGBA")
-                o = requests.get(url + "/origin", timeout=30, headers=UA)
+                o = requests.get(url + "/origin", timeout=10, headers=UA)
                 o.raise_for_status()
                 frames.append((im, (int(o.json()["value"]["x"]), int(o.json()["value"]["y"]))))
             pics, anchor = compose_frames(frames)
@@ -1025,6 +1028,7 @@ class GameData:
             return path
         except Exception as e:
             print("Portal picture unavailable:", e)
+            self._portal_failed = time.time()
             return None
 
     def here(self, mid):

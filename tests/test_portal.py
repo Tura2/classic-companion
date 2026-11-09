@@ -41,3 +41,16 @@ def test_portal_sprite_built_once_and_kept(tmp_path, monkeypatch):
     assert path and path.exists() and gamedata.portal_meta() == {"anchor": [5, 18], "size": [10, 20]}
     n = len(calls)
     assert g.portal_sprite() == path and len(calls) == n            # the second time: from disk
+
+
+def test_a_failed_download_isnt_retried_at_once(tmp_path, monkeypatch):
+    calls = []
+
+    def offline(*a, **k):
+        calls.append(1)
+        raise OSError("offline")
+    monkeypatch.setattr(gamedata, "CACHE", tmp_path)
+    monkeypatch.setattr(gamedata.requests, "get", offline)
+    g = object.__new__(gamedata.GameData)
+    assert g.portal_sprite() is None and g.portal_sprite() is None
+    assert len(calls) == 1            # the second ask in a row doesn't go to the network again
