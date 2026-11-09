@@ -604,6 +604,36 @@ body[data-full] .tabs{margin-bottom:8px}
 .cmp span{font:400 .82rem "DotGothic16",sans-serif;color:var(--muted)}.cmp .mx span{color:var(--good)}
 .cmp p{margin:4px 0 0;font-size:.88rem;font-weight:700}
 @media (max-width:760px),(max-height:600px){.skpage{grid-template-columns:1fr;height:auto}.skwin{height:560px}}
+
+/* ---- Shops ---- */
+.shopwrap{height:100%;display:flex;flex-direction:column;min-height:0}
+.subtabs{display:flex;gap:6px;margin:0 0 8px;flex:none}
+.subtabs button{font-weight:800;font-size:.9rem;color:var(--tab-ink);background:var(--strip);border:1px solid var(--rim);border-radius:999px;padding:4px 14px;cursor:pointer}
+.subtabs button[aria-selected="true"]{color:#fff;background:var(--blue);border-color:var(--blue)}
+.subtabs .cnt{font-size:.75rem;opacity:.85;margin-left:3px}
+.shpage{flex:1;min-height:0;display:grid;grid-template-columns:minmax(360px,440px) minmax(0,1fr);gap:14px}
+.skgwin .ghint{padding:6px 10px 2px;font-size:.76rem;color:#6B7486;font-weight:700}
+.igrid{flex:1;min-height:0;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;padding:6px 10px;align-content:start;overflow:hidden}
+.islot2{width:100%;aspect-ratio:1;display:grid;place-items:center;background:linear-gradient(#fff,#EEF2F7);border:1px solid #C6D3E3;border-radius:5px;padding:0;cursor:pointer;position:relative}
+.islot2 img{width:70%;height:70%;object-fit:contain;image-rendering:pixelated}
+.islot2 .noimg{font-size:.6rem;font-weight:800;color:var(--muted);padding:2px;text-align:center;overflow:hidden}
+.islot2:hover{border-color:#E7A93C;box-shadow:0 0 0 2px rgba(231,169,60,.35)}
+.islot2.star::after{content:"\2605";position:absolute;top:1px;right:3px;color:#E7A93C;font-size:.8rem}
+.skgwin .pager{margin:0;padding:4px}
+.gfoot2{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-top:1px solid #DDE4EC;font-size:.78rem;color:#6B7486;font-weight:700}
+.shpage .skside .grow{flex:1;min-height:0;display:flex;flex-direction:column}
+.tot{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:6px}
+.t{border-radius:6px;padding:6px 10px;background:var(--cell)}.t span{display:block;font-size:.76rem;font-weight:800;color:var(--muted)}
+.t b{display:block;font-size:1.35rem;font-weight:900}.t small{font-size:.74rem;color:var(--muted);font-weight:700}
+.t.t-fm{background:var(--goodbg)}.t.t-fm b{color:var(--good)}.t.t-npc b{color:var(--blue)}
+.wrow{display:grid;grid-template-columns:34px auto minmax(0,1fr) auto;align-items:center;gap:8px;padding:3px 4px;border-bottom:1px solid var(--rim-soft)}
+.wrow b{font-size:.92rem;white-space:nowrap}.wrow .sub{text-align:right;font-size:.82rem}
+#tip .tv .vb{display:inline-block;font-size:.75rem;font-weight:900;border-radius:4px;padding:1px 7px;color:#0F3A22;background:#63D295}
+#tip .tv .vb.v-npc{background:#7FB2F0;color:#0E1A2C}#tip .tv .vb.v-keep{background:#F2A541;color:#3A1F00}#tip .tv .vb.v-unknown,#tip .tv .vb.v-drop{background:#9AA3D0;color:#1B2048}
+#tip .tv b{display:block;font-size:1.5rem;color:#7FB2F0}#tip .tv small{color:#9AA3D0;font-size:.75rem}
+#tip .twhy{margin:10px 0 0;padding-top:8px;border-top:1px solid #4A5590;font-weight:600;font-size:.88rem;color:#E3E7FF}
+#tip .tsub{margin:4px 0 0}
+@media (max-width:760px),(max-height:600px){.shpage{grid-template-columns:1fr}.skgwin{height:520px}}
 </style>
 </head>
 <body>
@@ -775,7 +805,7 @@ function saveProfile(id){
 $("#mesos").addEventListener("blur", () => { $("#mesos").value = fmt(+$("#mesos").value.replace(/[^\d]/g, "") || 0); });
 
 document.querySelectorAll(".tabs button").forEach(b => b.insertAdjacentHTML("afterbegin", itemIcon(GI[b.dataset.tab], 20)));
-const FULL = new Set(["live", "nav", "gear", "skills", "flips"]);   // tabs that fit the window, no page scroll
+const FULL = new Set(["live", "nav", "gear", "skills"]);   // Shops sets it for Sell or keep itself   // tabs that fit the window, no page scroll
 document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => {
   tab = b.dataset.tab;
   document.querySelectorAll(".tabs button").forEach(x => x.setAttribute("aria-selected", x === b));
@@ -896,21 +926,6 @@ function spark(vals){
   return `<svg class="spark" viewBox="0 0 ${vals.length * (w + gap)} ${h}" preserveAspectRatio="none" role="img" aria-label="EXP per minute, the last ${vals.length} minutes">${
     vals.map((v, i) => `<rect x="${i * (w + gap)}" y="${v ? h - Math.max(2, v / max * h) : h - 1}" width="${w}" height="${v ? Math.max(2, v / max * h) : 1}" class="${v ? "on" : ""}"><title>${fmt(v)} EXP</title></rect>`).join("")}</svg>`;
 }
-/* sell or keep: every item hovered this session, grouped, with the reason and the price */
-const SK = [["npc", "Sell to an NPC"], ["fm", "Sell on the Free Market"], ["keep", "Keep"], ["drop", "Drop it"], ["unknown", "No data"]];
-function sellKeepCard(list){
-  if (!list.length) return `<p class="note"><b>Sell or keep:</b> hover each item in your inventory once (with screen reading on) and it lands here: keep, sell to an NPC or on the Free Market, and why.</p>`;
-  const groups = SK.map(([k, t]) => {
-    const xs = list.filter(x => x.verdict === k);
-    if (!xs.length) return "";
-    const sum = xs.reduce((a, x) => a + (x.price || 0), 0);
-    return `<h4 class="skh">${t}${sum && k !== "keep" ? ` <span class="sub">${fmt(sum)} mesos for one of each</span>` : ""}</h4>
-      <ul class="sk">${xs.map(x => `<li>${slot(x.img, 30)}<div class="grow"><b>${pretty(x.name)}</b><span class="sub">${esc(x.why)}</span></div>
-        <button class="star" data-star="${esc(x.name)}" aria-pressed="${x.starred}" title="${x.starred ? "Starred: always keep" : "Star: always keep"}">${x.starred ? "★" : "☆"}</button></li>`).join("")}</ul>`;
-  }).join("");
-  return win("Sell or keep", `<div class="body">${groups}<div class="btns" style="margin-top:8px"><button class="btn small" id="sk-clear">Clear the list</button></div></div>`, `${list.length} items`);
-}
-
 function discordCard(d){
   if (!d || !d.setup) return win("Discord", `<div class="body"><p class="sub" style="margin:0">Not set up in this build.</p></div>`);
   const what = `<p class="sub" style="margin-top:0">Posts to our server’s <b>#shop-sales</b> when your shop sells something, tagging only you, so your phone pings. Sent: the item, how many, the price, your character’s name and your shop’s total. Nothing else, and nowhere else.</p>`;
@@ -1613,39 +1628,97 @@ function seenDetail(e){
     </ul></article>`;
 }
 
+/* ---- Shops: your shop, sell or keep (a paged inventory), and the shops you visited ---- */
+let shopView = "sell", skTab = null;
+const SKT = [["fm", "Free Market"], ["npc", "NPC"], ["keep", "Keep"], ["unknown", "Not sure"], ["drop", "Drop"]];
+const SKV = {fm: "Sell on the Free Market", npc: "Sell to an NPC", keep: "Keep", unknown: "Not sure", drop: "Drop it"};
+function skTip(x){
+  return `<div class="tname"><i></i>${pretty(x.name)}</div>
+    <div class="ttop"><div class="timg">${x.img ? `<img src="${esc(x.img)}" alt="">` : ""}</div>
+      <div class="tv"><span class="vb v-${x.verdict}">${SKV[x.verdict] || ""}</span>${x.price ? `<b>${fmt(x.price)}</b><small>${x.verdict === "npc" ? "an NPC pays, each" : "MSC, usual price"}</small>` : ""}</div></div>
+    <p class="twhy">${esc(x.why)}</p><p class="tsub">${x.starred ? "★ Starred: always kept. Click to unstar." : "Click to always keep it."}</p>`;
+}
+function sellKeepView(list){
+  const by = k => list.filter(x => x.verdict === k);
+  const tabs = SKT.filter(([k]) => k !== "drop" || by(k).length);
+  if (!skTab || !by(skTab).length) skTab = (tabs.find(([k]) => by(k).length) || tabs[0])[0];
+  const fm = by("fm").sort((a, b) => (b.price || 0) - (a.price || 0)), npc = by("npc"), keep = by("keep"), unsure = by("unknown");
+  const fmSum = fm.reduce((a, x) => a + (x.price || 0), 0), npcSum = npc.reduce((a, x) => a + (x.price || 0), 0);
+  const left = gameWin("SELL OR KEEP", tabs.map(([k, label]) => [k, `${label} <small>${by(k).length}</small>`, k === skTab]),
+    `<div class="ghint">${list.length ? "Hover items in your inventory in the game and they land here" : "Nothing yet: with screen reading on, hover each item in your inventory once"}</div>
+     <div class="igrid pfit" id="igrid"></div><div class="pager" id="ipager"></div>
+     <div class="gfoot2"><span>Keeps the last 48 items you hovered</span><button class="btn small" id="sk-clear">Clear</button></div>`, "skgwin");
+  const keepRows = keep.map(x => `<div class="wrow">${slot(x.img, 32)}<b>${pretty(x.name)}</b><span class="sub">${esc(x.why)}</span>
+      ${x.quest_id ? `<button class="btn mini" data-done="${esc(x.quest_id)}">Done with this quest</button>` : "<span></span>"}</div>`).join("");
+  const right = `<div class="skside">
+    ${win(`${itemIcon(GI.flips, 22)} What your bag is worth`, `<div class="body">
+      <div class="tot"><div class="t t-fm"><span>On the Free Market</span><b>${fmt(fmSum)}</b><small>${fm.length} items · after the 3% fee ${fmt(Math.round(fmSum * 0.97))}</small></div>
+        <div class="t t-npc"><span>To an NPC</span><b>${fmt(npcSum)}</b><small>${npc.length} items</small></div>
+        <div class="t"><span>Keep</span><b>${keep.length}</b><small>quest items, potions, your gear</small></div></div>
+      ${fm.length ? `<div class="qh">Worth the most</div>${fm.slice(0, 4).map(x => `<div class="wrow">${slot(x.img, 32)}<b>${pretty(x.name)}</b><span></span>
+        <span class="src src-msc"><i>MSC</i>${fmt(x.price)}</span></div>`).join("")}` : ""}</div>`, "Prices: MSC")}
+    <section class="card win grow"><div class="title"><span>${itemIcon(GI.quests, 22)} Why keep these</span><small>${keep.length} items</small></div>
+      <div class="body scrolly">${keepRows || `<p class="sub" style="margin:0">Nothing to keep yet.</p>`}
+        ${unsure.length ? `<p class="sub" style="margin:8px 0 0">Not sure: ${unsure.map(x => pretty(x.name)).join(", ")} (no market or NPC price, check it yourself).</p>` : ""}</div></section></div>`;
+  return {html: `<div class="shpage">${left}${right}</div>`, items: by(skTab).sort((a, b) => (b.price || 0) - (a.price || 0))};
+}
 async function renderFlips(){
-  const all = await api("/api/seen");
-  const verdicts = ["snipe", "npc", "fair", "pricey", "over", "split"];
-  const pass = {all: () => true, deals: e => e.verdict === "snipe" || e.verdict === "npc",
-                fair: e => e.verdict === "fair", over: e => e.verdict === "pricey" || e.verdict === "over",
-                differ: e => e.verdict === "split", other: e => !verdicts.includes(e.verdict)};
-  const items = all.filter(pass[seenFilter]).sort((a, b) => (VRANK[a.verdict] ?? 5) - (VRANK[b.verdict] ?? 5) || (a.last_ts < b.last_ts ? 1 : -1));
-  // the first item opens by itself, so the detail is never an empty box
-  const pick = all.find(e => e.name === seenPick) || items[0] || null;
-  if (pick) seenPick = pick.name;
-  const count = k => all.filter(pass[k]).length;
-  const tiles = items.map(e => `<button class="islot" data-v="${e.verdict || ""}" data-name="${esc(e.name)}" aria-pressed="${e.name === seenPick}"
-      title="${esc(e.name)}: cheapest ${money(e.low)}${e.median ? `, MSC ${money(e.median)}` : ""}${e.cozy ? `, Cozy ${money(e.cozy)}` : ""}" aria-label="${esc(e.name)}${e.verdict ? ", " + VLABEL[e.verdict] : ""}">
-      ${e.img ? `<img src="${esc(e.img)}" alt="" loading="lazy" onerror="this.nextElementSibling.hidden=false;this.remove()">` : ""}
-      <span class="noimg" ${e.img ? "hidden" : ""}>${pretty(e.name)}</span>
-      <span class="qty">${e.seen}</span>${e.verdict ? `<span class="tagv" data-v="${e.verdict}"></span>` : ""}</button>`).join("");
-  const mine = myShopCard((await api("/api/state")).myshop, true);
-  const sk = sellKeepCard(await api("/api/sellkeep"));
-  $("#view").innerHTML = `${mine}${sk}<p class="note">Items you passed in player shops, cheapest price against <span class="src-msc">MSC</span> and <span class="src-cozy">Cozy</span>. A verdict shows only when both agree. <span class="asof">${pricesAsOf()}</span></p>
-    ${all.length ? `<div class="md"><div class="master" style="padding:0;background:none;border:0;box-shadow:none">
-        <div class="filters" role="group" aria-label="Show">${[["all","All",""],["deals","Deals","snipe"],["fair","Fair","fair"],["over","Too pricey","over"],["differ","Differ","split"],["other","Other","info"]].map(([k, t, v]) =>
-        `<button data-f="${k}" aria-pressed="${seenFilter === k}">${v ? `<span class="tagv" data-v="${v}"></span>` : ""}${t} ${count(k)}</button>`).join("")}</div>
-      <div class="inv">${tiles || `<span class="sub" style="grid-column:1/-1;padding:8px">Nothing in this group.</span>`}</div></div>
-      <div class="detail">${seenDetail(pick)}</div></div>`
-    : `<div class="empty">Nothing yet. With screen reading on, open player shops in the Free Market: every item Companion reads lands here with its picture and what it’s worth.</div>`}`;
-  document.querySelectorAll("[data-f]").forEach(b => b.addEventListener("click", () => { seenFilter = b.dataset.f; renderFlips(); }));
-  document.querySelectorAll("[data-star]").forEach(b => b.addEventListener("click", async () => {
-    await api("/api/star", {name:b.dataset.star, on:b.getAttribute("aria-pressed") !== "true"}); renderFlips();
-  }));
+  const pills = [["mine", "Your shop"], ["sell", "Sell or keep"], ["seen", "Shops you visited"]];
+  const [list, all, st] = await Promise.all([api("/api/sellkeep"), api("/api/seen"), api("/api/state")]);
+  if (tab !== "flips") return;
+  const ms = st.myshop, sold = (ms && ms.sales || []).length, g = st.game || {};
+  const counts = {mine: sold ? `${sold} sold` : "", sell: list.length || "", seen: all.length || ""};
+  const top = `<div class="subtabs" role="tablist">${pills.map(([k, label]) => `<button role="tab" data-view="${k}" aria-selected="${k === shopView}">${label}${counts[k] ? ` <span class="cnt">${counts[k]}</span>` : ""}</button>`).join("")}</div>`;
+  let body = "", grid = null;
+  if (shopView === "sell"){ const v = sellKeepView(list); body = v.html; grid = v.items; }
+  else if (shopView === "mine") body = myShopCard(ms, true) || `<div class="empty">Open your own shop in the Free Market (with screen reading on) and its sales show here. Discord alerts are in Settings.</div>`;
+  else {
+    const verdicts = ["snipe", "npc", "fair", "pricey", "over", "split"];
+    const pass = {all: () => true, deals: e => e.verdict === "snipe" || e.verdict === "npc", fair: e => e.verdict === "fair",
+                  over: e => e.verdict === "pricey" || e.verdict === "over", differ: e => e.verdict === "split", other: e => !verdicts.includes(e.verdict)};
+    const items = all.filter(pass[seenFilter]).sort((a, b) => (VRANK[a.verdict] ?? 5) - (VRANK[b.verdict] ?? 5) || (a.last_ts < b.last_ts ? 1 : -1));
+    const pick = all.find(e => e.name === seenPick) || items[0] || null;
+    if (pick) seenPick = pick.name;
+    const count = k => all.filter(pass[k]).length;
+    const tiles = items.map(e => `<button class="islot" data-v="${e.verdict || ""}" data-name="${esc(e.name)}" aria-pressed="${e.name === seenPick}"
+        title="${esc(e.name)}: cheapest ${money(e.low)}${e.median ? `, MSC ${money(e.median)}` : ""}${e.cozy ? `, Cozy ${money(e.cozy)}` : ""}" aria-label="${esc(e.name)}${e.verdict ? ", " + VLABEL[e.verdict] : ""}">
+        ${e.img ? `<img src="${esc(e.img)}" alt="" loading="lazy" onerror="this.nextElementSibling.hidden=false;this.remove()">` : ""}
+        <span class="noimg" ${e.img ? "hidden" : ""}>${pretty(e.name)}</span>
+        <span class="qty">${e.seen}</span>${e.verdict ? `<span class="tagv" data-v="${e.verdict}"></span>` : ""}</button>`).join("");
+    const open = g.shop ? win(`${pretty(g.shop.seller || "Player")}’s shop · open now`, `<div class="body shop">${[...g.shop.items].sort((a, b) => a.sold - b.sold).map(shopItem).join("")
+        || `<div class="sub">No items read.</div>`}<div class="sub asof">${pricesAsOf()}</div></div>`) : "";
+    body = `${open}<p class="note">Items you passed in player shops, cheapest price against <span class="src-msc">MSC</span> and <span class="src-cozy">Cozy</span>. A verdict shows only when both agree. <span class="asof">${pricesAsOf()}</span></p>
+      ${all.length ? `<div class="md"><div class="master" style="padding:0;background:none;border:0;box-shadow:none">
+        <div class="filters" role="group" aria-label="Show">${[["all","All",""],["deals","Deals","snipe"],["fair","Fair","fair"],["over","Too pricey","over"],["differ","Differ","split"],["other","Other","info"]].map(([k, tt, v]) =>
+          `<button data-f="${k}" aria-pressed="${seenFilter === k}">${v ? `<span class="tagv" data-v="${v}"></span>` : ""}${tt} ${count(k)}</button>`).join("")}</div>
+        <div class="inv">${tiles || `<span class="sub" style="grid-column:1/-1;padding:8px">Nothing in this group.</span>`}</div></div>
+        <div class="detail">${seenDetail(pick)}</div></div>`
+      : `<div class="empty">Nothing yet. With screen reading on, open player shops in the Free Market: every item Companion reads lands here with its picture and what it’s worth.</div>`}`;
+  }
+  // only the sell-or-keep view fits the window; the others scroll as before
+  if (shopView === "sell") document.body.dataset.full = ""; else delete document.body.dataset.full;
+  $("#view").innerHTML = `<div class="shopwrap">${top}${body}</div>`;
+  document.querySelectorAll("#view [data-view]").forEach(b => b.addEventListener("click", () => { shopView = b.dataset.view; hideTip(); renderFlips(); }));
+  if (grid){
+    const el = $("#igrid");
+    pageFit(el, grid, (x, k) => `<button class="islot2${x.starred ? " star" : ""}" data-k="${k}" aria-label="${esc(x.name)}: ${esc(SKV[x.verdict] || "")}">
+        ${x.img ? `<img src="${esc(x.img)}" alt="">` : `<span class="noimg">${pretty(x.name)}</span>`}</button>`, $("#ipager"), 6);
+    const wire = () => el.querySelectorAll("[data-k]").forEach(b => {
+      const x = grid[+b.dataset.k];
+      b.addEventListener("mouseenter", () => showTip(skTip(x), b));
+      b.addEventListener("mouseleave", hideTip);
+      b.addEventListener("click", async () => { hideTip(); await api("/api/star", {name: x.name, on: !x.starred}); renderFlips(); });
+    });
+    wire(); el.addEventListener("paged", wire);
+  }
+  document.querySelectorAll("#view [data-gtab]").forEach(b => b.addEventListener("click", () => { skTab = b.dataset.gtab; hideTip(); renderFlips(); }));
+  document.querySelectorAll("#view [data-done]").forEach(b => b.addEventListener("click", async () => {
+    await api("/api/quest_done", {id: b.dataset.done, done: true}); renderFlips(); }));
   const skc = $("#sk-clear"); if (skc) skc.addEventListener("click", async () => { await api("/api/sellkeep/clear", {}); renderFlips(); });
   const ok = $("#away-ok"); if (ok) ok.addEventListener("click", async () => { await api("/api/myshop/seen", {}); renderFlips(); });
+  document.querySelectorAll("[data-f]").forEach(b => b.addEventListener("click", () => { seenFilter = b.dataset.f; renderFlips(); }));
   document.querySelectorAll(".islot").forEach(b => b.addEventListener("click", () => { seenPick = b.dataset.name; renderFlips(); }));
-  fitPanes();
+  if (shopView === "seen") fitPanes();
 }
 
 async function renderSettings(){

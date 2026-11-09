@@ -92,14 +92,14 @@ def verdict(name, count, profile, data, market, untradable=False):
         q = by_id.get(qid)
         need = q and _quest_need(name, q)
         if need:
-            return keep(f"{q['name']}: need {need}" + (f", have {count}" if known else ""))
+            return {**keep(f"{q['name']}: need {need}" + (f", have {count}" if known else "")), "quest_id": str(q["id"])}
     level = int(profile.get("level") or 1)
     soon = [q for q in data.quest_list if str(q.get("id")) not in done and str(q.get("id")) not in active
             and (q.get("level_min") or 0) <= level + LEVELS_AHEAD and _quest_need(name, q)
             and not _rotating(q) and _earlier_done(q, done)]
     if soon:
         q = min(soon, key=lambda q: q.get("level_min") or 0)
-        return keep(f"For {q['name']} at level {q.get('level_min') or 1}")
+        return {**keep(f"For {q['name']} at level {q.get('level_min') or 1}"), "quest_id": str(q["id"])}
     if _wears(name, profile, data):
         return keep("Gear you'll wear, now or soon")
     iid = (getattr(data, "item_ids", None) or {}).get(name)

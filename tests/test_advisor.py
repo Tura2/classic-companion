@@ -138,3 +138,12 @@ def test_quest_waiting_on_an_earlier_one_doesnt_keep():
     assert advisor.verdict("Fragment of Magic", 2, prof(), data(quests=[NEEDS_EARLIER]), market())["verdict"] != "keep"
     assert advisor.verdict("Fragment of Magic", 2, prof(quests_done=["80023"]), data(quests=[NEEDS_EARLIER]),
                            market())["verdict"] == "keep"
+
+
+def test_keep_for_a_quest_names_the_quest_id():
+    v = advisor.verdict("Lorang Claw", 3, prof(quests_active=[{"id": "506032", "name": "Donating to Henesys"}]),
+                        data(quests=[WEEKLY]), market())
+    assert v["quest_id"] == "506032"
+    soon = advisor.verdict("Blue Mushroom Cap", None, prof(), data(), market())
+    assert soon["verdict"] == "keep" and soon["quest_id"] == "10002"
+    assert "quest_id" not in advisor.verdict("Iron Ore", 5, prof(starred=["Iron Ore"]), data(), market())
