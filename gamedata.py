@@ -118,6 +118,18 @@ def load_drops(guide):
     return out
 
 
+def single_points(steps, now, n=3):
+    """The next n skill points one by one, in the class guide's order: steps are (level, skill, level to
+    reach), now is your skill levels in the game."""
+    at, out = dict(now or {}), []
+    for lv, skill, to in steps:
+        while (at.get(skill) or 0) < to and len(out) < n:
+            f = at.get(skill) or 0
+            out.append({"skill": skill, "from": f, "to": f + 1, "level": lv})
+            at[skill] = f + 1
+    return out
+
+
 def fetch_json(url, name, max_age):
     path = CACHE / name
     if path.exists() and time.time() - path.stat().st_mtime < max_age and (data := read_cache(path)) is not None:
@@ -762,7 +774,8 @@ class GameData:
                     sp[-1]["to"] = to                  # one line per run of points into one skill
                 elif len(sp) < 4:
                     sp.append({"skill": skill, "from": now.get(skill) or 0, "to": to, "level": lv})
-        out = {"sp": sp, "plan_now": by_level, "known": bool(now), "sources": [p["source"] for p in plans]}
+        out = {"sp": sp, "sp3": single_points(steps, now) if now else [], "plan_now": by_level, "known": bool(now),
+               "sources": [p["source"] for p in plans]}
         # the guides' level-by-level tables: yours, and for a first job the second jobs to pick at 30
         _, _, all_groups = JOBS.get(job, JOBS["Beginner"])
         nxt = [j for j, (_, _, g) in JOBS.items() if len(g) == 2 and g[0] == job]
