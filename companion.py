@@ -272,6 +272,7 @@ def make_handler(data, state, cfg):
                     if not g:
                         return self.send(200, {"available": False})
                     return self.send(200, {"available": True, "now": g.summary(time.time()), "history": g.history(12),
+                                           "best": g.best_maps(int(prof.get("level") or 1)),
                                            "by_map": {str(k): round(v) for k, v in g.by_map().items()}})
                 if url.path == "/api/myshop":
                     return self.send(200, state.get("myshop") or {"watching": False, "sales": []})
