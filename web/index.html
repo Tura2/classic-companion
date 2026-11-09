@@ -543,6 +543,33 @@ body[data-full] .tabs{margin-bottom:8px}
 .plabel rect{fill:rgba(43,111,208,.85)}.plabel.t rect{fill:rgba(20,26,38,.88)}
 .plabel text{fill:#fff;font-family:"Nunito",sans-serif;font-weight:800}
 @media (max-width:760px),(max-height:600px){.go{grid-template-columns:1fr;height:auto}.route .mapview{min-height:360px}}
+
+/* ---- Gear ---- */
+.gearpage{height:100%;display:grid;grid-template-columns:auto minmax(0,1fr);gap:14px;align-items:stretch}
+.ewbox{height:100%;min-height:0;position:relative}
+.ewin{position:absolute;left:0;top:0;width:244px;height:404px;transform-origin:0 0;filter:drop-shadow(0 2px 4px rgba(0,0,0,.25))}
+.ewin .bg{width:244px;height:404px;display:block}
+.eq{position:absolute;width:47px;height:47px;padding:0;border:2px solid transparent;background:transparent;cursor:pointer;display:grid;place-items:center;border-radius:2px}
+.eq img{width:42px;height:42px;image-rendering:pixelated;object-fit:contain}
+.eq:hover,.eq.sel,.eq:focus-visible{border-color:#F2A541;background:rgba(242,165,65,.18);outline:none}
+.ewfoot{position:absolute;left:8px;right:8px;bottom:17px;text-align:center;font:400 10.5px "DotGothic16",sans-serif;color:#2B4A6E;letter-spacing:.02em}
+.glist{align-self:start;margin:0}
+.glist > .title{padding:4px 10px}.glist > .body{padding:6px 12px 10px}
+.grow-row{width:100%;display:grid;grid-template-columns:38px minmax(0,1fr) 130px;align-items:center;gap:8px;background:transparent;border:0;border-bottom:1px solid var(--rim-soft);padding:4px;text-align:left;cursor:pointer;color:var(--ink)}
+.grow-row:hover,.grow-row.sel{background:var(--warnbg)}
+.grow-row .nm b{display:block;font-size:.93rem;line-height:1.2}.grow-row .nm span{font-size:.76rem;color:var(--muted);font-weight:700}
+.grow-row .pz{text-align:right}
+.sumrow{display:flex;align-items:baseline;gap:10px;margin-top:10px;padding:8px 10px;background:var(--cell);border-radius:6px;font-weight:800}
+.sumrow b{font-size:1.15rem}.sumrow .sub{margin-left:auto}
+#tip .treq{flex:1;font:800 14px/1.55 "Nunito",sans-serif}
+#tip .rq{display:grid;grid-template-columns:76px 1fr}#tip .rq.zero{color:#8A90B4}#tip .rq.bad{color:#FF6B5E}
+#tip .tjobs{display:flex;gap:3px;margin:10px 0 0;font:900 10.5px "Nunito",sans-serif;letter-spacing:.02em}
+#tip .tjobs span{flex:1;text-align:center;background:rgba(255,255,255,.06);color:#7C83A8;border-radius:3px;padding:2px 0}
+#tip .tjobs span.on{color:#F2A541;background:rgba(242,165,65,.12)}
+#tip .tprice{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:10px;border-top:1px solid #4A5590;padding-top:8px;text-align:center}
+#tip .tprice span{display:block;font-size:.7rem;color:#9AA3D0}#tip .tprice b{font-size:1rem}
+#tip .tprice .msc{color:#7FB2F0}#tip .tprice .cozy{color:#C79BFF}#tip .tprice.none{display:block;color:#9AA3D0;font-size:.85rem}
+@media (max-width:760px),(max-height:600px){.gearpage{grid-template-columns:1fr;height:auto}.ewbox{height:480px}}
 </style>
 </head>
 <body>
@@ -1376,61 +1403,73 @@ async function renderQuests(){
   fitPanes();
 }
 
-// Gear: the equipment window's slots on the left, the chosen slot's picks on the right
-function statChips(e){
-  return Object.entries(e.stats).filter(([k, v]) => v && STAT[k])
-    .map(([k, v]) => `<li>${STAT[k]} ${v > 0 && k !== "tuc" ? "+" : ""}${v}</li>`).join("");
+// Gear: Classic's Equipment Inventory with the best item in each slot, the game's tooltip on hover
+const EQ_SLOTS = {Hat:[100, 95], "Ear Acc":[146, 142], Cape:[7, 188], Top:[54, 188], Weapon:[146, 188], Shield:[193, 188],
+                  Gloves:[7, 234], Bottom:[54, 234], Shoes:[54, 281]};
+const EQ_FROM = {Hat:"Hat", Earring:"Ear Acc", Cape:"Cape", Top:"Top", Bottom:"Bottom", Glove:"Gloves", Shoes:"Shoes", Weapon:"Weapon", Shield:"Shield"};
+const TIP_STAT = {incPAD:"Weapon Attack", incMAD:"Magic Attack", incSTR:"STR", incDEX:"DEX", incINT:"INT", incLUK:"LUK",
+  incACC:"Accuracy", incEVA:"Avoidability", incPDD:"Weapon Def.", incMDD:"Magic Def.", incMHP:"HP", incMMP:"MP",
+  incSpeed:"Speed", incJump:"Jump", incCRT:"Critical Rate", incCRD:"Critical Damage"};
+const GAME_JOBS = [["BEGINNER", ""], ["WARRIOR", "Warrior"], ["MAGICIAN", "Mage"], ["BOWMAN", "Bowman"], ["THIEF", "Thief"]];
+function gearTip(e){
+  const mine = state.profile.stats || (state.game || {}).stat || {};
+  const req = k => {
+    const v = k === "LEV" ? e.req : (e.reqs[k] || 0), have = k === "LEV" ? state.profile.level : mine[k.toLowerCase()];
+    const cls = !v ? "zero" : have != null && have < v ? "bad" : "";
+    return `<div class="rq ${cls}"><span>REQ ${k}</span><span>: ${v}</span></div>`;
+  };
+  const jobs = GAME_JOBS.map(([label, key]) => `<span class="${e.job === "All" || (key && (e.job || "").split("/").includes(key)) ? "on" : ""}">${label}</span>`).join("");
+  const rows = [["Type", e.weapon_type || e.slot]];
+  if (e.speed) rows.push(["Attack Speed", `${e.speed}${e.speed_n != null ? ` (${e.speed_n})` : ""}`]);
+  Object.entries(e.stats).filter(([k, v]) => v && TIP_STAT[k]).forEach(([k, v]) => rows.push([TIP_STAT[k], `${v > 0 ? "+" : ""}${v}${k === "incCRT" ? "%" : ""}`]));
+  if (e.stats.tuc != null) rows.push(["Remaining Enhancements", e.stats.tuc]);
+  const fm = e.fm;
+  const price = fm && (fm.snipe || fm.cozy) ? `<div class="tprice"><div><span>Snipe at</span><b class="msc">${fm.snipe ? fmt(fm.snipe) : "—"}</b></div>
+      <div><span>MSC usual</span><b class="msc">${fm.median ? fmt(fm.median) : "—"}</b></div><div><span>Cozy</span><b class="cozy">${fm.cozy ? fmt(fm.cozy) : "—"}</b></div></div>`
+    : `<div class="tprice none">Not traded on the market yet</div>`;
+  return `<div class="tname"><i></i>${pretty(e.name)}</div>
+    <div class="ttop"><div class="timg"><img src="${esc(e.img)}" alt=""></div><div class="treq">${["LEV", "STR", "DEX", "INT", "LUK"].map(req).join("")}</div></div>
+    <div class="tjobs">${jobs}</div><hr><ul>${rows.map(([k, v]) => `<li><b>${k}:</b> ${esc(v)}</li>`).join("")}</ul>${price}`;
 }
-function reqChips(e){
-  // stat requirements, in red when Character Stat showed you're short of one
-  const mine = (state.game || {}).stat || {};
-  return Object.entries(e.reqs).map(([k, v]) => {
-    const have = mine[k.toLowerCase()], short = have != null && have < v;
-    return `<li class="${short ? "bad" : ""}">Needs ${esc(k)} ${v}${short ? `, you have ${have}` : ""}</li>`;
-  }).join("");
-}
-function keyStats(e, main){
-  const order = ["incPAD", "incMAD", "inc" + main, "incACC", "incEVA", "incPDD", "incSpeed", "incMHP"];
-  return order.filter(k => e.stats[k] > 0).slice(0, 2).map(k => `${STAT[k]} +${e.stats[k]}`).join(", ");
-}
-function gearLine(e){
-  return `Level ${e.req}${e.weapon_type ? `, ${esc(e.weapon_type)}` : ""}${e.speed ? `, ${esc(e.speed.toLowerCase())} speed` : ""}`;
-}
-/* the buy-at price in green (from maplestory-classic.com's cheapest quarter of sales), then the usual
-   price on each site in that site's color */
-function gearPrice(fm, label){
-  if (!fm) return `<small>not traded</small>`;
-  return `${fm.snipe ? `<b>${fmt(fm.snipe)}</b>${label ? `<small>${label}</small>` : ""}` : ""}
-    <small class="srcmini">${srcPrice("MSC", fm.median, "src-msc")}${srcPrice("Cozy", fm.cozy, "src-cozy")}</small>`;
-}
-function gearRow(e, main){
-  return `<div class="mob" style="min-height:48px">${slot(e.img, 36)}
-      <div class="grow"><b>${pretty(e.name)}</b><span class="sub" style="display:block">Lv ${e.req}${keyStats(e, main) ? ", " + keyStats(e, main) : ""}${Object.entries(e.reqs).length ? `; needs ${Object.entries(e.reqs).map(([k, v]) => `${esc(k)} ${v}`).join(", ")}` : ""}</span></div>
-      <div class="pr">${gearPrice(e.fm)}</div></div>`;
-}
-let gearPick = null;
 async function renderGear(){
   const g = await api("/api/gear");
+  if (tab !== "gear") return;
   if (!g.slots.length){ $("#view").innerHTML = `<div class="empty">No gear found for this job and level.</div>`; return; }
-  const s = g.slots.find(x => x.slot === gearPick) || g.slots[0];
-  gearPick = s.slot;
-  const tiles = g.slots.map(x => { const b = x.now[0] || x.soon[0];
-    return `<button class="etile" role="tab" aria-selected="${x.slot === s.slot}" data-slot="${esc(x.slot)}">${slot(b.img, 44)}
-      <span class="k">${esc(x.slot)}</span><b title="${esc(b.name)}">${pretty(b.name)}</b><small>${!b.fm ? "not traded" : b.fm.snipe ? fmt(b.fm.snipe) : `<span class="src-cozy">${fmt(b.fm.cozy)}</span>`}</small></button>`; }).join("");
-  const best = s.now[0] || s.soon[0];
-  const others = s.now.slice(s.now.length ? 1 : 0), soon = s.now.length ? s.soon : s.soon.slice(1);
-  const detail = win(esc(s.slot), `<div class="body">
-      <div class="pick">${slot(best.img, 56)}
-        <div><h3>${pretty(best.name)}</h3><div class="sub">${gearLine(best)}</div></div>
-        <div class="pr">${gearPrice(best.fm, "snipe at or under")}</div>
-        <ul class="chips" style="grid-column:1/-1;margin-top:4px">${statChips(best)}${reqChips(best)}</ul></div>
-      ${others.length ? `<h2 style="margin:16px 0 6px">Also good</h2><div class="mobs" style="margin:0">${others.map(e => gearRow(e, g.main)).join("")}</div>` : ""}
-      ${soon.length ? `<h2 style="margin:16px 0 6px">Coming up</h2><div class="mobs" style="margin:0">${soon.map(e => gearRow(e, g.main)).join("")}</div>` : ""}
-    </div>`, best.soon ? `at level ${best.req}` : "best now");
-  $("#view").innerHTML = `<p class="note">Best ${esc(state.profile.job)} gear for level ${state.profile.level}. Green: a good price to buy at. Under it: the usual price on each site.</p>
-    <div class="md"><div class="master"><div class="equip" role="tablist" aria-label="Equipment slots">${tiles}</div></div><div class="detail">${detail}</div></div>`;
-  document.querySelectorAll("[data-slot]").forEach(b => b.addEventListener("click", () => { gearPick = b.dataset.slot; renderGear(); }));
-  fitPanes();
+  const picks = [];
+  for (const s of g.slots){
+    const e = s.now[0] || s.soon[0];
+    if (s.slot === "Overall"){ if (g.overall_instead) picks.push(["Top", e]); continue; }
+    if (s.slot === "Top" && g.overall_instead) continue;
+    if (s.slot === "Bottom" && g.overall_instead) continue;
+    if (EQ_FROM[s.slot]) picks.push([EQ_FROM[s.slot], e]);
+  }
+  const order = Object.keys(EQ_SLOTS);
+  picks.sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0]));
+  const p = state.profile, total = picks.reduce((a, [, e]) => a + ((e.fm && e.fm.snipe) || 0), 0);
+  const overall = (g.slots.find(s => s.slot === "Overall") || {}).now;
+  const slots = picks.map(([w, e], k) => `<button class="eq" data-i="${k}" style="left:${EQ_SLOTS[w][0]}px;top:${EQ_SLOTS[w][1]}px" aria-label="${esc(w)}: ${esc(e.name)}">
+      <img src="${esc(e.img)}" alt=""></button>`).join("");
+  const rows = picks.map(([w, e], k) => `<button class="grow-row" data-i="${k}">${slot(e.img, 36)}
+      <span class="nm"><b>${pretty(e.name)}</b><span>${esc(w)} · Lv ${e.req}${e.soon ? " (soon)" : ""}</span></span>
+      <span class="pz">${e.fm && e.fm.snipe ? `<span class="src src-msc"><i>MSC</i>${fmt(e.fm.snipe)}</span>` : `<span class="sub">not traded</span>`}</span></button>`).join("");
+  $("#view").innerHTML = `<div class="gearpage">
+    <div class="ewbox" id="ewbox"><div class="ewin" id="ewin"><img class="bg" src="/equip_classic.png" alt="Equipment Inventory">${slots}
+      <div class="ewfoot">Best ${esc(p.job)} gear for Lv ${p.level}</div></div></div>
+    <section class="card win glist"><div class="title"><span>${itemIcon(GI.gear, 22)} Best gear for your level</span><small>hover an item to see it</small></div>
+      <div class="body">${rows}
+        <div class="sumrow"><span>Whole set at snipe prices</span><b class="src src-msc"><i>MSC</i>${fmt(total)}</b><span class="sub">you have ${fmt(p.mesos || 0)}</span></div>
+        <p class="sub" style="margin:6px 0 0">Snipe: a good price to buy at, the cheapest quarter of recent sales.${!g.overall_instead && overall && overall[0]
+          ? ` An Overall instead of top and bottom: ${pretty(overall[0].name)}${overall[0].fm && overall[0].fm.snipe ? `, MSC ${fmt(overall[0].fm.snipe)}` : ""}.` : ""}</p>
+      </div></section></div>`;
+  const box = $("#ewbox"), win_ = $("#ewin");
+  const fit = () => { const k = Math.min(1.6, box.clientHeight / 404 || 1); win_.style.transform = `scale(${k})`; box.style.width = 244 * k + "px"; };
+  fit(); new ResizeObserver(fit).observe(box);
+  document.querySelectorAll("#view [data-i]").forEach(b => {
+    b.addEventListener("mouseenter", () => { showTip(gearTip(picks[+b.dataset.i][1]), b); document.querySelectorAll("#view [data-i]").forEach(x => x.classList.toggle("sel", x.dataset.i === b.dataset.i)); });
+    b.addEventListener("mouseleave", hideTip);
+    b.addEventListener("focus", () => b.dispatchEvent(new Event("mouseenter")));
+    b.addEventListener("blur", hideTip);
+  });
 }
 
 // The class guide's SP table, level by level, with what your skills in the game already reach

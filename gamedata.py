@@ -715,7 +715,8 @@ class GameData:
             price = self.market.items.get(it["name"])
             cozy = (self.market.cozy.get(it["name"]) or {}).get("price")
             entry = {
-                "name": it["name"], "slot": slot, "req": req, "soon": req > level, "score": round(score, 1),
+                "name": it["name"], "id": int(it["id"]), "job": it.get("req_job_label", "All"),
+                "speed_n": st.get("attackSpeed"), "slot": slot, "req": req, "soon": req > level, "score": round(score, 1),
                 "weapon_type": it.get("weapon_type"), "speed": it.get("attack_speed_label"),
                 "stats": {k: v for k, v in st.items() if k.startswith("inc") or k in ("tuc",)},
                 "reqs": {k[3:]: v for k, v in st.items() if k.startswith("req") and k not in ("reqLevel", "reqJob") and v},
@@ -737,7 +738,10 @@ class GameData:
             soon = [e for e in xs if e["soon"]][:2]
             if now or soon:
                 out.append({"slot": slot, "now": now, "soon": soon})
-        return {"main": main, "sub": sub, "slots": out}
+        # an Overall instead of a top and a bottom only when it beats the best of both together
+        best = {s["slot"]: (s["now"] or s["soon"])[0]["score"] for s in out if s["now"] or s["soon"]}
+        overall = best.get("Overall", 0) > best.get("Top", 0) + best.get("Bottom", 0)
+        return {"main": main, "sub": sub, "slots": out, "overall_instead": overall}
 
     # ---- skills
     def skill_list(self, job):
