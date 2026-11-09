@@ -11,9 +11,17 @@ FAR = {"id": "3", "name": "Far Quest", "level_min": 70,
        "requirements_list": [{"type": "item", "name": "Iron Ore", "count": 5}]}
 
 
-def data(npc=None, gear=()):
+WEEKLY = {"id": "506032", "name": "Donating to Henesys", "level_min": 12,
+          "rotation": {"cadence": "weekly", "one_time": False},
+          "requirements_list": [{"type": "item", "name": "Lorang Claw", "count": 30}]}
+NEEDS_EARLIER = {"id": "80025", "name": "Chrishrama in Need of Help", "level_min": 15,
+                 "requirements_list": [{"type": "quest", "id": "80023", "state": 2},
+                                       {"type": "item", "name": "Fragment of Magic", "count": 10}]}
+
+
+def data(npc=None, gear=(), quests=None):
     npc = npc or {}
-    return SimpleNamespace(quest_list=[JANE, LATER, FAR], npc_price=lambda n: npc.get(n),
+    return SimpleNamespace(quest_list=quests or [JANE, LATER, FAR], npc_price=lambda n: npc.get(n),
                            gear=lambda job, level: {"slots": [{"slot": "Hat", "now": [{"name": g} for g in gear], "soon": []}]},
                            equip_names={"Blue Bamboo Hat", "Bazlud"},
                            item_ids={"Arrows for Bows": 2060000, "Subi Throwing-Stars": 2070000, "Red Potion": 2000000,
@@ -113,3 +121,20 @@ def test_potions_are_kept():
 def test_under_a_meso_after_the_fee_is_no_fm_sale():
     v = advisor.verdict("Leather", None, prof(job="Magician"), data(), market({"Leather": {"p": 0.5, "vol": 900, "st": 1}}))
     assert v["verdict"] == "unknown" and advisor.short(v) is None
+
+
+def test_weekly_quest_not_in_log_doesnt_keep():
+    v = advisor.verdict("Lorang Claw", 3, prof(), data(quests=[WEEKLY]), market())
+    assert v["verdict"] != "keep"
+
+
+def test_weekly_quest_in_log_keeps():
+    v = advisor.verdict("Lorang Claw", 3, prof(quests_active=[{"id": "506032", "name": "Donating to Henesys"}]),
+                        data(quests=[WEEKLY]), market())
+    assert v["verdict"] == "keep" and v["why"] == "Donating to Henesys: need 30, have 3"
+
+
+def test_quest_waiting_on_an_earlier_one_doesnt_keep():
+    assert advisor.verdict("Fragment of Magic", 2, prof(), data(quests=[NEEDS_EARLIER]), market())["verdict"] != "keep"
+    assert advisor.verdict("Fragment of Magic", 2, prof(quests_done=["80023"]), data(quests=[NEEDS_EARLIER]),
+                           market())["verdict"] == "keep"
