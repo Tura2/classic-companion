@@ -1,0 +1,40 @@
+name: Bug report
+description: Something works wrong or a window reads wrong
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Open ... 2. Tap ... 3. See ..."
+  - type: input
+    id: version
+    attributes:
+      label: Companion version
+      description: The release you downloaded, or "from source" with the commit
+    validations:
+      required: true
+  - type: input
+    id: setup
+    attributes:
+      label: Windows version, game resolution, display scaling
+      placeholder: "Windows 11, 1920x1080 borderless, 125%"
+  - type: checkboxes
+    id: modes
+    attributes:
+      label: Switches on
+      options:
+        - label: Screen reading
+        - label: Draw on game
+        - label: Discord
+  - type: textarea
+    id: files
+    attributes:
+      label: Pictures / logs
+      description: For a misread, attach debug/last_capture.png and debug/last_ocr.txt. Crop out other players' names and chat first.

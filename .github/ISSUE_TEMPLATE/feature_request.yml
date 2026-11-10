@@ -1,0 +1,21 @@
+name: Feature idea
+description: Something Companion could do
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do in game?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How could Companion help?
+  - type: checkboxes
+    id: rules
+    attributes:
+      label: Rules
+      options:
+        - label: This doesn't need game memory, input to the game, hooks or automation (see CONTRIBUTING.md)
+          required: true

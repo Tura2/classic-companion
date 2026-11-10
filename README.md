@@ -4,7 +4,9 @@ An unofficial helper for MapleStory Classic World: where to train, which quests 
 to wear, which skills to level, what to flip, and step-by-step routes between maps, in a
 browser dashboard on your PC (a second monitor works well).
 
-Not affiliated with or endorsed by Nexon.
+Not affiliated with or endorsed by Nexon. Free and open source under the [MIT license](LICENSE).
+
+[Website](https://tura2.github.io/classic-companion/) · [Download](https://github.com/Tura2/classic-companion/releases/latest) · [Contributing](CONTRIBUTING.md) · [Credits](CREDITS.md)
 
 ## Quick start
 **Windows app:** download `Companion.exe` from
@@ -245,3 +247,13 @@ data files in robots.txt and names crawlers and AI agents on a full disallow, so
 read here. maplestory.watch sits entirely behind a Cloudflare challenge. NiaDB (meowdb.com) asks
 tools to get permission before using its API or data files. Any of them can be added once its owner
 says yes.
+
+## Contributing
+Bug reports, reader samples and code are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md) for setup,
+the ground rules (Companion only ever looks: no memory, input, hooks or automation) and how to send
+a PR. Security problems: [SECURITY.md](SECURITY.md).
+
+## Credits and license
+Thanks to everyone in [CREDITS.md](CREDITS.md). Code: [MIT](LICENSE). Game images belong to Nexon,
+downloaded data keeps its own license (see Data sources).
+
