@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Companion for MapleStory Classic</title>
+<meta name="description" content="A free, open-source helper for MapleStory Classic World: where to train, which quests to do, what gear to wear, what to flip, and routes between maps.">
+<meta property="og:title" content="Companion for MapleStory Classic">
+<meta property="og:description" content="Training maps, quest guides, gear, skills, market prices and routes, in a browser dashboard beside the game. Free and open source.">
+<meta property="og:image" content="logo.png">
+<link rel="icon" href="logo.png">
+<style>
+:root{
+  --bg:#fbf8f3; --surface:#ffffff; --text:#1f1a14; --muted:#6b6257; --line:#e8e0d4;
+  --accent:#e0671b; --accent-ink:#ffffff; --msc:#2f6fd6; --cozy:#8a4fd1; --warn-bg:#fff4e5; --warn:#8a4b00;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#15120f; --surface:#1f1b17; --text:#f2ece4; --muted:#a69c90; --line:#342e27;
+    --accent:#ff8a3d; --accent-ink:#1a0f05; --msc:#6ea2ff; --cozy:#b88cff; --warn-bg:#2b2010; --warn:#ffc27a;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+a{color:var(--accent)}
+.wrap{max-width:1040px;margin:0 auto;padding:0 16px}
+header{padding:56px 0 40px;text-align:center}
+header img{width:96px;height:96px}
+h1{font-size:clamp(2rem,5vw,3rem);margin:12px 0 8px;line-height:1.15}
+.lead{font-size:1.15rem;color:var(--muted);max-width:640px;margin:0 auto 24px}
+.btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.btn{display:inline-block;padding:12px 22px;border-radius:10px;font-weight:600;text-decoration:none;border:1px solid var(--line);color:var(--text);background:var(--surface)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.small{font-size:.9rem;color:var(--muted)}
+section{padding:40px 0;border-top:1px solid var(--line)}
+h2{font-size:1.6rem;margin:0 0 20px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px}
+.card h3{margin:0 0 6px;font-size:1.05rem}
+.card p{margin:0;color:var(--muted);font-size:.95rem}
+.warn{background:var(--warn-bg);color:var(--warn);border-radius:12px;padding:16px 18px;margin-top:16px}
+.msc{color:var(--msc);font-weight:600}.cozy{color:var(--cozy);font-weight:600}
+ol{padding-left:1.2em}
+ul.credits{padding-left:1.2em}
+footer{padding:32px 0 48px;border-top:1px solid var(--line);color:var(--muted);font-size:.9rem;text-align:center}
+code{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:.9em}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <img src="logo.png" alt="Companion logo">
+  <h1>Companion</h1>
+  <p class="lead">A free helper for MapleStory Classic World: where to train, which quests to do, what gear to wear, which skills to level, what to flip, and routes between maps, in a dashboard beside the game.</p>
+  <div class="btns">
+    <a class="btn primary" href="https://github.com/Tura2/classic-companion/releases/latest">Download for Windows</a>
+    <a class="btn" href="https://github.com/Tura2/classic-companion">Source on GitHub</a>
+  </div>
+  <p class="small">Free and open source (MIT). Unofficial: not affiliated with or endorsed by Nexon.</p>
+</header>
+
+<section>
+  <h2>What it does</h2>
+  <div class="grid">
+    <div class="card"><h3>Now</h3><p>The route you're on, where your next SP and AP go, and the best map for your level, on one narrow screen.</p></div>
+    <div class="card"><h3>Train</h3><p>Maps for your level ranked by EXP per HP and spawns, with the ACC you need.</p></div>
+    <div class="card"><h3>Quests &amp; quest guide</h3><p>What you can take now, where the NPC stands, what to kill and where, step by step, with rewards and their market value.</p></div>
+    <div class="card"><h3>Go to</h3><p>Routes between maps, with the next portal circled on the real map picture.</p></div>
+    <div class="card"><h3>Gear &amp; skills</h3><p>Best equips for your job and level with prices, and an SP order from each job's class guide.</p></div>
+    <div class="card"><h3>Prices</h3><p>Two market sources side by side, <span class="msc">MSC</span> and <span class="cozy">Cozy</span>, with snipe / fair / pricey verdicts only when both agree.</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>Safe by default</h2>
+  <p>Out of the box Companion only uses public game data and market prices. It doesn't touch the game, read your screen, install keyboard hooks, or even look for the game window.</p>
+  <p>Screen reading and drawing on the game are two separate switches, both off. When on, it only captures the game window (the same Windows API OBS uses). Never game memory, files, injection or input.</p>
+  <div class="warn"><strong>Risk, stated plainly:</strong> Nexon's terms ban unauthorized third-party software, and no tool like this is authorized. A ban applies to Classic World and Global MapleStory. Screen reading is at your own risk; the app asks you to confirm before it turns on.</div>
+</section>
+
+<section>
+  <h2>Get started</h2>
+  <ol>
+    <li>Download <code>Companion.exe</code> from <a href="https://github.com/Tura2/classic-companion/releases/latest">the latest release</a> and put it in its own folder.</li>
+    <li>Run it. Windows may say "Windows protected your PC" (the exe isn't signed): <strong>More info</strong> → <strong>Run anyway</strong>.</li>
+    <li>The dashboard opens at <code>http://localhost:8765</code>. A short setup asks for your job and level.</li>
+  </ol>
+  <p class="small">Prefer source? Install Python 3.10+, then run <code>run.bat</code>.</p>
+</section>
+
+<section>
+  <h2>Contribute</h2>
+  <div class="grid">
+    <div class="card"><h3>Report a bug</h3><p>Something reads wrong? <a href="https://github.com/Tura2/classic-companion/issues/new/choose">Open an issue</a> with the picture from <code>debug/</code> (crop names first).</p></div>
+    <div class="card"><h3>Suggest a feature</h3><p>Tell us what you're trying to do in game and how Companion could help.</p></div>
+    <div class="card"><h3>Send code</h3><p>Fork, branch, add a test, open a PR. Read <a href="https://github.com/Tura2/classic-companion/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a> first: Companion only ever looks.</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>Credits</h2>
+  <ul class="credits">
+    <li>Game data: <a href="https://github.com/ohmi69/osms_datamine_dashboard">OSMS Data Explorer</a> by ohmi69 (MIT)</li>
+    <li>Prices: <a href="https://maplestory-classic.com">maplestory-classic.com</a> and <a href="https://cozy.markets">Cozy Market</a></li>
+    <li>ACC values and class guides: <a href="https://meowdb.com/msclassic">NiaDB</a></li>
+    <li>Quest steps and drops: <a href="https://classicmaple.wiki">Classic Maple Wiki</a> contributors and <a href="https://mapleclassic.wiki">MapleClassic Wiki</a> (CC BY-NC-SA 4.0)</li>
+    <li>Everyone in <a href="https://github.com/Tura2/classic-companion/graphs/contributors">the contributors list</a>. Full list in <a href="https://github.com/Tura2/classic-companion/blob/main/CREDITS.md">CREDITS.md</a>.</li>
+  </ul>
+</section>
+</div>
+<footer>
+  <div class="wrap">Made by <a href="https://github.com/Tura2">@Tura2</a> and contributors · <a href="https://github.com/Tura2/classic-companion/blob/main/LICENSE">MIT license</a><br>MapleStory and its game images belong to Nexon. Companion is an unofficial fan tool.</div>
+</footer>
+</body>
+</html>
