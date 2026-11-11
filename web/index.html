@@ -1016,13 +1016,13 @@ function grindCard(gr, g){
     return win(`${itemIcon(4000001, 22)} Grind`, `<div class="body"><p style="margin:0">Companion can't read the EXP on your HUD yet: its digits are new to it.
       Open <b>Character Stat (S)</b> and kill a few monsters; it learns every digit in about a minute.</p>${best}</div>`);
   const pct = n.pct != null ? Math.min(100, n.pct) : null;
-  const rate = n.exp_hr_5m ?? n.exp_hr, q = n.pq, up = n.level ? n.level + 1 : "up";
+  const rate = n.exp_hr, q = n.pq, up = n.level ? n.level + 1 : "up";
   const strip = q ? `<div class="gstrip">
         <div><b>${dur(q.run_secs)}</b><span>this run · +${fmt(q.run_exp)} EXP</span></div>
         <div><b>${q.avg_exp != null ? fmt(q.avg_exp) : "—"}</b><span>EXP a run · ${q.runs} today</span></div>
         <div><b>${q.runs_to_level ?? "—"}</b><span>runs to level ${up}</span></div></div>`
     : `<div class="gstrip">
-        <div><b>${perHr(rate)}</b><span>EXP / hour killing</span></div>
+        <div><b>${perHr(rate)}</b><span>EXP / hour, breaks left out</span></div>
         <div><b>${dur(n.ttl_s)}</b><span>to level ${up}</span></div>
         <div><b>${dur(n.active_s)}</b><span>grinding</span></div></div>`;
   const icon = (d, word) => `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">${d}</svg> ${word}`;
@@ -1084,7 +1084,7 @@ async function renderLive(){
   const [next, gr, h] = await Promise.all([loadNextUp().catch(() => null), api("/api/grind").catch(() => null), loadHere()]);
   if (tab !== "live") return;
   // rebuild only when what's shown changes, so nothing flickers and a page of drops stays put
-  const key = JSON.stringify([on, gr && gr.now && [Math.round((gr.now.exp_hr_5m ?? gr.now.exp_hr ?? 0) / 100), gr.now.ttl_s && Math.round(gr.now.ttl_s / 60),
+  const key = JSON.stringify([on, gr && gr.now && [Math.round((gr.now.exp_hr ?? 0) / 100), gr.now.ttl_s && Math.round(gr.now.ttl_s / 60),
     gr.now.paused, gr.now.no_reset, gr.now.map, gr.now.gained, gr.now.exp == null, gr.now.pq && [gr.now.pq.runs, gr.now.pq.run_exp]],
     gr && gr.best, (g.windows || {}).hud ? 1 : 0, g.level_hint, state.nav && [state.nav.i, state.nav.to.id], h && h.id, next && next.at]);
   if (key === liveKey && $(".now2")) return;
