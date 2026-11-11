@@ -263,6 +263,29 @@ def match_place(text, names, cutoff):
     return best[1] if best else None
 
 
+class MapMove:
+    """Where you are, from the mini map titles read one after another: a move counts once
+    GameData.reads_to_move reads in a row name the new map. A read of the map you're on starts the
+    count over; a title that named no map (a loading screen, a window over it) leaves it be."""
+
+    def __init__(self):
+        self.next, self.count = None, 0
+
+    def read(self, data, cur, mid):
+        """One read naming map `mid` (None: none) while you're on `cur`. True: you moved to `mid`."""
+        if mid is None:
+            return False
+        if mid == cur:
+            self.next, self.count = None, 0
+            return False
+        self.count = self.count + 1 if mid == self.next else 1
+        self.next = mid
+        if self.count >= data.reads_to_move(cur, mid):
+            self.next, self.count = None, 0
+            return True
+        return False
+
+
 # ---------------------------------------------------------------- market prices
 class Market:
     def __init__(self, force=False):
@@ -837,6 +860,19 @@ class GameData:
         return out
 
     # ---- navigation
+    def reads_to_move(self, cur, new):
+        """How many mini map reads in a row must name `new` before you count as moved there from
+        `cur`. Through a portal: 2. A map one stroke off yours (VI and VII, I and II): 4, since a stray
+        stroke after the numeral reads the same (2026-11-09: East Rocky Mountain VI read as VII for
+        two or three reads at a time). Anywhere else (a return scroll, a taxi, or a misread): 3."""
+        a, b = (self.maps.get(cur) or {}).get("name"), (self.maps.get(new) or {}).get("name")
+        if not a or not b:
+            return 2
+        na, nb = name_number(a), name_number(b)
+        if na and nb and na[:1] != "<" and nb[:1] != "<" and a[:-len(na)] == b[:-len(nb)]                 and (na.startswith(nb) or nb.startswith(na)):
+            return 4
+        return 2 if new in self.graph.get(cur, {}) else 3
+
     def map_info(self, mid):
         m = self.maps.get(mid, {})
         return {"id": mid, "name": m.get("name", "?"), "street": m.get("street_name") or m.get("region", ""),

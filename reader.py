@@ -785,7 +785,7 @@ def title_lines(lines):
     return (text[-2] if len(text) > 1 else None), text[-1]
 
 
-def read_minimap(lines, frame, s, map_names):
+def read_minimap(lines, frame, s, map_names, streets=None):
     """(street, map name, title box, collapsed) from the mini map's title. Open, it's two stacked
     lines, the street over the map name; collapsed, one bar along the top ("Street : Map"). Read
     closer up and matched against the game's maps; all None if no mini map is showing. The title
@@ -809,13 +809,13 @@ def read_minimap(lines, frame, s, map_names):
         street, last = title_lines(read_box(frame, box, s))
         if street is None:
             continue
-        name = match_place(last, map_names, 86)
+        name = title_map(street, last, map_names, streets)
         score = fuzz.ratio(fix_numeral(last), name) if name else 0
         if name and (best is None or score > best[0]):
             best = (score, street, name, [round(v) for v in box])
     if best:
         return best[1], best[2], best[3], False
-    return read_minimap_bar(lines, frame, s, map_names)
+    return read_minimap_bar(lines, frame, s, map_names, streets)
 
 
 def _text_box(lines, s, left=24, right=40, below=5):
@@ -828,7 +828,22 @@ def _text_box(lines, s, left=24, right=40, below=5):
 MISSED = {"text": None}   # the last mini map title read close up that named no map (for the log)
 
 
-def read_minimap_at(frame, title, s, map_names, buttons=None):
+def title_map(street, last, map_names, streets=None):
+    """The map a mini map title names: its last row matched to the game's maps. `streets` maps each
+    map name that is also a street's name to that map's own street. Such a name counts only under
+    its own street: "Victoria Road", the street of most of Victoria Island, is one map's name in the
+    data too, and the street line read alone (or under the "MINI MAP" title, by the 1x fallback)
+    moved you there every few seconds (2026-11-09, East Rocky Mountain VI)."""
+    from rapidfuzz import fuzz
+    name = match_place(last, map_names, 86)
+    if name and streets and name in streets:
+        own = streets[name]
+        if not street or not own or fuzz.ratio(street.lower(), own.lower()) < 80:
+            return None
+    return name
+
+
+def read_minimap_at(frame, title, s, map_names, buttons=None, streets=()):
     """(street, map name, title box, False) of the open mini map whose "MINI MAP" title (found by
     its picture) is `title`: its two lines under the title, read close up. The window's own
     "– + WORLD" buttons, when found, mark its right edge (8 px past them), so a window beside the
@@ -839,7 +854,7 @@ def read_minimap_at(frame, title, s, map_names, buttons=None):
     if not lines:
         return None, None, None, None
     street, last = title_lines(lines)
-    name = match_place(last, map_names, 86)
+    name = title_map(street, last, map_names, streets)
     if not name:
         MISSED["text"] = last
         return None, None, None, None
@@ -849,20 +864,20 @@ def read_minimap_at(frame, title, s, map_names, buttons=None):
 BAR_SPLIT = re.compile(r"\s*[:•·]\s*")
 
 
-def read_minibar_at(frame, buttons, s, map_names):
+def read_minibar_at(frame, buttons, s, map_names, streets=None):
     """(street, map name, bar box, True) of the collapsed mini map, from the bar's text left of its
     "– + WORLD" buttons (found by their picture), read close up. All None if it names no map."""
     bx, by, _, bh = buttons[1:]
     lines = read_box(frame, (bx - 470 * s, by - 4 * s, bx, by + bh + 4 * s), s)
     parts = BAR_SPLIT.split(" : ".join(ln[0] for ln in lines), maxsplit=1)
-    name = match_place(parts[1], map_names, 86) if len(parts) == 2 else None
+    name = title_map(parts[0].strip(), parts[1], map_names, streets) if len(parts) == 2 else None
     if not name:
         MISSED["text"] = parts[-1].strip() or None
         return None, None, None, None
     return parts[0].strip(), name, _text_box(lines, s, 0, 0, 0), True
 
 
-def read_minimap_bar(lines, frame, s, map_names):
+def read_minimap_bar(lines, frame, s, map_names, streets=None):
     """The collapsed mini map: a bar at the top reading "Victoria Road : Lith Harbor Weapon Shop".
     The OCR gives it as one line, as one line with the colon read as a dot, or as two pieces on the
     same row."""
@@ -874,7 +889,7 @@ def read_minimap_bar(lines, frame, s, map_names):
         parts = BAR_SPLIT.split(" : ".join(b[0] for b in row), maxsplit=1)
         if len(parts) < 2:
             continue
-        hit = match_place(parts[1], map_names, 86)
+        hit = title_map(parts[0].strip(), parts[1], map_names, streets)
         if hit:
             box = [round(min(b[1] for b in row)), round(min(b[2] for b in row)),
                    round(max(b[1] + b[3] for b in row)), round(max(b[2] + b[4] for b in row))]
@@ -1222,6 +1237,10 @@ class Reader:
         self.skill_names = sorted({s["name"] for fam, groups in data.skills.items() if isinstance(groups, list)
                                    for g in groups if isinstance(g, dict) for s in g.get("skills", [])})
         self.map_names = sorted({m["name"].strip() for m in data.maps.values() if m.get("name")})
+        streets = {m["street_name"].strip() for m in data.maps.values() if m.get("street_name")}
+        # map names that are also streets, with each one's own street (title_map)
+        self.street_names = {m["name"].strip(): (m.get("street_name") or "").strip() for m in data.maps.values()
+                             if m.get("name") and m["name"].strip() in streets}
         self.item_names = sorted(set(data.item_ids) | set(data.market.names))
         from gamedata import JOBS
         self.job_names = list(JOBS)
@@ -1327,12 +1346,13 @@ class Reader:
         mt, street, name = self.map_titles, None, None
         MISSED["text"] = None
         if "minimap" in mt:
-            street, name, title, collapsed = read_minimap_at(frame, mt["minimap"], s, self.map_names, mt.get("minibar"))
+            street, name, title, collapsed = read_minimap_at(frame, mt["minimap"], s, self.map_names, mt.get("minibar"),
+                                                             self.street_names)
         elif "minibar" in mt:
-            street, name, title, collapsed = read_minibar_at(frame, mt["minibar"], s, self.map_names)
+            street, name, title, collapsed = read_minibar_at(frame, mt["minibar"], s, self.map_names, self.street_names)
         if not name:
             street, name, title, collapsed = read_minimap([ln for ln in lines if ln[2] < frame.height * 0.9], frame,
-                                                          s, self.map_names)
+                                                          s, self.map_names, self.street_names)
         if not name and MISSED["text"]:
             seen["map_missed"] = MISSED["text"]
         if name:

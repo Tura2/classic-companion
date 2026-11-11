@@ -102,7 +102,8 @@ class Grind:
         self.s_t0 = now              # when the session began watching, for the clock pace
         self.minutes = {}            # minute (epoch // 60) -> EXP gained in it, for the chart
         self.events = []             # (ts, gain, active seconds before it, lump), for the rates
-        self.last_gain = None
+        self.last_gain = None        # the last gain that counted as killing (runs the clock)
+        self.last_any = None         # the last gain of any kind, lumps too (tells a break)
         self.last_tick = now
 
     def _new_segment(self, now, level):
@@ -181,7 +182,12 @@ class Grind:
         self.last = read
         if gain <= 0 or self.paused:
             return 0
-        resumed = self.last_gain is None or now - self.last_gain > IDLE
+        # a break is measured from the last gain of any kind: at a low level every kill is over
+        # LUMP_SHARE of the level, and measured from the last killing gain each kill would be a
+        # lump after a "break", so the clock never started (0 s, no EXP/hr). Now only the first
+        # gain after a real break can be a lump.
+        resumed = self.last_any is None or now - self.last_any > IDLE
+        self.last_any = now
         need = self.need or need_of(exp, pct) or 0
         lump = resumed and gain > LUMP_SHARE * need     # a quest turned in, not a kill
         if lump:
