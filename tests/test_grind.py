@@ -101,6 +101,23 @@ def test_the_five_minute_rate_is_over_five_minutes_of_grinding(tmp_path):
     assert abs(s["ttl_s"] - (NEED - 60500) / clock * 3600) < 120
 
 
+def test_low_level_kills_are_not_lumps(tmp_path):
+    """At a low level one kill is over 1% of the level. Only the first gain after a break may be
+    a lump: the kills that follow it are killing pace, and the clock runs."""
+    g = tracker(tmp_path)
+    need = 4000
+    t = 0.0
+    for i in range(60):                                       # +50 EXP (1.25% of the level) every 6 s
+        e = 200 + 50 * i
+        for _ in range(3):
+            g.update(e, pct(e, need), 10, 1, "Snail Park", t)
+            t += 2.0
+    s = g.summary(t)
+    assert s["active_s"] > 300
+    assert abs(s["exp_hr"] - 30000) / 30000 < 0.05           # 50 EXP every 6 s
+    assert abs(s["exp_hr_5m"] - 30000) / 30000 < 0.05
+
+
 def test_time_to_level_by_the_clock_counts_idle_minutes(tmp_path):
     g = tracker(tmp_path)
     t = feed(g, [50000 + 100 * i for i in range(51)])        # 5 minutes at 60K/hr
