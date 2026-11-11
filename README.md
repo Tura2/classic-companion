@@ -25,26 +25,34 @@ that prices loaded, offers screen reading (off unless you tick it, with the risk
 the game window and its resolution, and ends with how to use it. The **?** button at the top, or
 Settings → How to use, opens that how-to again.
 
-The dashboard is built to sit in a narrow window beside the game: the **Now** tab shows what matters
-mid-game on one screen (the route, an open shop's prices, Quest Helper counts, where your next SP and
-AP go, the best map to train on), and every tab fits without scrolling the page.
+The dashboard is built to sit beside the game and look like the game's own windows: item pictures
+as icons, the game's Map Marks and portals, Classic's Equipment Inventory. Now, Go to, Gear and
+Skills fit the window without scrolling the page; long lists turn pages with the game's orange
+arrows. In a small or zoomed-in window the columns stack and the page scrolls instead.
 
 ## Safe by default
 Out of the box the app only uses public game data and market prices. It does not touch the game,
 read your screen, install keyboard hooks, or even look for the game window. Everything below works
 in this mode:
 
-- **Now**: the route you're on, where your next SP and AP go, and the best map for your level.
+- **Now**: your grind (EXP an hour, time to level, EXP a minute, your 3 best maps by EXP an hour in
+  your last 5 levels), what's next (map, SP, AP, the route you're on), and the map you're on: its
+  monsters and everything they drop, most valuable on the market first.
 - **Train**: maps for your level, ranked by EXP per HP and spawns, with ACC needed.
 - **Quests**: what you can take now, where the NPC stands, what to kill and where, items you
   can buy instead of farming, and rewards with their market value. Tap Done to unlock chains.
-- **Go to**: routes between maps, with the next portal circled on the real map picture.
+- **Go to**: where you are (its monsters, or in a town the people there: tap one to see them on the
+  map), quick picks (towns, maps to train, recent places), and routes between maps on the real map
+  picture with the game's own portals drawn and labelled, the one to take in a red ring.
   Tap "I went through" after each portal. The picture opens zoomed on the circled portal or NPC;
   drag it, zoom with the wheel or +/-, or see the whole map. Each map's picture is downloaded once,
   shrunk to 4096 px on its longest side and kept in `cache/maps/`, and a route's maps are fetched
   ahead one at a time, so each step's map is there when you reach it.
-- **Gear**: best equips for your job and level, with snipe and median market prices.
-- **Skills**: what each skill does at level 1 and at max, your plan, and where your next SP and AP
+- **Gear**: Classic's Equipment Inventory with the best item for your job and level in each slot;
+  hover one for the game's tooltip (requirements in red when you're short, jobs, stats, upgrade
+  slots, snipe and usual prices). The whole set's cost beside your mesos.
+- **Skills**: a skill window with a tab per job you have; your next 3 skill points; what each skill
+  does at level 1 and at max, your plan, and where your next SP and AP
   go. The SP order comes from the class guide for each job (`builds.json`, made by
   `tools/make_builds.py`); AP goes into your secondary stat while a weapon you'll want soon needs
   it, otherwise into your main stat.
@@ -102,8 +110,13 @@ Settings has two separate switches, both off by default:
      While a shop is open only its list is re-read, about three times a second.
      Each listed item is read with its price ("1 for 4,500 mesos", bundles too), judged against the
      market, and logged with the seller's name; sold-out rows are skipped. Scroll the shop's list
-     and the rest come in. Everything lands in **Shops**, a grid like your inventory with
-     each item's picture, the cheapest price you saw, where, and what it's worth. If a shop window
+     and the rest come in. Everything lands in **Shops → Shops you visited**, a grid like your
+     inventory with each item's picture, the cheapest price you saw, where, and what it's worth.
+   - Items you hover in your inventory: **Shops → Sell or keep**, an inventory window with tabs (Free
+     Market, NPC, Keep, Not sure), the game's tooltip with the reason, and what your bag is worth. It
+     keeps the last 48 items. An item is kept for a quest only when the quest is in your log, or is a
+     one-time quest near your level whose earlier quests you've done (never for a weekly board quest
+     not in your log); "Done with this quest" fixes a quest Companion missed. If a shop window
      can't be read, the app saves a picture of it to `debug/samples/` so the reader can be fixed
      (the newest 30 are kept).
 
@@ -236,6 +249,11 @@ goes twice). Nothing is uploaded anywhere unless you connect Discord; then only 
   `python tools/scrape_cozy.py --refresh` fetches every price again (about 5 minutes). Without the
   file the app works on maplestory-classic.com alone.
 - ACC to never miss: NiaDB's Classic accuracy values (meowdb.com/msclassic), interpolated.
+- Every monster's drop list (This map on Now): MapleClassic Wiki (mapleclassic.wiki), CC BY-NC-SA 4.0,
+  via Club FM's public data (github.com/maplefm/maplefm.github.io, `data/itemguide.json`), credited
+  under the list. Rates only where players counted them; optional, the app runs without it.
+- The game's portal picture: maplestory.io (Map.wz/MapHelper.img/portal/game/pv), fetched once and
+  kept in `cache/portal.webp`. Classic's Equipment Inventory picture is bundled (`web/equip_classic.png`).
 - Quest steps, who takes each quest back, and monster drops: Classic Maple Wiki contributors
   (classicmaple.wiki/data), much of it from MapleClassic Wiki (mapleclassic.wiki), CC BY-NC-SA 4.0.
   Downloaded and refreshed like the game data, reformatted for the dashboard, credited with links

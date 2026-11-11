@@ -184,12 +184,18 @@ def handle_grind(app, seen, prof):
         g.mesos(seen["inventory"]["mesos"], now)
 
 
+HOVER_KEEP = 48     # items Sell or keep remembers
+
+
 def note_hovered(state, tips):
     """Remember each item hovered this session, for the dashboard's Sell or keep list."""
     seen = state.setdefault("hovered", {})
     for t in tips or []:
         if t.get("name"):
+            seen.pop(t["name"], None)       # hovered again: it moves to the newest end
             seen[t["name"]] = {"ts": time.time(), "untradable": bool(t.get("untradable"))}
+    for old in list(seen)[:-HOVER_KEEP]:  # only the newest few, so the list never grows without end
+        del seen[old]
 
 
 def handle_myshop(app, seen, now):

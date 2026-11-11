@@ -32,6 +32,8 @@ OSMS = "https://raw.githubusercontent.com/ohmi69/osms_datamine_dashboard/main/da
 # contributors (classicmaple.wiki), much of it from MapleClassic Wiki (mapleclassic.wiki), under
 # CC BY-NC-SA 4.0. Reformatted here; credited with links wherever it's shown.
 WIKI = "https://classicmaple.wiki/data/"
+# Every monster's drop list (rates only where players counted them), from MapleClassic Wiki via Club FM
+CLUBFM = "https://raw.githubusercontent.com/maplefm/maplefm.github.io/live/data/itemguide.json"
 MARKET_URL = "https://maplestory-classic.com/market.json"
 UA = {"User-Agent": "companion/1.0 (personal use)"}
 
@@ -101,6 +103,58 @@ def read_cache(path):
     """A cached download, or None when it's missing or damaged (a crash mid-write, a full disk)."""
     try:
         return json.loads(path.read_text("utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def load_drops(guide):
+    """Club FM's item guide -> {monster id: [{"item", "rate"}]}. A row is [monster, level, rate or None,
+    kills, map, ?, monster id]."""
+    out = {}
+    for item, entry in (guide.get("items") or {}).items():
+        for row in entry.get("d") or []:
+            if len(row) > 6 and row[6] is not None:
+                out.setdefault(int(row[6]), []).append({"item": item, "rate": row[2]})
+    return out
+
+
+def single_points(steps, now, n=3):
+    """The next n skill points one by one, in the class guide's order: steps are (level, skill, level to
+    reach), now is your skill levels in the game."""
+    at, out = dict(now or {}), []
+    for lv, skill, to in steps:
+        while (at.get(skill) or 0) < to and len(out) < n:
+            f = at.get(skill) or 0
+            out.append({"skill": skill, "from": f, "to": f + 1, "level": lv})
+            at[skill] = f + 1
+    return out
+
+
+# The game's portal (the blue swirl), 8 frames from the game files, each with the point that sits on the ground
+PORTAL_URL = "https://maplestory.io/api/wz/GMS/83/Map/MapHelper.img/portal/game/pv/{n}"
+PORTAL_FRAMES = 8
+PORTAL_RETRY = 600      # seconds before trying the download again after it failed
+
+
+def compose_frames(frames):
+    """[(picture, (origin x, y))] -> (pictures on one canvas with every origin at the same spot, that spot)."""
+    left = max(ox for _, (ox, oy) in frames)
+    top = max(oy for _, (ox, oy) in frames)
+    w = left + max(im.width - ox for im, (ox, oy) in frames)
+    h = top + max(im.height - oy for im, (ox, oy) in frames)
+    from PIL import Image
+    out = []
+    for im, (ox, oy) in frames:
+        c = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        c.paste(im, (left - ox, top - oy))
+        out.append(c)
+    return out, (left, top)
+
+
+def portal_meta():
+    """{"anchor": [x, y], "size": [w, h]} of the kept portal picture, or None."""
+    try:
+        return json.loads((CACHE / "portal.json").read_text("utf-8"))
     except (OSError, ValueError):
         return None
 
@@ -331,6 +385,13 @@ class GameData:
         self.equip_names = {i["name"] for i in self.equips if i.get("name")}
         self.item_ids = {i["name"]: int(i["id"]) for i in items["items"] + items.get("scrolls", [])
                          if i.get("name") and i.get("id")}
+        self.scroll_rates = {s["name"]: s["success_rate"] for s in items.get("scrolls", [])
+                             if s.get("name") and s.get("success_rate") is not None}
+        try:            # optional: without it, the map you're on shows its monsters and no drops
+            self.drops_by_mob = load_drops(fetch_json(CLUBFM, "clubfm_itemguide.json", age))
+        except (Exception, SystemExit) as e:
+            print("Drop lists unavailable:", e)
+            self.drops_by_mob = {}
         self.skills = fetch_json(OSMS + "current/skills.json", "skills.json", age)
         maps = fetch_json(OSMS + "current/maps.json", "maps.json", age)
         portals = fetch_json(OSMS + "current/portals.json", "portals.json", age)
@@ -655,7 +716,8 @@ class GameData:
             price = self.market.items.get(it["name"])
             cozy = (self.market.cozy.get(it["name"]) or {}).get("price")
             entry = {
-                "name": it["name"], "slot": slot, "req": req, "soon": req > level, "score": round(score, 1),
+                "name": it["name"], "id": int(it["id"]), "job": it.get("req_job_label", "All"),
+                "speed_n": st.get("attackSpeed"), "slot": slot, "req": req, "soon": req > level, "score": round(score, 1),
                 "weapon_type": it.get("weapon_type"), "speed": it.get("attack_speed_label"),
                 "stats": {k: v for k, v in st.items() if k.startswith("inc") or k in ("tuc",)},
                 "reqs": {k[3:]: v for k, v in st.items() if k.startswith("req") and k not in ("reqLevel", "reqJob") and v},
@@ -677,12 +739,19 @@ class GameData:
             soon = [e for e in xs if e["soon"]][:2]
             if now or soon:
                 out.append({"slot": slot, "now": now, "soon": soon})
-        return {"main": main, "sub": sub, "slots": out}
+        # an Overall instead of a top and a bottom only when it beats the best of both together
+        best = {s["slot"]: (s["now"] or s["soon"])[0]["score"] for s in out if s["now"] or s["soon"]}
+        overall = best.get("Overall", 0) > best.get("Top", 0) + best.get("Bottom", 0)
+        return {"main": main, "sub": sub, "slots": out, "overall_instead": overall}
 
     # ---- skills
-    def skill_list(self, job):
+    def skill_list(self, job, with_beginner=False):
+        """Your job's skills; with_beginner puts the Beginner skills first too (the Skills window's tabs)."""
         fam, _, groups = JOBS.get(job, JOBS["Beginner"])
-        src = self.skills.get(fam or "beginner", [])
+        src = list(self.skills.get(fam or "beginner", []))
+        if with_beginner and fam:
+            src = self.skills.get("beginner", []) + src
+            groups = ["Beginner"] + list(groups)
         out = []
         for g in src:
             if g["class_name"] not in groups:
@@ -717,7 +786,7 @@ class GameData:
                     "first": stats[0] if stats else "", "maxed": stats[-1] if stats else "",
                     "img": f"{OSMS}current/{s['thumbnail']}" if s.get("thumbnail") else None,
                 })
-        out.sort(key=lambda s: (s["tier"], s["prio"]))
+        out.sort(key=lambda s: (s["job"] != "Beginner", s["tier"], s["prio"]))
         return out
 
 
@@ -742,7 +811,8 @@ class GameData:
                     sp[-1]["to"] = to                  # one line per run of points into one skill
                 elif len(sp) < 4:
                     sp.append({"skill": skill, "from": now.get(skill) or 0, "to": to, "level": lv})
-        out = {"sp": sp, "plan_now": by_level, "known": bool(now), "sources": [p["source"] for p in plans]}
+        out = {"sp": sp, "sp3": single_points(steps, now) if now else [], "plan_now": by_level, "known": bool(now),
+               "sources": [p["source"] for p in plans]}
         # the guides' level-by-level tables: yours, and for a first job the second jobs to pick at 30
         _, _, all_groups = JOBS.get(job, JOBS["Beginner"])
         nxt = [j for j, (_, _, g) in JOBS.items() if len(g) == 2 and g[0] == job]
@@ -928,6 +998,73 @@ class GameData:
             "mobs": [{"x": q["x"], "y": q["y"]} for q in (m.get("mob_positions") or [])],
             "npcs": [{"x": q["x"], "y": q["y"], "name": self.npc_names.get(q["id"], "")} for q in (m.get("npc_positions") or [])],
         }
+
+    def portal_sprite(self):
+        """The game's portal as an animated picture on disk, built once from its frames; None when they
+        can't be downloaded (the map then rings portals without the sprite)."""
+        path = CACHE / "portal.webp"
+        if path.exists() and portal_meta():
+            return path
+        if time.time() - getattr(self, "_portal_failed", 0) < PORTAL_RETRY:
+            return None                     # it just failed: try again later, not on every request
+        try:
+            import base64
+            import io
+            from PIL import Image
+            frames = []
+            for n in range(PORTAL_FRAMES):
+                url = PORTAL_URL.format(n=n)
+                r = requests.get(url, timeout=10, headers=UA)
+                r.raise_for_status()
+                im = Image.open(io.BytesIO(base64.b64decode(r.json()["value"]))).convert("RGBA")
+                o = requests.get(url + "/origin", timeout=10, headers=UA)
+                o.raise_for_status()
+                frames.append((im, (int(o.json()["value"]["x"]), int(o.json()["value"]["y"]))))
+            pics, anchor = compose_frames(frames)
+            tmp = path.with_name("portal.tmp.webp")
+            pics[0].save(tmp, save_all=True, append_images=pics[1:], duration=110, loop=0, lossless=True)
+            os.replace(tmp, path)
+            (CACHE / "portal.json").write_text(json.dumps({"anchor": list(anchor), "size": list(pics[0].size)}), "utf-8")
+            return path
+        except Exception as e:
+            print("Portal picture unavailable:", e)
+            self._portal_failed = time.time()
+            return None
+
+    def here(self, mid):
+        """The map you're on, for Now and Go to: its monsters, every item they drop (most valuable on
+        the market first, unpriced last), its NPCs with what they do, and where its portals lead."""
+        m = self.maps.get(mid, {})
+        mobs = []
+        for mob in self.monsters:
+            spot = next((x for x in mob.get("maps") or [] if x.get("id") == mid), None)
+            if spot:
+                mobs.append({"id": mob.get("id"), "name": mob["name"], "level": mob.get("level"),
+                             "count": spot.get("count"), "exp": mob.get("exp"), "img": self.mob_img(mob.get("id"))})
+        drops, seen = [], set()
+        for mob in mobs:
+            for d in self.drops_by_mob.get(mob["id"], []):
+                if d["item"] in seen:
+                    continue
+                seen.add(d["item"])
+                price = (self.market.items.get(d["item"]) or {}).get("p")
+                drops.append({"item": d["item"], "img": self.item_img(d["item"]), "from": mob["name"],
+                              "rate": d["rate"], "price": price, "success": self.scroll_rates.get(d["item"])})
+        drops.sort(key=lambda d: -(d["price"] or -1))
+        givers = {q.get("npc_id") for q in self.quest_list}
+        npcs = []
+        for p in m.get("npc_positions") or []:
+            name = self.npc_names.get(p["id"], "")
+            role = "Taxi" if "Cab" in name else "Quests" if p["id"] in givers else None
+            npcs.append({"id": p["id"], "name": name, "x": p["x"], "y": p["y"], "role": role,
+                         "img": f"{OSMS}current/images/npcs/{int(p['id']):07d}.png"})
+        portals = [{"x": p["x"], "y": p["y"], "to": self.maps[int(p["dest_map"])]["name"], "to_id": int(p["dest_map"])}
+                   for p in self.portals.get(mid, []) if int(p.get("dest_map") or 0) in self.maps
+                   and int(p["dest_map"]) != mid]
+        mark = m.get("map_mark")
+        return {"id": mid, "name": m.get("name", "?"), "street": m.get("street_name") or m.get("region", ""),
+                "town": bool(m.get("is_town")), "mark": f"{OSMS}current/images/map_marks/{mark}.png" if mark else None,
+                "mobs": mobs, "drops": drops, "drops_ok": bool(self.drops_by_mob), "npcs": npcs, "portals": portals}
 
 
     # ---- quests

@@ -5,7 +5,8 @@ Sell or keep: one verdict per item in your inventory, from data only (no screen 
 
 verdict is "keep", "npc" (sell to an NPC), "fm" (sell on the Free Market), "drop" (untradable and
 no NPC buys it) or "unknown". price is per item, or None. Rules, first match wins: you starred it;
-a quest you have going needs it; a quest you can take within LEVELS_AHEAD levels needs it; gear
+a quest you have going needs it; a one-time quest you can take within LEVELS_AHEAD levels (its earlier
+quests done) needs it; gear
 you'll wear; untradable; then the NPC price against the Free Market's (after its 3% fee). Nothing
 is guessed: a price no source gives is said to be unknown.
 """
@@ -31,6 +32,18 @@ def _quest_need(name, q):
         if r.get("type") == "item" and r.get("name") == name:
             return r.get("count") or 1
     return None
+
+
+def _rotating(q):
+    """A weekly board quest, one of a pool picked each week: only worth keeping for once it's in your log."""
+    rot = q.get("rotation") or {}
+    return bool(rot) and rot.get("one_time") is False
+
+
+def _earlier_done(q, done):
+    """Every quest this one needs finished first is done."""
+    return all(str(r.get("id")) in done for r in q.get("requirements_list") or []
+               if r.get("type") == "quest" and r.get("state") == 2)
 
 
 def _fm_price(name, market):
@@ -79,13 +92,14 @@ def verdict(name, count, profile, data, market, untradable=False):
         q = by_id.get(qid)
         need = q and _quest_need(name, q)
         if need:
-            return keep(f"{q['name']}: need {need}" + (f", have {count}" if known else ""))
+            return {**keep(f"{q['name']}: need {need}" + (f", have {count}" if known else "")), "quest_id": str(q["id"])}
     level = int(profile.get("level") or 1)
     soon = [q for q in data.quest_list if str(q.get("id")) not in done and str(q.get("id")) not in active
-            and (q.get("level_min") or 0) <= level + LEVELS_AHEAD and _quest_need(name, q)]
+            and (q.get("level_min") or 0) <= level + LEVELS_AHEAD and _quest_need(name, q)
+            and not _rotating(q) and _earlier_done(q, done)]
     if soon:
         q = min(soon, key=lambda q: q.get("level_min") or 0)
-        return keep(f"For {q['name']} at level {q.get('level_min') or 1}")
+        return {**keep(f"For {q['name']} at level {q.get('level_min') or 1}"), "quest_id": str(q["id"])}
     if _wears(name, profile, data):
         return keep("Gear you'll wear, now or soon")
     iid = (getattr(data, "item_ids", None) or {}).get(name)

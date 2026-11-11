@@ -292,3 +292,25 @@ def test_by_map_leaves_pq_runs_out(tmp_path):
     t, _ = kpq_run(g, 0.0, 50000)
     g.flush(t)
     assert g.by_map(min_active=0) == {}
+
+
+def add(g, map_id, map, lv, exp, secs, pq=None):
+    g.db.execute("INSERT INTO sessions (start, end, map_id, map, level_start, level_end, exp_gained, active_s, pq)"
+                 " VALUES (0, ?, ?, ?, ?, ?, ?, ?, ?)", (secs, map_id, map, lv[0], lv[1], exp, secs, pq))
+    g.db.commit()
+
+
+def test_best_maps_last_five_levels(tmp_path):
+    g = tracker(tmp_path)
+    add(g, map_id=1, map="Ant Tunnel I", lv=(32, 33), exp=612_000, secs=3600)
+    add(g, map_id=2, map="Ant Tunnel II", lv=(31, 32), exp=287_000, secs=1800)
+    add(g, map_id=3, map="Pig Beach", lv=(20, 21), exp=900_000, secs=3600)      # too long ago
+    add(g, map_id=4, map="Short Stop", lv=(33, 33), exp=99_000, secs=300)       # under 10 minutes
+    add(g, map_id=5, map="1st Stage", lv=(33, 33), exp=999_000, secs=3600, pq="Kerning PQ")   # a party quest
+    best = g.best_maps(33)
+    assert [b["map"] for b in best] == ["Ant Tunnel I", "Ant Tunnel II"]
+    assert best[0]["exp_hr"] == 612_000 and (best[0]["level_lo"], best[0]["level_hi"]) == (32, 33)
+
+
+def test_best_maps_empty_log(tmp_path):
+    assert tracker(tmp_path).best_maps(33) == []

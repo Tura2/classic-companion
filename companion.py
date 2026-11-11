@@ -25,7 +25,7 @@ from urllib.parse import parse_qs, urlparse
 import cozy
 import discord_link
 from reader import MIN_HEIGHT
-from gamedata import JOBS, GameData
+from gamedata import JOBS, GameData, portal_meta
 
 from paths import APP_DIR, RES_DIR, load_json, save_json
 
@@ -257,6 +257,13 @@ def make_handler(data, state, cfg):
                     if url.path == "/logo.png":
                         return self.send(200, (RES_DIR / "web" / "logo.png").read_bytes(), "image/png")
                     return self.send(200, (RES_DIR / "web" / "logo.ico").read_bytes(), "image/x-icon")
+                if url.path == "/equip_classic.png":   # Classic's Equipment Inventory window, for the Gear tab
+                    return self.send(200, (RES_DIR / "web" / "equip_classic.png").read_bytes(), "image/png", "max-age=86400")
+                if url.path == "/api/portal.webp":   # the game's portal, drawn on maps
+                    p = data.portal_sprite()
+                    return self.send(200, p.read_bytes(), "image/webp", "max-age=86400") if p else self.send(404, {"error": "no portal picture"})
+                if url.path == "/api/portal":
+                    return self.send(200, (portal_meta() or {}) if data.portal_sprite() else {})
                 if url.path == "/discord":           # where Discord sends you back after Authorize
                     return self.send(200, DISCORD_PAGE.encode("utf-8"), "text/html")
                 if url.path == "/api/sellkeep":     # every item hovered this session, with its verdict
@@ -272,6 +279,7 @@ def make_handler(data, state, cfg):
                     if not g:
                         return self.send(200, {"available": False})
                     return self.send(200, {"available": True, "now": g.summary(time.time()), "history": g.history(12),
+                                           "best": g.best_maps(int(prof.get("level") or 1)),
                                            "by_map": {str(k): round(v) for k, v in g.by_map().items()}})
                 if url.path == "/api/myshop":
                     return self.send(200, state.get("myshop") or {"watching": False, "sales": []})
@@ -289,6 +297,7 @@ def make_handler(data, state, cfg):
                                                     "items": len(data.market.cozy.items)},
                                            "guide": (state.get("guide") or {}).get("info"),
                                            "on_island": on_island(data, prof),
+                                           "recent": [data.map_info(m) for m in prof.get("recent_nav") or [] if m in data.maps],
                                            "current": data.map_info(prof["current_map"]) if prof.get("current_map") else None})
                 if url.path == "/api/train":
                     return self.send(200, data.train(int(q.get("level", prof["level"])), prof.get("acc"), on_island(data, prof)))
@@ -296,7 +305,7 @@ def make_handler(data, state, cfg):
                     return self.send(200, data.gear(prof["job"], int(prof["level"])))
                 if url.path == "/api/skills":
                     now = prof.get("skills_now") or {}
-                    return self.send(200, {"skills": data.skill_list(prof["job"]), "plan": prof.get("skill_plan", {}),
+                    return self.send(200, {"skills": data.skill_list(prof["job"], with_beginner=True), "plan": prof.get("skill_plan", {}),
                                            "now": now, "sp": prof.get("sp"),
                                            "next": data.next_points(prof["job"], int(prof["level"]), now, prof.get("stats"))})
                 if url.path == "/api/frame.jpg":     # the latest look at the game, for the Live tab
@@ -326,6 +335,9 @@ def make_handler(data, state, cfg):
                     return self.send(200, path.read_bytes(), "image/webp", "max-age=86400")
                 if url.path == "/api/layout":
                     return self.send(200, data.layout(int(q["id"])))
+                if url.path == "/api/here":          # the map you're on (or ?id=): monsters, drops, NPCs, portals
+                    mid = int(q.get("id") or prof.get("current_map") or 0)
+                    return self.send(200, data.here(mid) if mid in data.maps else {"error": "no map set"})
                 if url.path == "/api/nav":
                     return self.send(200, state["nav"])
                 if url.path == "/api/quests":
@@ -470,6 +482,7 @@ def make_handler(data, state, cfg):
                         steps[-1]["npc"] = {"x": place["x"], "y": place["y"], "name": body.get("npc_name", "")}
                 state["nav"] = {"steps": steps, "i": 0, "to": data.map_info(goal)}
                 state["guide"] = None          # a route you picked replaces the quest guide
+                remember_recent(state["profile"], goal)
                 set_current(data, state, start)
                 return self.send(200, state["nav"])
             if path == "/api/nav/step":
@@ -518,6 +531,11 @@ class Server(ThreadingHTTPServer):
     # Python's HTTP server asks for SO_REUSEADDR, which on Windows lets a second copy bind a port
     # the first still holds, and then requests land on either copy
     allow_reuse_address = sys.platform != "win32"
+
+
+def remember_recent(prof, map_id, keep=5):
+    """Go to's Recent: the last places you navigated to, newest first, each once."""
+    prof["recent_nav"] = ([int(map_id)] + [m for m in prof.get("recent_nav") or [] if m != int(map_id)])[:keep]
 
 
 def start_server(handler):

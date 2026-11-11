@@ -348,6 +348,17 @@ class Grind:
         cols = [c[0] for c in cur.description]
         return [dict(zip(cols, r)) for r in cur.fetchall()]
 
+    def best_maps(self, level, levels_back=5, min_active=600, limit=3):
+        """Your best maps by killing EXP an hour in your last few levels (it falls as you level), each with
+        at least min_active seconds of grinding. Party quests aren't maps you'd go back to grind."""
+        rows = self.db.execute(
+            "SELECT map_id, map, MIN(level_start), MAX(level_end), SUM(exp_gained), SUM(active_s) FROM sessions"
+            " WHERE pq IS NULL AND map_id IS NOT NULL AND level_end >= ? GROUP BY map_id",
+            (int(level) - levels_back + 1,)).fetchall()
+        out = [{"map_id": m, "map": name, "level_lo": lo, "level_hi": hi, "active_s": a, "exp_hr": round(e / a * 3600)}
+               for m, name, lo, hi, e, a in rows if a and a >= min_active]
+        return sorted(out, key=lambda r: -r["exp_hr"])[:limit]
+
     def by_map(self, min_active=120):
         """{map_id: your real EXP per hour there}, from at least min_active seconds of grinding."""
         rows = self.db.execute("SELECT map_id, SUM(exp_gained), SUM(active_s) FROM sessions GROUP BY map_id")
