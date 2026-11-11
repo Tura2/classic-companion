@@ -1,4 +1,6 @@
 """The grind tracker: EXP/hr, time to level and a per-map log, from the HUD's EXP."""
+import pytest
+
 import grind
 
 NEED = 122755          # EXP for level 32 (73,665 at 60.01%)
@@ -65,6 +67,48 @@ def test_level_up_keeps_counting(tmp_path):
         t += 2
     # the level's EXP is worked out from the HUD's two-decimal percent: right to about a thousandth
     assert abs(g.summary(t)["gained"] - before - ((NEED - 122000) + 500)) <= NEED * 0.001
+
+
+def test_a_level_shown_before_its_exp_adds_no_extra_level(tmp_path):
+    """Live, 2026-11-08: the level went 33 -> 34 a few reads before the HUD's EXP did, and the old
+    level's EXP read as the new one's added a whole level (a KPQ run logged at 161,522 EXP)."""
+    g = tracker(tmp_path)
+    t = feed(g, [121000, 122000])
+    before = g.summary(t)["gained"]
+    for _ in range(4):
+        g.update(122000, pct(122000), 33, 1, "Ant Tunnel I", t)    # the new level, the old EXP
+        t += 2
+    for _ in range(4):
+        g.update(500, 0.2, 33, 1, "Ant Tunnel I", t)
+        t += 2
+    assert abs(g.summary(t)["gained"] - before - ((NEED - 122000) + 500)) <= NEED * 0.001
+
+
+def test_the_five_minute_rate_is_over_five_minutes_of_grinding(tmp_path):
+    """Live, 2026-11-08: 4 idle minutes, then one minute of 5,524 EXP showed 931K EXP/hr and
+    level 35 in 8 minutes. The rate is the EXP of the last 5 minutes of grinding, over those."""
+    g = tracker(tmp_path)
+    t = feed(g, [50000 + 100 * i for i in range(51)])        # 5 minutes at 60K/hr
+    t = feed(g, [55000] * 40, t0=t)                           # 4 minutes idle
+    t = feed(g, [55000, 60500], t0=t)                         # one big lump (a quest turned in)
+    s = g.summary(t)
+    assert s["gained"] == 10500                               # the lump is in the total...
+    assert abs(s["exp_hr_5m"] - 60000) / 60000 < 0.05         # ...not in the killing pace
+    assert abs(s["exp_hr"] - 60000) / 60000 < 0.05
+    # time to level goes by the clock: 10,500 EXP over the session's ~9.5 minutes, idle included
+    clock = 10500 / (t - 0.0) * 3600
+    assert abs(s["exp_hr_clock"] - clock) / clock < 0.05
+    assert abs(s["ttl_s"] - (NEED - 60500) / clock * 3600) < 120
+
+
+def test_time_to_level_by_the_clock_counts_idle_minutes(tmp_path):
+    g = tracker(tmp_path)
+    t = feed(g, [50000 + 100 * i for i in range(51)])        # 5 minutes at 60K/hr
+    t = feed(g, [55000] * 50, t0=t)                           # 5 minutes looting and chatting
+    s = g.summary(t)
+    assert abs(s["exp_hr"] - 60000) / 60000 < 0.05            # killing pace
+    assert abs(s["exp_hr_clock"] - 30000) / 30000 < 0.05      # half the time killing
+    assert abs(s["ttl_s"] - (NEED - 55000) / 30000 * 3600) < 120
 
 
 def test_a_lone_lower_read_is_ignored(tmp_path):
@@ -141,9 +185,110 @@ def test_a_level_exp_set_by_misreads_is_replaced(tmp_path):
     assert g.summary(t)["gained"] == before + 200
 
 
+def test_one_misread_held_while_you_stand_still_drops_nothing(tmp_path):
+    """Live, 2026-11-08: standing still between kills, one misread EXP read the same a dozen times
+    'agreed' on another level EXP, replaced the right one and dropped 1,353 EXP across the gap."""
+    g = tracker(tmp_path)
+    t = feed(g, [60000, 60100])
+    before = g.summary(t)["gained"]
+    for _ in range(12):
+        g.update(66100, pct(60100), 32, 1, "Ant Tunnel I", t)   # a 0 read as 6, the same every time
+        t += 2
+    assert abs(g.need - NEED) < NEED * 0.001
+    t = feed(g, [60500], t0=t)
+    assert g.summary(t)["gained"] == before + 400
+
+
 def test_a_misread_level_doesnt_stop_counting(tmp_path):
     g = tracker(tmp_path)
     for i in range(3):
         g.update(96, 22.5, 23, 1, "Ant Tunnel I", i * 2)      # the HUD's level misread too
     t = feed(g, [50000 + 100 * i for i in range(4)], t0=10)
     assert g.summary(t)["gained"] > 0
+
+
+def test_summary_feeds_the_card(tmp_path):
+    g = tracker(tmp_path)
+    t = feed(g, [50000 + 100 * i for i in range(21)], t0=6000.0)     # two minutes, +100 every 6 s
+    s = g.summary(t)
+    assert s["level"] == 32 and abs(s["need"] - NEED) < NEED * 0.001
+    assert s["left"] == s["need"] - 52000
+    assert len(s["spark"]) == grind.SPARK_MINUTES and sum(s["spark"]) == s["gained"] == 2000
+    assert s["since"] is not None and s["since"] >= 6000.0
+
+
+# ---- party quests: a run from entering to leaving, its stages one run
+
+KPQ = [(80000000 + 100 * i, f"1st Accompaniment <{s}>") for i, s in
+       enumerate(["1st Stage", "2nd Stage", "3rd Stage", "4th stage", "Last Stage", "Bonus"])]
+
+
+def kpq_run(g, t, exp0, gains=(800, 0, 1200, 1500, 2000, 0)):
+    """One Kerning PQ run: Kerning City, then each stage with a quiet minute and a lump of EXP."""
+    t = feed(g, [exp0] * 3, t0=t, map_id=103000000, name="Kerning City")
+    e = exp0
+    for (mid, name), gain in zip(KPQ, gains):
+        t = feed(g, [e] * 10, t0=t, map_id=mid, name=name)          # a minute on the stage
+        e += gain
+        t = feed(g, [e] * 2, t0=t, map_id=mid, name=name)
+    t = feed(g, [e] * 3, t0=t, map_id=103000000, name="Kerning City")
+    return t, e
+
+
+def test_pq_of_names_kerning_pq_by_its_maps():
+    assert grind.pq_of("1st Accompaniment <2nd Stage>") == "Kerning PQ"
+    assert grind.pq_of("1st Accompaniment <Exit>") == "Kerning PQ"
+    assert grind.pq_of("Kerning City") is None
+    assert grind.pq_of(None) is None
+
+
+@pytest.mark.parametrize("text", ["1st Accornpanijnent", "1 st Accompaniment", "1st Accompanirnent <4tIi stage>"])
+def test_pq_of_read_knows_kpq_from_a_title_cut_short(text):
+    assert grind.pq_of_read(text) == "Kerning PQ"
+
+
+@pytest.mark.parametrize("text", [None, "", "Kerning City", "Ant Tunnel I", "1st"])
+def test_pq_of_read_leaves_other_titles(text):
+    assert grind.pq_of_read(text) is None
+
+
+def test_a_kpq_run_is_one_row_with_its_whole_time(tmp_path):
+    g = tracker(tmp_path)
+    t, _ = kpq_run(g, 0.0, 50000)
+    g.flush(t)
+    rows = g.history(10)
+    assert len(rows) == 1                               # the stages don't split it
+    r = rows[0]
+    assert r["map"] == "Kerning PQ" and r["pq"] == "Kerning PQ" and r["map_id"] is None
+    assert r["exp_gained"] == 5500
+    assert r["active_s"] > 6 * 60                       # the quiet minutes count: a run is wall time
+
+
+def test_pq_summary_counts_runs_today(tmp_path):
+    g = tracker(tmp_path)
+    t, e = kpq_run(g, 0.0, 50000)
+    t, e = kpq_run(g, t, e)
+    t = feed(g, [e] * 3, t0=t, map_id=KPQ[0][0], name=KPQ[0][1])   # the third run has just begun
+    s = g.summary(t)
+    assert s["map"] == "Kerning PQ"
+    pq = s["pq"]
+    assert pq["name"] == "Kerning PQ" and pq["stage"] == "1st Accompaniment <1st Stage>"
+    assert pq["runs"] == 2 and pq["avg_exp"] == 5500
+    assert abs(pq["exp_hr"] - 11000 / (pq["secs"] / 3600)) < 1
+    assert pq["run_exp"] == 0 and pq["run_secs"] >= 0
+    assert pq["runs_to_level"] == -(-(NEED - e) // 5500)
+
+
+def test_out_of_the_pq_the_card_has_no_run(tmp_path):
+    g = tracker(tmp_path)
+    t, e = kpq_run(g, 0.0, 50000)
+    t = feed(g, [e + 100 * i for i in range(20)], t0=t, map_id=1, name="Ant Tunnel I")
+    s = g.summary(t)
+    assert s["pq"] is None and s["map"] == "Ant Tunnel I"
+
+
+def test_by_map_leaves_pq_runs_out(tmp_path):
+    g = tracker(tmp_path)
+    t, _ = kpq_run(g, 0.0, 50000)
+    g.flush(t)
+    assert g.by_map(min_active=0) == {}

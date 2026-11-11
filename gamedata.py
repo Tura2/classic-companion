@@ -129,7 +129,10 @@ def fetch_json(url, name, max_age):
 # numeral as l, 1, | or !, and a plain best match then lands on the map next door ("Ant Tunnel Il"
 # scores higher against Ant Tunnel I than Ant Tunnel II). So the number is fixed up, then must match.
 ROMAN_READ = re.compile(r"(?<=\s)([IVXl1|!]*[IVXl|!][IVXl1|!]*)\s*$")
-NUMBER = re.compile(r"(?:(?<=\s)([IVX]+)|(<[^>]*>))\s*$")
+# The <...> part is compared loosely: OCR reads "<1st Stage>" as "<Ist Stage>", "<1 st Stage>" or
+# "<1st Stage)" (seen in Kerning PQ, 2026-11-07), and the game itself writes "<4th stage>".
+NUMBER = re.compile(r"(?:(?<=\s)([IVX]+)|(<[^>)\]}]*[>)\]}]?))\s*$")
+ORDINAL_ONE = re.compile(r"(?<![a-z0-9])[il|!](?=st(?![a-z]))")
 
 
 def fix_numeral(text):
@@ -138,9 +141,48 @@ def fix_numeral(text):
 
 
 def name_number(name):
-    """A map name's number ("II", "<Area 3>"), or None."""
+    """A map name's number ("II", "<area3>"), or None. The <...> part comes back without its
+    brackets, spaces or case, with an I-like stroke before "st" read as 1."""
     m = NUMBER.search(name or "")
-    return re.sub(r"\s+", " ", m.group(1) or m.group(2)) if m else None
+    if not m:
+        return None
+    if m.group(1):
+        return m.group(1)
+    inner = ORDINAL_ONE.sub("1", m.group(2).strip("<>)]}").lower())
+    return "<" + re.sub(r"\s+", "", inner) + ">"
+
+
+# Stage titles ("1st Accompaniment <2nd Stage>") read far worse in a live run (2026-11-08): the
+# ordinal comes out as "cist", "end", "Ord" or "4tIi", the "<" is often lost and junk follows the
+# ">". The stage is then told by the ordinal's ending, and the rest of the title is matched alone.
+STAGE_WORD = re.compile(r"<?\s*([a-z0-9|!]{1,5}(?:\s+[a-z]{2})?)\s*stag")
+STAGE_BASE_CUTOFF = 80
+
+
+def stage_of(text):
+    """(the title before its stage, the stage: "1"-"4" or "last"), or None if it names no stage."""
+    low = (text or "").lower()
+    m = None
+    for m in STAGE_WORD.finditer(low):
+        pass
+    if not m:
+        return None
+    word = re.sub(r"\s+", "", m.group(1))
+    if "a" in word:
+        stage = "last"
+    elif word[0] in "234":
+        stage = word[0]
+    elif word.endswith("st") or word[0] == "1":
+        stage = "1"
+    elif word.endswith("nd"):
+        stage = "2"
+    elif word.endswith("rd"):
+        stage = "3"
+    elif re.search(r"t[hil|!]*$", word):
+        stage = "4"
+    else:
+        return None
+    return text[:m.start()].strip(" <"), stage
 
 
 def match_place(text, names, cutoff):
@@ -154,7 +196,17 @@ def match_place(text, names, cutoff):
     for name, _, _ in process.extract(text, names, scorer=fuzz.ratio, score_cutoff=cutoff, limit=8):
         if name_number(name) == want:
             return name
-    return None
+    read = stage_of(text)
+    if not read or len(read[0]) < 3:
+        return None
+    best = None
+    for name in names:
+        st = stage_of(name)
+        if st and st[1] == read[1]:
+            score = fuzz.ratio(read[0].lower(), st[0].lower())
+            if score >= STAGE_BASE_CUTOFF and (best is None or score > best[0]):
+                best = (score, name)
+    return best[1] if best else None
 
 
 # ---------------------------------------------------------------- market prices

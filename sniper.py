@@ -32,7 +32,7 @@ import overlay_art as art
 import reader
 from trust import Gate
 from shopwatch import ShopWatch
-from grind import Grind
+from grind import PQS, Grind, pq_of, pq_of_read
 from capture import GameCapture, client_box, find_window, foreground_window, window_bounds
 from gamedata import JOBS, NPC_PRICES
 
@@ -88,7 +88,7 @@ PREVIEW_W = 960           # width of the live picture of the game in the dashboa
 SAMPLE_EVERY = 60         # seconds between saved pictures of a shop window (to tune the shop reader)
 SAMPLES_KEPT = 30         # the newest pictures of shops that couldn't be read; older ones are deleted
 CONFIRM_READS = 3         # a quest joins In progress or Done only after this many reads in a row agree
-GRIND_ON = False          # the Grind card: built and tested, its dashboard isn't finished yet
+GRIND_ON = True           # the Grind card on Now
 MYSHOP_EVERY = 6.0        # seconds between looks at your own store while it's open (nobody's using it)
 MYSHOP_FULL_EVERY = 10    # every this many store looks, a full read, so the rest of the dashboard keeps up
 CLOSED_READS = 3          # reads with neither your store nor the HUD before "your shop closed"
@@ -167,10 +167,18 @@ def handle_grind(app, seen, prof):
     if g is None or not seen or seen.get("quick"):
         return
     now = time.time()
+    # a party quest's title read too badly to name the stage ("1st Accornpanijnent") leaves the
+    # profile on the town you came from; it still means you're in that PQ, until a map is read
+    missed = seen.get("map_missed")
+    if seen.get("map") or (missed and len(missed) >= 6):
+        app.grind_pq = pq_of_read(missed) if not seen.get("map") else None   # another title: out of it
     hud = seen.get("hud") or {}
     if hud.get("exp") is not None:
         mid = prof.get("current_map")
         name = (app.data.maps.get(mid) or {}).get("name") if mid else None
+        pq = getattr(app, "grind_pq", None)
+        if pq and pq_of(name) != pq:
+            mid, name = -1, dict(PQS)[pq]       # the PQ by its prefix: no stage known
         g.update(hud["exp"], hud.get("exp_pct"), prof.get("level"), mid, name, now)
     if (seen.get("inventory") or {}).get("mesos") is not None:
         g.mesos(seen["inventory"]["mesos"], now)
@@ -223,6 +231,14 @@ def handle_myshop(app, seen, now):
     if told is None:
         told = app.myshop_told = set()
     send = state.get("discord_send") if linked else None
+    for fix in sw.take_fixes():           # Total Sales doesn't show a sale told from the mesos box
+        wrong = ", ".join(f"{s['item']} x{s.get('count') or 1}" if s.get("item") else "something"
+                          for s in fix["wrong"])
+        print(f"Correction: {wrong} didn't sell (Total Sales doesn't show it)")
+        if send and cfg.get("discord_post_sales") and fix["key"] not in told:
+            told.add(fix["key"])
+            send(f"correction: {wrong} didn't sell after all, that post was wrong (your shop's Total Sales "
+                 f"doesn't show it).")
     if "soldout" in sw.events and ("soldout", sw.session) not in told:
         told.add(("soldout", sw.session))
         send and send("your shop sold out: time to restock.")
@@ -1086,6 +1102,10 @@ class App:
                         self.state["nav"] = None
                     self.q.put(("nav",))
         mid = None
+        missed = seen.get("map_missed")
+        if missed and missed != getattr(self, "map_missed", None):
+            print(f"Mini map title not recognised: {missed!r}")   # once per title, to fix the matching
+        self.map_missed = missed or getattr(self, "map_missed", None)
         if seen.get("map"):
             nav = self.state["nav"]
             mid = self.data.match_map_name(seen["map"]["name"], prefer=[s["id"] for s in nav["steps"]] if nav else ())

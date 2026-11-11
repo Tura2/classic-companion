@@ -97,3 +97,19 @@ def test_a_name_that_cant_be_checked_is_not_guessed():
     covered = Image.new("RGB", (60, 18), (40, 40, 90))          # under a tooltip's dark navy
     assert reader.fix_one_vs_l("Tural", covered) is None        # its "l" could be a 1
     assert reader.fix_one_vs_l("Bob", covered) == "Bob"         # nothing a 1 could hide in
+
+
+# The mini map's name line can come back from OCR as two pieces on one row ("Kerning" | "City",
+# "1st Accornpanijnent" | "<2nd Stage>"); sorted top to bottom, the one a pixel lower came last
+# and was read alone (2026-11-08). (text, x, y, w, h)
+@pytest.mark.parametrize("lines,expected", [
+    ([("Victoria Road", 100, 40, 90, 12), ("City", 170, 59, 30, 12), ("Kerning", 100, 60, 60, 12)],
+     ("Victoria Road", "Kerning City")),
+    ([("Hidden Street", 100, 40, 90, 12), ("<2nd Stage>", 230, 59, 70, 12), ("1st Accornpanijnent", 100, 60, 120, 12)],
+     ("Hidden Street", "1st Accornpanijnent <2nd Stage>")),
+    ([("Victoria Road", 100, 40, 90, 12), ("Kerning City", 100, 60, 85, 12)], ("Victoria Road", "Kerning City")),
+    ([("Kerning City", 100, 60, 85, 12)], (None, "Kerning City")),
+    ([], (None, None)),
+])
+def test_title_lines_join_the_pieces_of_a_row(lines, expected):
+    assert reader.title_lines(lines) == expected

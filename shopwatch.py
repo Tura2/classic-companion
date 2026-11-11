@@ -7,7 +7,11 @@ that goes down, or jumps by more than the whole store could be worth, is a misre
 Total back to 0 after the store was gone is a new store session, not a sale.
 
 Without the panel, the mesos box under your character going up (by what you received, after the
-3% fee) and a listed row selling tell the same thing, more slowly.
+3% fee) tells it only together with a listed row that sold out (went gray or went away) and whose
+price fits: the mesos box alone could be anything (a trade, a misread), and so could a price that
+merely fits. A row that sells only part of its stock doesn't change, so that sale waits for the
+panel. When the panel is read again its Total Sales is the truth: a sale told from the mesos box
+that it doesn't show was wrong, and is taken back (see `fixes`).
 
 What sold comes from the panel's new rows, else from the listed rows whose count went down; when
 neither says, the sale is still reported, without an item.
@@ -15,6 +19,7 @@ neither says, the sale is still reported, without an item.
 FM_FEE = 0.03
 MIN_CAP = 10_000_000       # a rise above this and 10x the listed value is a misread
 GONE_READS = 3             # reads without the store before a total of 0 counts as a new session
+MESOS_WAIT = 20.0          # seconds a mesos rise waits for the row that sold to go gray
 
 
 def _listed_value(items):
@@ -43,10 +48,14 @@ class ShopWatch:
         self.pending = None        # a new total waiting for a second read
         self.mesos = None          # confirmed mesos box (for when the panel is closed)
         self.mesos_pending = None
+        self.mesos_items = None    # the rows when the mesos baseline was set
+        self.mesos_wait = None     # when an unexplained mesos rise was first confirmed
         self.items = None          # the rows as last confirmed
         self.items_pending = None
         self.panel_rows = []       # the panel's rows as last confirmed
         self.credit = 0            # sales already told from the mesos box, not yet in a Total Sales seen
+        self.told = []             # those sales
+        self.fixes = []            # sales told wrongly, for whoever posted them: {"key", "wrong", "real"}
         self.gone = 0              # reads in a row without the store
         self.sales = []
         self.events = []           # "soldout", once per session
@@ -61,9 +70,11 @@ class ShopWatch:
     def _new_session(self, now):
         self.session = str(int(now * 1000))
         self.base = self.pending = self.mesos = self.mesos_pending = None
+        self.mesos_items = self.mesos_wait = None
         self.items = self.items_pending = None
         self.panel_rows = []
         self.credit = 0
+        self.told = []
         self.events = [e for e in self.events if e != "soldout"]
 
     def update(self, read, now):
@@ -92,15 +103,21 @@ class ShopWatch:
                     self.panel_rows = list(panel.get("rows") or [])
                 else:
                     self.pending = total
-            elif total <= self.base or total - self.base > cap:
+            elif total < self.base or total - self.base > cap or (total == self.base and not self.credit):
                 self.pending = None
             elif self.pending == total:
                 delta = total - self.base
                 rows = list(panel.get("rows") or [])
-                told = min(self.credit, delta)       # already told from the mesos box while the panel was lost
-                self.credit -= told
-                if delta - told > max(1, 0.01 * delta):
-                    delta -= told
+                if self.credit:                      # told from the mesos box while the panel was lost
+                    if delta >= self.credit - max(1, 0.01 * self.credit):
+                        delta = max(0, delta - self.credit)
+                    else:                            # Total Sales doesn't show them: they didn't sell
+                        self.fixes.append({"key": f"{self.session}:fix{total}", "wrong": list(self.told),
+                                           "real": delta, "ts": now})
+                        keys = {t["key"] for t in self.told}
+                        self.sales = [x for x in self.sales if x["key"] not in keys]
+                    self.credit, self.told = 0, []
+                if delta > max(1, 0.01 * delta):
                     item, count = self._from_rows(rows, delta) or self._from_items(items_before, self.items, delta)                         or (None, None)
                     sales.append({"key": f"{self.session}:{total}", "item": item, "count": count, "price": delta,
                                   "total_sales": total, "ts": now})
@@ -110,7 +127,7 @@ class ShopWatch:
             m = read.get("mesos")             # keep the mesos box's baseline current for when the panel is lost
             if m is not None and m != self.mesos:
                 if self.mesos_pending == m:
-                    self.mesos, self.mesos_pending = m, None
+                    self._set_mesos(m)
                 else:
                     self.mesos_pending = m
         else:
@@ -149,12 +166,15 @@ class ShopWatch:
         counts = [c for _, c in new]
         return new[0][0], sum(counts) if all(counts) else None
 
+    def _set_mesos(self, m):
+        self.mesos, self.mesos_pending, self.mesos_items, self.mesos_wait = m, None, self.items, None
+
     @staticmethod
-    def _from_items(before, after, delta, tol=0):
+    def _from_items(before, after, delta, tol=0, sold_out=False):
         """(item, how many) for a sale worth `delta`: the one row whose price it's a whole multiple of
         (within tol, a share, for amounts worked back from the fee), preferring a row that has just
-        sold out (gone gray, or gone). None if no single row explains it."""
-        if not before:
+        sold out (gone gray, or gone); with sold_out, only such a row. None if no single row explains it."""
+        if not before or (sold_out and after is None):
             return None
         b, a = _rows(before), _rows(after) if after is not None else {}
         fits = []
@@ -162,7 +182,9 @@ class ShopWatch:
             k = round(delta / price)
             if k >= 1 and abs(k * price - delta) <= tol * delta:
                 fits.append((text not in a, name or text[0], k * (per or 1)))
-        if len(fits) > 1:
+        if sold_out:
+            fits = [f for f in fits if f[0]]
+        elif len(fits) > 1:
             fits = [f for f in fits if f[0]] or fits
         if len({f[1] for f in fits}) == 1 and len({f[2] for f in fits}) == 1:
             return fits[0][1], fits[0][2]      # two rows of the same item at the same price
@@ -173,7 +195,7 @@ class ShopWatch:
             return []
         if self.mesos is None:
             if self.mesos_pending == mesos:
-                self.mesos, self.mesos_pending = mesos, None
+                self._set_mesos(mesos)
             else:
                 self.mesos_pending = mesos
             return []
@@ -185,11 +207,21 @@ class ShopWatch:
             return []
         received = mesos - self.mesos
         gross = round(received / (1 - FM_FEE))
-        found = self._from_items(items_before, self.items, gross, tol=0.002)
-        self.mesos, self.mesos_pending = mesos, None
-        if not found:
-            return []      # the mesos box alone could be anything (a trade, a misread): needs a row too
+        found = self._from_items(self.mesos_items or items_before, self.items, gross, tol=0.002, sold_out=True)
+        if not found:      # the mesos box alone could be anything (a trade, a misread): needs a row that sold out
+            if self.mesos_wait is None:
+                self.mesos_wait = now
+            if now - self.mesos_wait >= MESOS_WAIT:
+                self._set_mesos(mesos)      # no row went: not a sale we can tell; the panel will say
+            return []
+        self._set_mesos(mesos)
+        sale = {"key": f"{self.session}:m{mesos}", "item": found[0], "count": found[1], "price": gross,
+                "total_sales": None, "ts": now}
         if self.base is not None:
             self.credit += gross      # Total Sales will show it too once the panel is seen again
-        return [{"key": f"{self.session}:m{mesos}", "item": found[0], "count": found[1], "price": gross,
-                 "total_sales": None, "ts": now}]
+            self.told.append(sale)
+        return [sale]
+
+    def take_fixes(self):
+        out, self.fixes = self.fixes, []
+        return out

@@ -25,3 +25,6 @@ samples/raw/
 # Reader test cases: pictures of the game, kept on this PC only
 samples/cases/
 *.bak
+
+# visual companion mockups
+.superpowers/

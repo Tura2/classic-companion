@@ -142,11 +142,22 @@ img.icon{width:36px;height:36px;object-fit:contain;image-rendering:pixelated;fle
 /* Now: the status line and the open shop's rows */
 .status{display:flex;align-items:center;gap:8px;margin:0 2px 12px;font-weight:800;color:var(--muted);font-size:.92rem}
 a.btn{display:inline-flex;align-items:center;text-decoration:none}
-.gstrip{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;text-align:center}
+.gstrip{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center}
 .gstrip div{background:var(--cell);border-radius:6px;padding:6px 4px}
 .gstrip b{display:block;font-size:1.15rem}
 .gstrip span{font-size:.78rem;color:var(--muted);font-weight:700}
 .mine{color:var(--good)}
+.gspark{margin-top:10px}
+.spark{display:block;width:100%;height:34px}
+.spark rect{fill:var(--cell)} .spark rect.on{fill:var(--amber)}
+.gspark .sub{display:flex;justify-content:space-between;gap:8px;margin-top:3px;font-size:.8rem}
+.gmaps{width:100%;border-collapse:collapse;margin-top:10px;font-size:.88rem}
+.gmaps th{font-size:.76rem;color:var(--muted);text-align:left;font-weight:800;padding:0 6px 2px}
+.gmaps td{padding:3px 6px;background:var(--cell);font-weight:700} .gmaps tr td:first-child{border-radius:4px 0 0 4px}
+.gmaps tr td:last-child{border-radius:0 4px 4px 0;text-align:right;font-weight:900;color:var(--good)} .gmaps th:last-child{text-align:right}
+.gmaps tbody tr{border-top:3px solid var(--win)}
+.chip{display:inline-block;background:var(--cell);color:var(--muted);border-radius:5px;padding:2px 8px;font-size:.84rem;font-weight:800}
+.chip.good{background:var(--goodbg);color:var(--good)} .chip.warn{background:var(--warnbg);color:var(--warn)}
 .skh{margin:6px 0 4px;font-size:.9rem}
 .sk{list-style:none;margin:0 0 6px;padding:0;display:grid;gap:4px}
 .sk li{display:flex;gap:8px;align-items:center}
@@ -650,16 +661,44 @@ function myShopCard(ms, full){
 /* the grind tracker, small, for the Now tab */
 const dur = s => s == null ? "—" : s >= 3600 ? `${Math.floor(s / 3600)}h ${Math.round(s % 3600 / 60)}m` : s >= 60 ? `${Math.round(s / 60)}m` : `${Math.round(s)}s`;
 const perHr = n => n == null ? "—" : n >= 1e6 ? (n / 1e6).toFixed(2) + "M" : n >= 1e4 ? Math.round(n / 1000) + "K" : fmt(n);
-function grindCard(gr){
+function spark(vals){
+  const max = Math.max(...vals, 1), w = 6, gap = 2, h = 34;
+  return `<svg class="spark" viewBox="0 0 ${vals.length * (w + gap)} ${h}" preserveAspectRatio="none" role="img" aria-label="EXP per minute, the last ${vals.length} minutes">${
+    vals.map((v, i) => `<rect x="${i * (w + gap)}" y="${v ? h - Math.max(2, v / max * h) : h - 1}" width="${w}" height="${v ? Math.max(2, v / max * h) : 1}" class="${v ? "on" : ""}"><title>${fmt(v)} EXP</title></rect>`).join("")}</svg>`;
+}
+function grindCard(gr, g){
   if (!gr || !gr.available) return "";
-  const n = gr.now;
-  if (!n.gained) return "";          // shows once EXP comes in, not while you stand in town
-  const st = n.paused ? "Paused" : n.running ? "Grinding" : "Waiting for EXP";
+  const n = gr.now, hud = !!(g.windows || {}).hud;
+  // always shown: before any EXP it says what it's waiting for
+  if (!n.gained && !n.pq && n.exp == null && hud)
+    return win("Grind", `<div class="body"><p style="margin:0">Companion can't read the EXP on your HUD yet: its digits are new to it.
+      Open <b>Character Stat (S)</b> and kill a few monsters; it learns every digit in about a minute.</p></div>`);
+  const st = n.paused ? ["warn", "Paused"] : n.pq ? ["good", "In the PQ"] : n.running ? ["good", "Grinding"]
+    : n.exp == null ? ["", "Can't see your EXP"] : ["", "Waiting for EXP"];
+  const pct = n.pct != null ? Math.min(100, n.pct) : null;
+  const rate = n.exp_hr_5m ?? n.exp_hr;
+  const maps = (gr.history || []).filter(h => h.active_s >= 30 && h.exp_gained > 0).slice(0, 4);
+  const q = n.pq;   // in a party quest: counted by the run
+  const strip = q ? `<div class="gstrip">
+        <div><b>${dur(q.run_secs)}</b><span>this run · +${fmt(q.run_exp)} EXP</span></div>
+        <div><b>${q.avg_exp != null ? fmt(q.avg_exp) : "—"}</b><span>EXP a run · ${q.runs} today</span></div>
+        <div><b>${q.runs_to_level ?? "—"}</b><span>runs to level ${n.level ? n.level + 1 : "up"}</span></div></div>
+      ${q.exp_hr ? `<p class="sub" style="margin:4px 0 8px">About <b>${perHr(q.exp_hr)}</b> EXP an hour in the PQ; a run takes ${dur(q.avg_secs)} on average.</p>` : ""}`
+    : `<div class="gstrip">
+        <div><b>${perHr(rate)}</b><span>EXP / hour killing</span></div>
+        <div><b>${dur(n.ttl_s)}</b><span>to level ${n.level ? n.level + 1 : "up"}</span></div>
+        <div><b>${dur(n.active_s)}</b><span>grinding</span></div></div>`;
   return win("Grind" + (n.map ? ` · ${pretty(n.map)}` : ""), `<div class="body">
-      <div class="gstrip"><div><b>${perHr(n.exp_hr_5m ?? n.exp_hr)}</b><span>EXP/hr</span></div>
-        <div><b>${dur(n.ttl_s)}</b><span>to level</span></div></div>
-      <p class="sub" style="margin:6px 0 0">${st}. ${fmt(n.gained)} EXP in ${dur(n.active_s)}.</p>
-      <div class="btns" style="margin-top:8px"><button class="btn small" data-grind="pause">${n.paused ? "Resume" : "Pause"}</button>
+      ${strip}
+      ${pct != null ? `<div class="prog"><div class="lbl"><span>Lv. ${n.level ?? "?"} · ${pct.toFixed(2)}%</span>
+          <span>${n.left != null ? fmt(n.left) + " EXP to go" : ""}</span></div>
+        <div class="bar" role="progressbar" aria-label="EXP to the next level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div>
+        ${q ? "" : n.ttl_s ? `<p class="sub" style="margin:4px 0 0">By the clock (${perHr(n.exp_hr_clock)} EXP an hour, breaks included), level ${n.level ? n.level + 1 : "up"} at about <b>${clock(Date.now() / 1000 + n.ttl_s)}</b>.</p>` : `<p class="sub" style="margin:4px 0 0">Time to level shows after a minute of grinding.</p>`}</div>` : ""}
+      <div class="gspark">${spark(n.spark || [])}<div class="sub"><span>EXP per minute, last ${(n.spark || []).length} min</span><span>+${fmt(n.gained)} EXP this session</span></div></div>
+      ${maps.length > 1 ? `<table class="gmaps"><thead><tr><th>Map</th><th>Time</th><th>EXP/hr</th></tr></thead><tbody>${maps.map(h =>
+          `<tr><td>${pretty(h.map || "?")}</td><td>${dur(h.active_s)}</td><td>${perHr(h.exp_gained / h.active_s * 3600)}</td></tr>`).join("")}</tbody></table>` : ""}
+      <div class="btns" style="margin-top:10px"><span class="chip ${st[0]}">${st[1]}</span>
+        <button class="btn small" data-grind="pause">${n.paused ? "Resume" : "Pause"}</button>
         <button class="btn small" data-grind="reset">Reset</button>
         <label class="toggle" style="margin:0"><input type="checkbox" data-grind="no_reset" ${n.no_reset ? "checked" : ""}> Keep counting across maps</label></div></div>`);
 }
@@ -736,7 +775,7 @@ async function renderLive(){
   const ms = state.myshop;
   const gr = on ? await api("/api/grind").catch(() => null) : null;
   if (tab !== "live") return;
-  const key = JSON.stringify([gr && gr.now && [Math.round((gr.now.exp_hr_5m ?? gr.now.exp_hr ?? 0) / 100), gr.now.ttl_s && Math.round(gr.now.ttl_s / 60), gr.now.paused, gr.now.running, gr.now.no_reset, gr.now.map],on, g.helper, g.shop && g.shop.seller, g.shop && g.shop.items, g.level_hint, l.rows, l.note,
+  const key = JSON.stringify([gr && gr.now && [Math.round((gr.now.exp_hr_5m ?? gr.now.exp_hr ?? 0) / 100), gr.now.ttl_s && Math.round(gr.now.ttl_s / 60), gr.now.paused, gr.now.running, gr.now.no_reset, gr.now.map, gr.now.gained, gr.now.exp == null, gr.now.pq && [gr.now.pq.runs, gr.now.pq.run_exp, Math.round(gr.now.pq.run_secs / 15)], (g.windows || {}).hud ? 1 : 0, (gr.history || []).length],on, g.helper, g.shop && g.shop.seller, g.shop && g.shop.items, g.level_hint, l.rows, l.note,
     ms && [ms.watching, ms.reason, ms.panel, (ms.sales || []).length],
     state.deals.length, p.rev, state.screen.drawing, !!shotUrl, state.nav && [state.nav.i, state.nav.to.id, state.nav.steps.length],
     state.guide, next && next.at]);
@@ -761,7 +800,7 @@ async function renderLive(){
       <button class="btn" id="now-setup">Set up screen reading</button></div>`);
   // an open shop sits up front; the hint for when none is open goes last
   const shopNow = on && (g.shop || (l.rows || []).length);
-  let left = [on ? myShopCard(ms, false) : "", on ? grindCard(gr) : "", routeCard(), shopNow ? shop : ""].filter(Boolean), right = [nextUpCard(next), off, helper,
+  let left = [on ? myShopCard(ms, false) : "", on ? grindCard(gr, g) : "", routeCard(), shopNow ? shop : ""].filter(Boolean), right = [nextUpCard(next), off, helper,
     deals ? win("Deals this session", `<div class="body"><ul class="chips" style="margin:0">${deals}</ul></div>`) : "",
     shopNow ? "" : shop].filter(Boolean);
   if (!left.length){ left = right; right = []; }
@@ -1187,9 +1226,17 @@ function buildTable(t, now, level){
 }
 
 // Skills, like the Skill Inventory window: each skill's level in game, your plan, and what it does
-let skillPick = null, skView = "skills";
-async function renderSkills(){
+let skillPick = null, skView = "skills", skillsKey = "";
+async function renderSkills(quiet){
+  // quiet: a refresh because the game showed a change; skipped while you edit your plan, and only
+  // redrawn when what the tab shows changed, with the list kept where you scrolled it
+  if (quiet && (planSave || document.activeElement === $("#plan"))) return;
   const d = await api("/api/skills"), plan = d.plan || {};
+  const key = JSON.stringify([d, state.profile.level, state.profile.job]);
+  if (quiet && key === skillsKey) return;
+  skillsKey = key;
+  const scrolled = quiet ? ($(".md .master") || {}).scrollTop : 0;
+  if (quiet) requestAnimationFrame(() => { const m = $(".md .master"); if (m) m.scrollTop = scrolled; });
   const total = () => Object.values(plan).reduce((a, b) => a + (+b || 0), 0);
   const tables = (d.next || {}).tables || [];
   const views = `<div class="filters" role="tablist" aria-label="Skills" style="margin-bottom:8px">
@@ -1250,7 +1297,7 @@ async function renderSkills(){
   const inp = $("#plan");
   const setPlan = v => {
     v = Math.max(0, Math.min(s.max, v || 0)); inp.value = v; plan[s.id] = v; $("#sp").textContent = total();
-    clearTimeout(planSave); planSave = setTimeout(() => api("/api/profile", {skill_plan: plan}), 400);
+    clearTimeout(planSave); planSave = setTimeout(() => { planSave = null; api("/api/profile", {skill_plan: plan}); }, 400);
   };
   inp.addEventListener("input", () => setPlan(+inp.value));
   document.querySelectorAll("[data-step]").forEach(b => b.addEventListener("click", () => setPlan(+inp.value + +b.dataset.step)));
@@ -1417,7 +1464,8 @@ setInterval(async () => {
     profRev = state.profile.rev;
     if (prev !== null && prev !== profRev){
       fillProfile(state.profile);
-      if (!["live","nav","skills"].includes(tab)) render();
+      if (tab === "skills") renderSkills(true);
+      else if (!["live","nav"].includes(tab)) render();
     }
   }catch(e){}
 }, 4000);
