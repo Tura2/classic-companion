@@ -370,7 +370,7 @@ def level_glyphs(frame, lv_line):
 
 
 def _bits(g):
-    return f"{g.width}x{g.height}:" + "".join("1" if v < 128 else "0" for v in g.getdata())
+    return f"{g.width}x{g.height}:" + "".join("1" if v < 128 else "0" for v in g.convert("L").tobytes())
 
 
 _TEMPLATES = {}
@@ -388,7 +388,7 @@ def _font_digit(d, size):
 
 
 def _similar(a, b):
-    pa, pb = list(a.getdata()), list(b.getdata())
+    pa, pb = a.convert("L").tobytes(), b.convert("L").tobytes()     # getdata goes in Pillow 14
     return sum((x < 128) == (y < 128) for x, y in zip(pa, pb)) / len(pa)
 
 
