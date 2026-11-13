@@ -1118,7 +1118,7 @@ async function renderLive(){
   if (tab !== "live") return;
   // rebuild only when what's shown changes, so nothing flickers and a page of drops stays put
   const key = JSON.stringify([on, gr && gr.now && [Math.round((gr.now.exp_hr ?? 0) / 100), gr.now.ttl_s && Math.round(gr.now.ttl_s / 60),
-    gr.now.paused, gr.now.no_reset, gr.now.kills_left, gr.now.stalled && Math.floor(gr.now.stalled_s / 60), gr.now.map, gr.now.gained, gr.now.exp == null, gr.now.pq && [gr.now.pq.runs, gr.now.pq.run_exp]],
+    gr.now.paused, gr.now.no_reset, gr.now.kills_left, gr.now.stalled && Math.round(gr.now.stalled_s / 60), gr.now.map, gr.now.gained, gr.now.exp == null, gr.now.pq && [gr.now.pq.runs, gr.now.pq.run_exp]],
     gr && gr.best, (g.windows || {}).hud ? 1 : 0, g.level_hint, state.nav && [state.nav.i, state.nav.to.id], h && h.id, next && next.at, nowNpc]);
   if (key === liveKey && $(".now2")) return;
   liveKey = key;
