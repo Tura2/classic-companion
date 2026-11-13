@@ -576,12 +576,18 @@ def read_stat(frame, t, s, job_names):
     return out
 
 
-NOTICE_ROW = 13      # the corner lines' height at a 1200 px tall game (measured on samples in Task 9)
+NOTICE_ROW = 16      # the corner lines' height at a 1200 px tall game (samples 2026-11-13)
+# Whether the corner's pickup lines are read. Tried 2026-11-13 on 70 live frames at 1920x1200: the
+# lines are light grey with a dark outline, right-aligned above the quick slots, over the map's own
+# picture; OCR read lines over plain sky but mangled most over rocks and fog ("Red Srigi! spell 1
+# eprned"), and counting each line once needs every line read every time. Off until the lines are
+# read by the game's own glyph shapes (like hudexp's digits); Now says so, and kills come from the EXP.
+CORNER_READ = False
 
 
 def read_notices(frame, s):
     """The game's bottom-right corner lines (EXP, mesos, items picked up), (text, y) top to bottom.
-    Not read yet: filled in once there are samples of them at the player's setup."""
+    Empty while CORNER_READ is off."""
     return []
 
 

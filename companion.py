@@ -24,7 +24,7 @@ from urllib.parse import parse_qs, urlparse
 
 import cozy
 import discord_link
-from reader import MIN_HEIGHT
+from reader import CORNER_READ, MIN_HEIGHT
 from gamedata import JOBS, GameData, portal_meta
 
 from paths import APP_DIR, RES_DIR, load_json, save_json
@@ -574,7 +574,8 @@ def grind_view(g, data, prof, now):
     return {"available": True, "now": g.summary(now), "history": g.history(12), "best": g.best_maps(level),
             "by_map": {str(k): round(v) for k, v in g.by_map().items()},
             "session": session_view(g, data, mid, now), "last": g.last_session,
-            "town": bool((getattr(data, "maps", {}).get(mid) or {}).get("is_town")), "keep": bool(g.no_reset)}
+            "town": bool((getattr(data, "maps", {}).get(mid) or {}).get("is_town")), "keep": bool(g.no_reset),
+            "corner": CORNER_READ}
 
 
 def remember_recent(prof, map_id, keep=5):

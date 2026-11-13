@@ -731,6 +731,7 @@ input.sw:disabled{cursor:not-allowed}
 .lempty{position:relative;flex:1;min-height:80px;overflow:hidden}
 .ghosts{display:grid;grid-template-columns:repeat(auto-fill,minmax(58px,1fr));gap:7px;opacity:.35}
 .lt.ghost{background:transparent;border:1px dashed #8A97B2;box-shadow:none}
+.lempty p small{display:block;font-size:.74rem;font-weight:700;margin-top:3px;white-space:normal;max-width:300px}
 .lempty p{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);margin:0;white-space:nowrap;background:var(--win);border:1px solid var(--rim-soft);border-radius:8px;padding:10px 18px;font-weight:800;font-size:.9rem;color:var(--muted)}
 .scard .pager{margin-top:6px}
 .net{display:flex;align-items:baseline;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid var(--rim-soft)}
@@ -1213,11 +1214,14 @@ function sessionCard(gr){
   const sv = gr && gr.session, n = gr && gr.now;
   if (!sv || !n) return "";
   const items = lootItems(sv);
-  const loot = items.length ? `<div class="lgrid pfit" id="lgrid"></div><div class="pager" id="lpager"></div>`
-    : `<div class="lempty"><div class="ghosts">${'<div class="lt ghost"></div>'.repeat(14)}</div><p>Nothing picked up yet</p></div>`;
+  // the game's pickup lines aren't read yet (reader.CORNER_READ): say so rather than "nothing picked up"
+  const ghosts = `<div class="ghosts">${'<div class="lt ghost"></div>'.repeat(14)}</div>`;
+  const loot = !gr.corner ? `<div class="lempty">${ghosts}<p>Loot isn't read yet<small>Kills are worked out from your EXP; mesos from your mesos when the inventory is open</small></p></div>`
+    : items.length ? `<div class="lgrid pfit" id="lgrid"></div><div class="pager" id="lpager"></div>`
+    : `<div class="lempty">${ghosts}<p>Nothing picked up yet</p></div>`;
   return `<section class="card win scard"><div class="title"><span>${itemIcon(4000094, 22)} This session</span><small>${sv.since ? `${dur(n.active_s)} · since ${clock(sv.since)}` : ""}</small></div>
     <div class="body">${xpRow(sv)}
-      <div class="dhead">${itemIcon(2028000, 18)} Loot <span class="sub">hover an item for what it is and its worth</span></div>${loot}
+      <div class="dhead">${itemIcon(2028000, 18)} Loot ${gr.corner ? `<span class="sub">hover an item for what it is and its worth</span>` : ""}</div>${loot}
       <div class="net"><span>NET</span>${sv.mesos_picked ? `<b>+${fmt(sv.mesos_picked)}</b><span class="sub">mesos${sv.mesos_per_min != null ? ` · ${fmt(sv.mesos_per_min)}/min` : ""}</span>`
         : `<b class="zero">0</b><span class="sub">mesos so far</span>`}</div></div></section>`;
 }

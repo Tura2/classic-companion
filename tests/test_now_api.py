@@ -73,3 +73,10 @@ def test_town_without_keep_has_the_last_session(tmp_path, game_reader):
     g.update(50066, round(50066 / 1227.55, 2), 32, kc, "Kerning City", 20)
     v = companion.grind_view(g, d, {"current_map": kc, "level": 32}, 30)
     assert v["town"] is True and v["keep"] is False and v["last"]["map"] == "Line 2 <Area 1>"
+
+
+def test_the_view_says_whether_the_corner_is_read(tmp_path, game_reader):
+    import reader
+    g = grind.Grind(tmp_path / "grind.sqlite")
+    v = companion.grind_view(g, game_reader.data, {"current_map": game_reader.data.match_map_name("Line 2 <Area 1>"), "level": 32}, 30)
+    assert v["corner"] is reader.CORNER_READ
