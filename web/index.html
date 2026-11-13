@@ -1059,7 +1059,7 @@ function routeStrip(){
   if (!nav) return "";
   const st = nav.steps[nav.i], last = nav.steps.length - 1;
   const what = st.arrived ? `You’re there: <b>${pretty(st.name)}</b>`
-    : st.talk ? `Step ${nav.i + 1} of ${last} · talk to <b>${pretty(st.npc.name)}</b> ${esc(st.hint.arrow)} for <b>${pretty(st.to.name)}</b>`
+    : st.talk ? `Step ${nav.i + 1} of ${last} · ${st.taxi ? "take the" : "talk to"} <b>${pretty(st.npc.name)}</b> ${esc(st.hint.arrow)} for <b>${pretty(st.to.name)}</b>`
     : `Step ${nav.i + 1} of ${last} · portal ${esc(st.hint.text)} ${esc(st.hint.arrow)} <b>${pretty(st.to.name)}</b>`;
   return `<div class="rstrip">${itemIcon(GI.nav, 20)}<span>${what}</span><button class="btn mini" id="now-route">Go to</button><button class="btn mini" id="now-stop">Stop</button></div>`;
 }
@@ -1458,7 +1458,7 @@ async function renderNav(force){
     const extras = {key: "route" + nav.i, portals: ((sh && sh.portals) || []).map(p => ({...p, target: st.portal && p.x === st.portal.x && p.y === st.portal.y}))};
     const head = st.arrived
       ? `<div class="rhead"><div class="arrow ok">✓</div><div><h3>You’re there: ${pretty(st.name)}</h3>${st.npc ? `<div class="sub">Find ${pretty(st.npc.name)}, circled on the map.</div>` : ""}</div></div>`
-      : st.talk ? `<div class="rhead"><div class="arrow">${esc(st.hint.arrow)}</div><div><h3>Talk to ${pretty(st.npc.name)}</h3><div class="sub">on the ${esc(st.hint.text)} of ${pretty(st.name)}, circled on the map. They take you to ${pretty(st.to.name)}.</div></div></div>`
+      : st.talk ? `<div class="rhead"><div class="arrow">${esc(st.hint.arrow)}</div><div><h3>${st.taxi ? "Take the" : "Talk to"} ${pretty(st.npc.name)}</h3><div class="sub">on the ${esc(st.hint.text)} of ${pretty(st.name)}, circled on the map. ${st.taxi ? `It drives you to ${pretty(st.to.name)} for a fare${state.profile.job === "Beginner" ? " (90% off while you're a Beginner)" : ""}.` : `They take you to ${pretty(st.to.name)}.`}</div></div></div>`
       : `<div class="rhead"><div class="arrow">${esc(st.hint.arrow)}</div><div><h3>Portal on the ${esc(st.hint.text)}</h3><div class="sub">in ${pretty(st.name)}, leads to ${pretty(st.to.name)}</div></div></div>`;
     const target = st.portal ? {...st.portal, lift: portalMeta ? 110 : 0} : st.npc ? {...st.npc, lift: 75} : null;
     right = `<section class="card win route"><div class="title"><span>${st.arrived ? "Arrived" : `Step ${nav.i + 1} of ${last}`}</span><small>to ${pretty(nav.to.name)}</small></div>

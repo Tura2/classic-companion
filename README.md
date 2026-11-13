@@ -44,6 +44,9 @@ in this mode:
 - **Go to**: where you are (its monsters, or in a town the people there: tap one to see them on the
   map), quick picks (towns, maps to train, recent places), and routes between maps on the real map
   picture with the game's own portals drawn and labelled, the one to take in a red ring.
+  A route is the quickest way, not the fewest portals: it counts the walk across each map (from
+  the portal you came out of to the next one, climbing counted double) and takes a Regular Cab
+  between Henesys, Ellinia, Perion, Kerning City and Lith Harbor when that's shorter.
   Tap "I went through" after each portal. The picture opens zoomed on the circled portal or NPC;
   drag it, zoom with the wheel or +/-, or see the whole map. Each map's picture is downloaded once,
   shrunk to 4096 px on its longest side and kept in `cache/maps/`, and a route's maps are fetched

@@ -141,6 +141,15 @@ PORTAL_RETRY = 600      # seconds before trying the download again after it fail
 NPC_RIDES = ((10000000, 112, 10007000),     # Pason in Lith Harbor takes you to Florina Beach
              (10007000, 801, 10000000))     # Pison on Florina Beach sends you back (Pason is the only way in)
 
+# Towns whose Regular Cab drives you to the others (NiaMeowDB's Pathfinder uses the same five). Lith
+# Harbor has only a VIP Cab, so a cab can take you there but the route never starts a ride there.
+TAXI_TOWNS = (10000000, 10001000, 10002000, 10003000, 10004000)
+# Route costs, in pixels of walking: going through a portal (the map loading) and taking a ride
+# (talking to the driver, the menu, the fare). Climbing counts double: ropes and ladders are slow.
+PORTAL_COST = 400
+RIDE_COST = 4000
+CLIMB = 2
+
 
 def compose_frames(frames):
     """[(picture, (origin x, y))] -> (pictures on one canvas with every origin at the same spot, that spot)."""
@@ -438,6 +447,7 @@ class GameData:
                 if best is None or (p.get("type") == 2 and best.get("type") != 2):
                     self.graph[mid][dest] = p
         self.add_npc_rides()
+        self.add_taxis()
         quests = fetch_json(OSMS + "current/quests.json", "quests.json", age)
         self.quest_list = quests["quests"]
         # quest lines, as the Quest window names them ("Caretaker's Ledger"): line -> its quest ids, in order
@@ -1011,31 +1021,96 @@ class GameData:
             self.graph.setdefault(a, {})[b] = {"x": pos["x"], "y": pos["y"], "npc": npc,
                                                "name": self.npc_names.get(npc, ""), "type": "npc"}
 
-    def route(self, start, goal):
-        from collections import deque
+    def add_taxis(self):
+        """self.taxis {from town: {to town: the Regular Cab}}, for TAXI_TOWNS whose map has its cab.
+        Kept apart from the portal graph: only a route takes a cab (hops and map reads don't)."""
+        self.taxis = {}
+        for a in TAXI_TOWNS:
+            cab = next((q for q in (self.maps.get(a) or {}).get("npc_positions") or []
+                        if self.npc_names.get(q.get("id")) == "Regular Cab"), None)
+            if cab is None:
+                continue
+            for b in TAXI_TOWNS:
+                if b != a and b in self.maps and b not in self.graph.get(a, {}):
+                    self.taxis.setdefault(a, {})[b] = {"x": cab["x"], "y": cab["y"], "npc": cab["id"],
+                                                        "name": "Regular Cab", "type": "taxi", "taxi": True}
+
+    def _middle(self, mid):
+        x0, x1, y0, y1 = self._bounds(mid)
+        return (x0 + x1) / 2, (y0 + y1) / 2
+
+    def _arrive(self, b, p):
+        """Where you come out on map b after the way `p` (a portal: its partner portal there; a ride:
+        the middle of the map, as no one knows the spot)."""
+        name = p.get("dest_portal")
+        if name and not p.get("npc"):
+            q = next((q for q in self.portals.get(b, []) if q.get("name") == name), None)
+            if q is not None:
+                return q["x"], q["y"]
+        return self._middle(b)
+
+    def _ways(self, a):
+        """Every way off map a: [(to map, portal or ride, cost on top of the walk)]. Of a map's
+        portals to the same map, the visible ones (type 2) when there are any."""
+        out = []
+        for b, best in self.graph.get(a, {}).items():
+            if best.get("npc"):
+                out.append((b, best, RIDE_COST))
+                continue
+            ps = [p for p in self.portals.get(a, []) if int(p.get("dest_map") or 0) == b and "x" in p]
+            shown = [p for p in ps if p.get("type") == 2]
+            for p in (shown or ps or [best]):
+                out.append((b, p, PORTAL_COST))
+        for b, cab in (getattr(self, "taxis", None) or {}).get(a, {}).items():
+            out.append((b, cab, RIDE_COST))
+        return out
+
+    def route(self, start, goal, came_from=None):
+        """The steps from start to goal that take the least time: walking across each map (from where
+        you came in to the way out), each portal, and each ride (Pason, a Regular Cab between towns).
+        came_from: the map you just left, so the walk on start begins at the portal you came out of."""
+        import heapq
         if start not in self.maps or goal not in self.maps:
             return None
-        prev, q = {start: None}, deque([start])
-        while q:
-            u = q.popleft()
-            if u == goal:
+        at = self._middle(start)
+        back = next((p for b, p, _c in self._ways(came_from) if b == start), None) if came_from in self.maps else None
+        if back is not None:
+            at = self._arrive(start, back)
+        best, prev, todo, n = {(start, at): 0}, {(start, at): None}, [(0, 0, start, at)], 1
+        end = None
+        while todo:
+            cost, _, a, pos = heapq.heappop(todo)
+            if cost > best.get((a, pos), cost):
+                continue
+            if a == goal:
+                end = (a, pos)
                 break
-            for v in self.graph.get(u, {}):
-                if v not in prev:
-                    prev[v] = u
-                    q.append(v)
-        if goal not in prev:
+            for b, p, extra in self._ways(a):
+                if b == a:
+                    continue
+                if "x" in p:
+                    walk = abs(p["x"] - pos[0]) + CLIMB * abs(p["y"] - pos[1])
+                else:
+                    walk = 0
+                there = self._arrive(b, p)
+                c = cost + walk + extra
+                if c < best.get((b, there), float("inf")):
+                    best[(b, there)] = c
+                    prev[(b, there)] = ((a, pos), p)
+                    heapq.heappush(todo, (c, n, b, there))
+                    n += 1
+        if end is None:
             return None
-        path, u = [], goal
-        while u is not None:
-            path.append(u)
-            u = prev[u]
-        path.reverse()
+        hops, k = [], end
+        while prev[k] is not None:
+            k, p = prev[k]
+            hops.append((k[0], p))
+        hops.reverse()
+        path = [a for a, _ in hops] + [goal]
         steps = []
-        for a, b in zip(path, path[1:]):
-            p = self.graph[a][b]
-            if p.get("npc"):        # no portal: someone here takes you (Pason to Florina Beach)
-                steps.append({**self.map_info(a), "portal": None, "talk": True,
+        for (a, p), b in zip(hops, path[1:]):
+            if p.get("npc"):        # no portal: someone here takes you (Pason to Florina Beach, a cab)
+                steps.append({**self.map_info(a), "portal": None, "talk": True, "taxi": bool(p.get("taxi")),
                               "npc": {"x": p["x"], "y": p["y"], "name": p["name"]},
                               "hint": self.hint(a, {"x": p["x"], "y": p["y"]}), "to": self.map_info(b),
                               "render": self.render_url(a)})
