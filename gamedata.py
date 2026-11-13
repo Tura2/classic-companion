@@ -134,6 +134,8 @@ def single_points(steps, now, n=3):
 PORTAL_URL = "https://maplestory.io/api/wz/GMS/83/Map/MapHelper.img/portal/game/pv/{n}"
 PORTAL_FRAMES = 8
 PORTAL_RETRY = 600      # seconds before trying the download again after it failed
+# The game's tombstone, as it lies on the ground after a death: Now marks deaths with it
+TOMB_URL = "https://maplestory.io/api/wz/GMS/83/Effect/Tomb.img/land/0"
 
 # People who take you to a map no portal reaches: (from map, NPC id, to map). The game data has
 # them only as people standing on a map, so without these Florina Beach and its Florina Road maps
@@ -429,6 +431,13 @@ class GameData:
             if i.get("name") and i.get("id") and i.get("category"):
                 self.bag_items.setdefault(i["category"], []).append((int(i["id"]), i["name"]))
         self.bag_items["scrolls"] = [(int(i["id"]), i["name"]) for i in items.get("scrolls", []) if i.get("name") and i.get("id")]
+        # an item's kind as the inventory's tabs say it, and its description: Now's loot tooltip
+        kinds = {"Equipment": "Equip", "Consumable": "Use", "Etc": "Etc", "Setup": "Set-up"}
+        self.item_info = {i["name"]: {"kind": kinds.get(i.get("category"), i.get("category") or ""),
+                                      "desc": (i.get("description") or "").replace("\n", " ").strip()}
+                          for i in items["items"] if i.get("name")}
+        self.item_info.update({i["name"]: {"kind": "Use", "desc": (i.get("description") or "").replace("\n", " ").strip()}
+                               for i in items.get("scrolls", []) if i.get("name")})
         self.scroll_rates = {s["name"]: s["success_rate"] for s in items.get("scrolls", [])
                              if s.get("name") and s.get("success_rate") is not None}
         try:            # optional: without it, the map you're on shows its monsters and no drops
@@ -1172,6 +1181,27 @@ class GameData:
             self._portal_failed = time.time()
             return None
 
+    def tomb_sprite(self):
+        """The game's tombstone as a PNG on disk (cache/tomb.png), downloaded once; None when it can't
+        be had (tried again after PORTAL_RETRY seconds, not on every request)."""
+        path = CACHE / "tomb.png"
+        if path.exists():
+            return path
+        if time.time() - getattr(self, "_tomb_failed", 0) < PORTAL_RETRY:
+            return None
+        try:
+            import base64
+            r = requests.get(TOMB_URL, timeout=10, headers=UA)
+            r.raise_for_status()
+            tmp = path.with_name("tomb.tmp.png")
+            tmp.write_bytes(base64.b64decode(r.json()["value"]))
+            os.replace(tmp, path)
+            return path
+        except Exception as e:
+            print("Tombstone picture unavailable:", e)
+            self._tomb_failed = time.time()
+            return None
+
     def here(self, mid):
         """The map you're on, for Now and Go to: its monsters, every item they drop (most valuable on
         the market first, unpriced last), its NPCs with what they do, and where its portals lead."""
@@ -1180,7 +1210,7 @@ class GameData:
         for mob in self.monsters:
             spot = next((x for x in mob.get("maps") or [] if x.get("id") == mid), None)
             if spot:
-                mobs.append({"id": mob.get("id"), "name": mob["name"], "level": mob.get("level"),
+                mobs.append({"id": mob.get("id"), "name": mob["name"], "level": mob.get("level"), "hp": mob.get("hp"),
                              "count": spot.get("count"), "exp": mob.get("exp"), "img": self.mob_img(mob.get("id"))})
         drops, seen = [], set()
         for mob in mobs:
@@ -1190,7 +1220,10 @@ class GameData:
                 seen.add(d["item"])
                 price = (self.market.items.get(d["item"]) or {}).get("p")
                 drops.append({"item": d["item"], "img": self.item_img(d["item"]), "from": mob["name"],
-                              "rate": d["rate"], "price": price, "success": self.scroll_rates.get(d["item"])})
+                              "rate": d["rate"], "price": price, "success": self.scroll_rates.get(d["item"]),
+                              "npc": self.npc_price(d["item"]) if hasattr(self, "npc_sell") else None,
+                              **(getattr(self, "item_info", {}).get(d["item"])
+                                                                  or {"kind": "", "desc": ""})})
         drops.sort(key=lambda d: -(d["price"] or -1))
         givers = {q.get("npc_id") for q in self.quest_list}
         npcs = []
@@ -1206,6 +1239,52 @@ class GameData:
         return {"id": mid, "name": m.get("name", "?"), "street": m.get("street_name") or m.get("region", ""),
                 "town": bool(m.get("is_town")), "mark": f"{OSMS}current/images/map_marks/{mark}.png" if mark else None,
                 "mobs": mobs, "drops": drops, "drops_ok": bool(self.drops_by_mob), "npcs": npcs, "portals": portals}
+
+    def split_kills(self, map_id, gain, most=6):
+        """The kills behind one EXP gain on this map, from its monsters' EXP: [name, ...], or None when
+        no mix of at most `most` kills adds up to it (a party share, a bonus, a quest). Of the mixes
+        that do, the fewest kills, then the likeliest by how many of each spawn here."""
+        import math
+        cache = self.__dict__.setdefault("_map_mobs", {})
+        if map_id not in cache:
+            mobs = {}
+            for mob in self.monsters:
+                spot = next((x for x in mob.get("maps") or [] if x.get("id") == map_id), None)
+                if spot and mob.get("exp"):
+                    mobs[mob["name"]] = (int(mob["exp"]), spot.get("count") or 1)
+            total = sum(c for _, c in mobs.values()) or 1
+            cache[map_id] = sorted(((e, n, math.log(c / total)) for n, (e, c) in mobs.items()), reverse=True)
+        mobs = cache[map_id]
+        if not mobs or gain <= 0:
+            return None
+        best = None
+
+        def walk(i, left, picked, score):
+            nonlocal best
+            if left == 0:
+                key = (len(picked), -score)
+                if best is None or key < best[0]:
+                    best = (key, list(picked))
+                return
+            if i == len(mobs) or len(picked) == most or (best and len(picked) >= best[0][0]):
+                return
+            e, name, lp = mobs[i]
+            for k in range(min(most - len(picked), left // e), -1, -1):
+                walk(i + 1, left - k * e, picked + [name] * k, score + k * lp)
+        walk(0, int(gain), [], 0.0)
+        return best[1] if best else None
+
+    def kill_name(self, map_id, exp):
+        """The monster on this map whose kill gives `exp` (the corner's "You received EXP" line); the one
+        with the most spawns when several do. None when none does (a party share, an event bonus)."""
+        best = None
+        for mob in self.monsters:
+            if mob.get("exp") != exp:
+                continue
+            spot = next((x for x in mob.get("maps") or [] if x.get("id") == map_id), None)
+            if spot and (best is None or (spot.get("count") or 0) > best[0]):
+                best = (spot.get("count") or 0, mob["name"])
+        return best[1] if best else None
 
     def _huntable(self):
         """Monsters you can go and hunt (not party quest or job test copies), by name."""

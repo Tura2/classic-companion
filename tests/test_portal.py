@@ -54,3 +54,43 @@ def test_a_failed_download_isnt_retried_at_once(tmp_path, monkeypatch):
     g = object.__new__(gamedata.GameData)
     assert g.portal_sprite() is None and g.portal_sprite() is None
     assert len(calls) == 1            # the second ask in a row doesn't go to the network again
+
+
+def _png():
+    import base64
+    import io
+    buf = io.BytesIO()
+    Image.new("RGBA", (40, 43), (150, 150, 150, 255)).save(buf, "PNG")
+    return base64.b64encode(buf.getvalue()).decode()
+
+
+def test_tomb_is_kept_once(tmp_path, monkeypatch):
+    png = _png()
+
+    class R:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"value": png}
+    calls = []
+    monkeypatch.setattr(gamedata, "CACHE", tmp_path)
+    monkeypatch.setattr(gamedata.requests, "get", lambda url, **k: calls.append(url) or R())
+    g = object.__new__(gamedata.GameData)
+    path = g.tomb_sprite()
+    assert path and path.exists() and Image.open(path).size == (40, 43)
+    assert calls == [gamedata.TOMB_URL]
+    assert g.tomb_sprite() == path and len(calls) == 1               # the second time: from disk
+
+
+def test_tomb_offline_waits_before_trying_again(tmp_path, monkeypatch):
+    calls = []
+
+    def offline(*a, **k):
+        calls.append(1)
+        raise OSError("offline")
+    monkeypatch.setattr(gamedata, "CACHE", tmp_path)
+    monkeypatch.setattr(gamedata.requests, "get", offline)
+    g = object.__new__(gamedata.GameData)
+    assert g.tomb_sprite() is None and g.tomb_sprite() is None
+    assert len(calls) == 1

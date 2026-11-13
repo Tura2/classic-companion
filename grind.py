@@ -59,6 +59,8 @@ MIN_TTL_DATA = 60.0     # seconds of active time before time-to-level is shown
 MAX_GAIN_SHARE = 0.6    # one step gaining more than this share of a level is a misread
 SPARK_MINUTES = 30      # the chart: EXP per minute over this many minutes
 NEED_READS = 3          # reads that agree on the level's EXP (exp / pct) before any is trusted
+DEATH_MAX = 0.10        # a death costs up to this share of the level's EXP (LUK lowers it)
+DEATH_MIN = 0.005       # ...and at least this: a HUD digit misread that still fits the level is far less
 STALL_AFTER = 300.0     # "no EXP" note: only after this much grinding on the map you're still on
 KILL_SAMPLE = 30        # kills to level: the typical gain over this many recent ones
 KILL_MIN = 5            # ... once there are at least this many
@@ -81,10 +83,11 @@ class Grind:
         self.db.execute("""CREATE TABLE IF NOT EXISTS sessions (id INTEGER PRIMARY KEY, start REAL, end REAL,
             map_id INTEGER, map TEXT, level_start INTEGER, level_end INTEGER, exp_gained INTEGER, active_s REAL,
             mesos_gained INTEGER, potions_cost INTEGER, party INTEGER)""")
-        try:
-            self.db.execute("ALTER TABLE sessions ADD COLUMN pq TEXT")   # logs from before PQ runs
-        except sqlite3.OperationalError:
-            pass
+        for col in ("pq TEXT", "deaths INTEGER", "exp_lost INTEGER", "kills INTEGER", "mesos_picked INTEGER"):     # logs from before these
+            try:
+                self.db.execute(f"ALTER TABLE sessions ADD COLUMN {col}")
+            except sqlite3.OperationalError:
+                pass
         self.db.commit()
         self.pq = None               # the party quest you're in, if any
         self.no_reset = False
@@ -96,10 +99,14 @@ class Grind:
         self.need_level = None
         self.need_seen = []          # exp / pct of recent reads, while the level's EXP isn't known yet
         self.seg = None
+        self.last_session = None     # the session before this one, for Now in a town
+        self.s_start = None
         self._new_session(None)
 
     # ---- state
     def _new_session(self, now):
+        if getattr(self, "s_start", None) is not None:
+            self.last_session = self._session_brief(now)
         self.s_gained, self.s_active, self.s_mesos0, self.s_mesos = 0, 0.0, None, None
         self.s_paced = 0             # EXP gained by killing: one-off lumps after a break left out
         self.s_start = None          # the session's first gain
@@ -108,29 +115,42 @@ class Grind:
         self.events = []             # (ts, gain, active seconds before it, lump), for the rates
         self.last_gain = None        # the last gain that counted as killing (runs the clock)
         self.last_any = None         # the last gain of any kind, lumps too (tells a break)
+        self.deaths = []             # {"ts", "lost", "map"}: EXP drops of up to DEATH_MAX of the level
+        self.kills = {}              # monster name (None: not named) -> kills, from the corner's EXP lines
+        self.loot = {}               # item name -> how many picked up, from the corner's lines
+        self.picked = 0              # mesos picked up, from the corner's lines
+        self.s_first = None          # {"level", "pct"} where the session's EXP bar started
+        self.s_map = None            # the map the session's EXP came on
 
     def _new_segment(self, now, level):
         """A map's stretch in the log, or a whole party quest run (map_id None, map the PQ's name)."""
         self.seg = {"id": None, "start": now, "map_id": None if self.pq else self.map_id, "map": self.pq or self.map,
                     "pq": self.pq, "stage": self.map, "level_start": level, "level_end": level, "exp": 0,
-                    "active": 0.0, "mesos0": None, "mesos": None}
+                    "active": 0.0, "mesos0": None, "mesos": None, "deaths": 0, "exp_lost": 0, "kills": None,
+                    "picked": None}
 
     def _save_segment(self, now):
         g = self.seg
-        if not g or g["exp"] <= 0:
+        if not g or (g["exp"] <= 0 and not g.get("deaths")):     # a stretch with a death is kept, net below 0 too
             return
         active = now - g["start"] if g["pq"] else g["active"]      # a run counts all its time
+        if g.get("kills") is None and not g["pq"]:      # no corner line read: kills worked out from the EXP
+            k = self.per_kill()
+            killed = g["exp"] + g.get("exp_lost", 0)
+            g["kills_est"] = round(killed / k) if k and killed > 0 else None
         row = (g["start"], now, g["map_id"], g["map"], g["level_start"], g["level_end"], g["exp"], active,
                (g["mesos"] - g["mesos0"]) if g["mesos0"] is not None and g["mesos"] is not None else None, None,
-               1 if g["pq"] else 0, g["pq"])
+               1 if g["pq"] else 0, g["pq"], g.get("deaths", 0), g.get("exp_lost", 0),
+               g.get("kills") if g.get("kills") is not None else g.get("kills_est"), g.get("picked"))
         if g["id"] is None:
             cur = self.db.execute("INSERT INTO sessions (start, end, map_id, map, level_start, level_end, exp_gained,"
-                                  " active_s, mesos_gained, potions_cost, party, pq) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", row)
+                                  " active_s, mesos_gained, potions_cost, party, pq, deaths, exp_lost, kills, mesos_picked)"
+                                  " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", row)
             g["id"] = cur.lastrowid
         else:
             self.db.execute("UPDATE sessions SET start=?, end=?, map_id=?, map=?, level_start=?, level_end=?,"
-                            " exp_gained=?, active_s=?, mesos_gained=?, potions_cost=?, party=?, pq=? WHERE id=?",
-                            row + (g["id"],))
+                            " exp_gained=?, active_s=?, mesos_gained=?, potions_cost=?, party=?, pq=?, deaths=?,"
+                            " exp_lost=?, kills=?, mesos_picked=? WHERE id=?", row + (g["id"],))
         self.db.commit()
 
     def flush(self, now=None):
@@ -171,10 +191,17 @@ class Grind:
             return 0                      # one read alone, or its EXP and percent disagree on the level's EXP
         if self.last is None:
             self.last = read
+            self.s_first = self.s_first or {"level": level, "pct": pct}
             return 0
+        if self.s_first is None:
+            self.s_first = {"level": self.last[2], "pct": self.last[1]}
         gain = self._gain(self.last, read)
         fresh, self.need_fresh = getattr(self, "need_fresh", False), False
         if gain is None:
+            lost = self._death_loss(self.last, read)
+            if lost:
+                self._died(lost, read, now)
+                return 0
             if fresh:
                 self.last = read          # a level EXP just settled that the old read can't lead to: start here
             return 0                      # a misread: keep what we had
@@ -189,6 +216,7 @@ class Grind:
         self.last_any = now
         need = self.need or need_of(exp, pct) or 0
         lump = resumed and gain > LUMP_SHARE * need     # a quest turned in, not a kill
+        self.last_lump = lump
         if not lump:                       # a lump isn't grinding: it doesn't start the clock either
             dt = self._open_gap(now)       # the wait since the last gain is grinding time, unless a break
             self.s_active += dt
@@ -201,9 +229,8 @@ class Grind:
         if self.s_start is None:
             self.s_start = now
         m = int(now // 60)
-        self.minutes[m] = self.minutes.get(m, 0) + gain
-        for old in [k for k in self.minutes if k < m - SPARK_MINUTES]:
-            del self.minutes[old]
+        self.minutes[m] = self.minutes.get(m, 0) + gain     # the whole session: Now's chart
+        self.s_map = self.pq or self.map
         self.s_gained += gain
         self.seg["exp"] += gain
         self.seg["level_end"] = level
@@ -251,6 +278,33 @@ class Grind:
             return True
         return False
 
+    def _death_loss(self, old, new):
+        """The EXP a death cost, if going from `old` to `new` (two reads agreed on it) is one: the same
+        level, the bar lower by at most DEATH_MAX of the level's EXP, or down to 0. Else None."""
+        e0, p0, l0 = old
+        e1, p1, l1 = new
+        if (l0 is not None and l1 is not None and l0 != l1) or e1 >= e0:
+            return None
+        need = self.need or need_of(e1, p1) or need_of(e0, p0)
+        if not need:
+            return None
+        lost = e0 - e1
+        return lost if DEATH_MIN * need <= lost <= DEATH_MAX * need + 1 else None
+
+    def _died(self, lost, read, now):
+        """Count a death: its EXP comes off the session, the map's log, the chart and the rates."""
+        self.last = read
+        self.deaths.append({"ts": now, "lost": lost, "map": self.pq or self.map})
+        self.s_gained -= lost
+        self.s_paced -= lost
+        if self.seg is not None:
+            self.seg["exp"] -= lost
+            self.seg["deaths"] = self.seg.get("deaths", 0) + 1
+            self.seg["exp_lost"] = self.seg.get("exp_lost", 0) + lost
+        m = int(now // 60)
+        self.minutes[m] = self.minutes.get(m, 0) - lost
+        self.events.append((now, -lost, self.s_active, False))
+
     @staticmethod
     def _gain(old, new):
         e0, p0, l0 = old
@@ -268,6 +322,57 @@ class Grind:
         if need0 and e1 - e0 > MAX_GAIN_SHARE * need0:
             return None
         return e1 - e0
+
+    def add_kill(self, name, now):
+        """A kill told by the corner's "You received EXP" line; name None when no monster here gives it."""
+        self.kills[name] = self.kills.get(name, 0) + 1
+        if self.seg is not None:
+            self.seg["kills"] = (self.seg.get("kills") or 0) + 1
+
+    def add_loot(self, name, count, now):
+        """An item picked up ("Tree Branch x1 earned")."""
+        self.loot[name] = self.loot.get(name, 0) + int(count)
+
+    def add_mesos(self, n, now):
+        """Mesos picked up ("You have gained mesos (+15)")."""
+        self.picked += int(n)
+        if self.seg is not None:
+            self.seg["picked"] = (self.seg.get("picked") or 0) + int(n)
+
+    def _kills_total(self):
+        line = sum(self.kills.values())
+        if line:
+            return line
+        k = self.per_kill()
+        killed = self.s_paced + sum(d["lost"] for d in self.deaths)      # what was killed, deaths aside
+        return max(0, round(killed / k)) if k else 0
+
+    def _mesos_picked(self):
+        if self.picked:
+            return self.picked
+        if self.s_mesos0 is not None and self.s_mesos is not None:
+            return max(0, self.s_mesos - self.s_mesos0)
+        return 0
+
+    def _gain_pct(self):
+        """How far the EXP bar moved this session, in % of a level (a level-up adds 100)."""
+        if not self.s_first or not self.last:
+            return None
+        levels = 0
+        if self.last[2] is not None and self.s_first["level"] is not None:
+            levels = self.last[2] - self.s_first["level"]
+        return round(levels * 100 + self.last[1] - self.s_first["pct"], 2)
+
+    def _session_brief(self, now):
+        """The session as Now's town view shows it once it's over."""
+        end = self.last_gain or now or self.s_start
+        active = self.s_active
+        hr = round(self.s_paced / active * 3600) if active >= 1 else None
+        return {"map": self.s_map, "start": self.s_start, "end": end, "active_s": round(active, 1),
+                "exp_hr": hr if hr and hr > 0 else None,
+                "gain_pct": self._gain_pct(), "level": self.last[2] if self.last else None,
+                "kills_total": self._kills_total(), "items": sum(self.loot.values()),
+                "mesos_picked": self._mesos_picked(), "deaths": len(self.deaths)}
 
     def mesos(self, mesos, now):
         """A read of your mesos (the inventory, while it's open)."""
@@ -300,6 +405,8 @@ class Grind:
         # really made (2026-11-11). The last WINDOW seconds of grinding give the recent rate.
         active = self.s_active + self._open_gap(now)
         hr = self.s_paced / active * 3600 if active >= 1 else None
+        if hr is not None and hr <= 0:
+            hr = None                     # a death cost more than was gained: no rate to speak of yet
         span = min(WINDOW, active)
         hr5 = None
         if span >= MIN_TTL_DATA:
@@ -313,7 +420,7 @@ class Grind:
             if wall >= MIN_TTL_DATA:
                 clock_hr = sum(e[1] for e in self.events if e[0] > now - wall) / wall * 3600
         ttl = None
-        if self.last and clock_hr:
+        if self.last and clock_hr and clock_hr > 0:
             e, p, _ = self.last
             if p:
                 ttl = (e / (p / 100) - e) / (clock_hr / 3600)
@@ -333,6 +440,13 @@ class Grind:
                 "since": self.s_start, "spark": spark,
                 "active_s": round(active, 1), "exp_hr": hr, "exp_hr_5m": hr5, "exp_hr_clock": clock_hr,
                 "ttl_s": ttl, "mesos_hr": mhr, "stalled": stalled,
+                "deaths": [{"ts": d["ts"], "lost": d["lost"]} for d in self.deaths],
+                "kills": [{"name": n, "count": c} for n, c in sorted(self.kills.items(), key=lambda kv: -kv[1])],
+                "kills_total": self._kills_total(),
+                "loot": [{"name": n, "count": c} for n, c in self.loot.items()],
+                "mesos_picked": self._mesos_picked(), "start": self.s_first, "gain_pct": self._gain_pct(),
+                "chart": self._chart(now),
+                "exp_lost": sum(d["lost"] for d in self.deaths),
                 "stalled_s": round(now - self.last_gain) if stalled else None,
                 "per_kill": self.per_kill(), "kills_left": self.kills_left(need),
                 "map": self.pq or self.map, "map_id": self.map_id,
@@ -342,7 +456,7 @@ class Grind:
     def per_kill(self):
         """The EXP a kill usually gives: the median of the recent killing gains (a read that caught two
         kills at once is rarer than one), None until KILL_MIN of them."""
-        gains = [e[1] for e in self.events if not e[3]][-KILL_SAMPLE:]
+        gains = [e[1] for e in self.events if not e[3] and e[1] > 0][-KILL_SAMPLE:]     # deaths aren't kills
         if len(gains) < KILL_MIN:
             return None
         return sorted(gains)[len(gains) // 2]
@@ -375,7 +489,33 @@ class Grind:
         cols = [c[0] for c in cur.description]
         return [dict(zip(cols, r)) for r in cur.fetchall()]
 
-    def best_maps(self, level, levels_back=5, min_active=600, limit=3):
+    def _chart(self, now):
+        """EXP per minute over the whole session (net of deaths), from its first minute to now."""
+        if not self.minutes:
+            return {"t0": None, "vals": []}
+        t0, t1 = min(self.minutes), max(max(self.minutes), int(now // 60))
+        return {"t0": t0, "vals": [self.minutes.get(m, 0) for m in range(t0, t1 + 1)]}
+
+    def all_maps(self, level, levels_back=5, min_active=600):
+        """Every map ground on in your last few levels, best EXP an hour first, with kills and mesos
+        an hour: mesos picked up where the corner was read, else your mesos' change. No party quests."""
+        rows = self.db.execute(
+            "SELECT map_id, map, MIN(level_start), MAX(level_end), SUM(exp_gained), SUM(active_s),"
+            " SUM(kills), SUM(CASE WHEN kills IS NOT NULL THEN active_s END),"
+            " SUM(COALESCE(mesos_picked, mesos_gained)), SUM(CASE WHEN COALESCE(mesos_picked, mesos_gained)"
+            " IS NOT NULL THEN active_s END) FROM sessions"
+            " WHERE pq IS NULL AND map_id IS NOT NULL AND level_end >= ? GROUP BY map_id",
+            (int(level) - levels_back + 1,)).fetchall()
+        out = []
+        for m, name, lo, hi, e, a, k, ka, ms, ma in rows:
+            if not a or a < min_active:
+                continue
+            out.append({"map_id": m, "map": name, "level_lo": lo, "level_hi": hi, "active_s": a,
+                        "exp_hr": round(e / a * 3600), "kills_hr": round(k / ka * 3600) if k and ka else None,
+                        "mesos_hr": round(ms / ma * 3600) if ms is not None and ma else None})
+        return sorted(out, key=lambda r: -r["exp_hr"])
+
+    def best_maps(self, level, levels_back=5, min_active=600, limit=5):
         """Your best maps by killing EXP an hour in your last few levels (it falls as you level), each with
         at least min_active seconds of grinding. Party quests aren't maps you'd go back to grind."""
         rows = self.db.execute(

@@ -41,10 +41,10 @@ def test_load_drops_keys_by_monster_id():
 def test_drops_most_valuable_first_with_scroll_rate():
     h = bare().here(ANT1)
     assert h["drops"][0] == {"item": CLAW, "from": "Zombie Mushroom", "rate": None, "price": 449999,
-                             "success": 60, "img": ANY}
+                             "success": 60, "img": ANY, "npc": None, "kind": "", "desc": ""}
     assert [d["item"] for d in h["drops"]] == [CLAW, "Cutlus", "Orange Potion"]   # unpriced last
     assert [m["name"] for m in h["mobs"]] == ["Zombie Mushroom", "Horny Mushroom"] and h["drops_ok"]
-    assert h["mobs"][0] == {"id": 21, "name": "Zombie Mushroom", "level": 24, "count": 11, "exp": 45, "img": ANY}
+    assert h["mobs"][0] == {"id": 21, "name": "Zombie Mushroom", "level": 24, "hp": ANY, "count": 11, "exp": 45, "img": ANY}
     assert h["portals"] == [{"x": 543, "y": 427, "to": "Henesys", "to_id": HENESYS}]
     assert h["mark"].endswith("map_marks/Dungeon.png") and h["town"] is False
 
@@ -58,3 +58,40 @@ def test_town_has_npcs_no_drops():
     h = bare().here(HENESYS)
     assert h["town"] and h["mobs"] == [] and h["drops"] == []
     assert {"id": 202, "name": "Chief Stan", "x": 4166, "y": 719, "role": "Quests", "img": ANY} in h["npcs"]
+
+
+def test_a_kill_is_named_by_its_exp(game_reader):
+    d = game_reader.data
+    line2 = d.match_map_name("Line 2 <Area 1>")
+    assert d.kill_name(line2, 66) == "Jr. Wraith" and d.kill_name(line2, 39) == "Jr. Necki"
+
+
+def test_unknown_exp_is_an_unnamed_kill(game_reader):
+    d = game_reader.data
+    assert d.kill_name(d.match_map_name("Line 2 <Area 1>"), 71) is None
+
+
+def test_here_has_each_monsters_hp(game_reader):
+    d = game_reader.data
+    mobs = d.here(d.match_map_name("Line 2 <Area 1>"))["mobs"]
+    assert {m["name"]: m["hp"] for m in mobs}["Jr. Wraith"] == 982
+
+
+def test_drops_carry_what_the_tooltip_shows(game_reader):
+    d = game_reader.data
+    drops = d.here(d.match_map_name("Line 2 <Area 1>"))["drops"]
+    cloth = next(x for x in drops if x["item"] == "Tablecloth")
+    assert cloth["kind"] == "Etc" and cloth["desc"].startswith("A tablecloth") and "npc" in cloth
+
+
+def test_a_gain_is_split_into_this_maps_monsters(game_reader):
+    d = game_reader.data
+    line2 = d.match_map_name("Line 2 <Area 1>")           # Jr. Wraith 66 EXP, Jr. Necki 39
+    assert d.split_kills(line2, 66) == ["Jr. Wraith"]
+    assert sorted(d.split_kills(line2, 105)) == ["Jr. Necki", "Jr. Wraith"]
+    assert d.split_kills(line2, 132) == ["Jr. Wraith", "Jr. Wraith"]
+
+
+def test_a_gain_no_monster_here_explains_is_none(game_reader):
+    d = game_reader.data
+    assert d.split_kills(d.match_map_name("Line 2 <Area 1>"), 71) is None      # a party share, a bonus

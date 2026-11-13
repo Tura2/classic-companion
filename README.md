@@ -35,9 +35,22 @@ Out of the box the app only uses public game data and market prices. It does not
 read your screen, install keyboard hooks, or even look for the game window. Everything below works
 in this mode:
 
-- **Now**: your grind (EXP an hour, time to level, EXP a minute, your 3 best maps by EXP an hour in
-  your last 5 levels), what's next (map, SP, AP, the route you're on), and the map you're on: its
-  monsters and everything they drop, most valuable on the market first.
+- **Now**: while you grind, three cards:
+  - **Grind**: EXP an hour, time to level, kills to level, grinding time, a chart of EXP per
+    minute over the whole session (with the game's tombstone where you died), and your 5 best
+    maps by EXP an hour in your last 5 levels. "All maps" opens every one, with kills and mesos
+    an hour.
+  - **This session**: how far the EXP bar moved (across a level-up too), deaths, the loot, and
+    the mesos.
+  - **This map**: its monsters (level, HP, EXP) with your kills, and "Worth picking up" for
+    everything they drop, most valuable first. What each item is worth shows when you hover it,
+    not on the page.
+
+  A death (an EXP drop of up to 10% of the level, seen twice) counts in EXP an hour, the time to
+  level, the chart, the session and the map logs. In a town, Now switches by itself: the town's
+  map and its people take most of the space, beside the last session and your best maps. The
+  game's pickup lines in the bottom-right corner aren't read yet: kills are worked out from your
+  EXP, mesos from your mesos when the inventory is open, and Now says loot isn't read.
 - **Train**: maps for your level, ranked by EXP per HP and spawns, with ACC needed.
 - **Quests**: what you can take now, where the NPC stands, what to kill and where, items you
   can buy instead of farming, and rewards with their market value. Tap Done to unlock chains.

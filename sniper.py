@@ -33,6 +33,7 @@ import reader
 from trust import Gate
 from shopwatch import ShopWatch
 from grind import PQS, Grind, pq_of, pq_of_read
+import notices as notice_lines
 from capture import GameCapture, client_box, find_window, foreground_window, window_bounds
 from gamedata import JOBS, NPC_PRICES, MapMove
 
@@ -179,9 +180,35 @@ def handle_grind(app, seen, prof):
         pq = getattr(app, "grind_pq", None)
         if pq and pq_of(name) != pq:
             mid, name = -1, dict(PQS)[pq]       # the PQ by its prefix: no stage known
-        g.update(hud["exp"], hud.get("exp_pct"), prof.get("level"), mid, name, now)
+        gain = g.update(hud["exp"], hud.get("exp_pct"), prof.get("level"), mid, name, now)
+        if gain and gain > 0 and not getattr(g, "last_lump", False):
+            # the kills behind this gain, named by this map's monsters' EXP; a gain none of them
+            # explains (a party share, a bonus) is kills all the same, unnamed, at the usual kill
+            split = getattr(app.data, "split_kills", None)
+            names = split(mid, gain) if split and mid in getattr(app.data, "maps", {}) else None
+            if names:
+                for n in names:
+                    g.add_kill(n, now)
+            else:
+                k = g.per_kill()
+                for _ in range(max(1, round(gain / k)) if k else 1):
+                    g.add_kill(None, now)
     if (seen.get("inventory") or {}).get("mesos") is not None:
         g.mesos(seen["inventory"]["mesos"], now)
+    tracker = getattr(app, "notices", None)
+    if tracker is not None and "notices" in seen:
+        data = app.data
+        names = getattr(data, "_item_names", None)
+        if names is None:
+            names = data._item_names = list(getattr(data, "item_ids", {}) or {})
+        mid = prof.get("current_map")
+        for ev in tracker.update(seen["notices"], seen.get("notice_row") or 13, names):
+            if ev[0] == "exp":
+                continue                  # kills come from the HUD's EXP gains, named the same way
+            if ev[0] == "mesos":
+                g.add_mesos(ev[1], now)
+            elif ev[0] == "item" and ev[1]:
+                g.add_loot(ev[1], ev[2], now)
 
 
 HOVER_KEEP = 120    # items Sell or keep remembers (hovered, or read off an inventory tab)
@@ -740,6 +767,7 @@ class App:
         self.shop_anchor = None     # where the open shop's LEAVE STORE button was, for the quick re-read
         self.shopwatch = ShopWatch()  # sales in your own store
         self.grind = Grind(APP_DIR / "grind.sqlite") if GRIND_ON else None   # EXP/hr per session and per map
+        self.notices = notice_lines.Tracker()   # the corner's EXP / mesos / item lines, each counted once
         state["grind"] = self.grind
         self.myshop_anchor = None   # your own store's fee notice, for the slow store-only look
         self.myshop_panel = None    # its SOLD ITEMS panel's title, when that's open
