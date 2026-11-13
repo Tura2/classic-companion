@@ -16,6 +16,7 @@ Some icons are the same picture (Wild Boar Tooth and Fire Boar's Tooth, the Chao
 hat): when another item fits almost as well, the slot says both ("alt"), never a guess.
 """
 import hashlib
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
@@ -36,6 +37,7 @@ SHORT = 15          # icons per shortlist
 SHIFT = 3           # how far an icon may sit past the slot's edge
 WORST = 60          # a best fit worse than this: no item known here
 UNSURE = 1.25       # another item fitting within this factor of the best one: say both
+RETRY = 600         # a tab whose icons didn't all download is tried again after this many seconds
 RED = 30            # the open tab is red: its red over its green by more than this
 
 
@@ -117,7 +119,7 @@ class Bag:
 
     def __init__(self, items, icon_url, icon_dir):
         self.items, self.icon_url, self.dir = items, icon_url, icon_dir
-        self.books, self.memo = {}, {}
+        self.books, self.memo, self.retry = {}, {}, {}
 
     def _get(self, iid):
         path = self.dir / f"{iid:08d}.png"
@@ -134,7 +136,7 @@ class Bag:
     def book(self, tab):
         """The icons a tab's items can have, each at the game's size on an empty slot:
         [(id, name, picture, colour histogram)]. Downloads the missing ones the first time."""
-        if tab in self.books:
+        if tab in self.books and time.time() < self.retry.get(tab, float("inf")):
             return self.books[tab]
         self.dir.mkdir(parents=True, exist_ok=True)
         want = [x for kind in KINDS.get(tab, ()) for x in self.items.get(kind, [])]
@@ -153,6 +155,11 @@ class Bag:
             al = a[..., 3:] / 255
             book.append((iid, name, a[..., :3] * al + BG * (1 - al), _hist(a[..., :3][a[..., 3] > 128])))
         self.books[tab] = book
+        if len(book) < 0.9 * len(want):      # offline, or the site failed: try the rest again later
+            self.retry[tab] = time.time() + RETRY
+            self.memo = {k: v for k, v in self.memo.items() if k[0] != tab}
+        else:
+            self.retry.pop(tab, None)
         return book
 
     def match(self, top, tab):

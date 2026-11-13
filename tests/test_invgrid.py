@@ -90,3 +90,14 @@ def test_a_full_read_hands_over_the_tab(game_reader):
     got = invgrid.Bag(game_reader.data.bag_items, lambda i: "", ICONS).read(inv["grid"], "Use")
     names = [g["name"] for g in got]
     assert names.count("Return Scroll to Henesys") == 1 and "Green Malady's Candy" in names and "Elixir" in names
+
+
+def test_icons_that_did_not_download_are_tried_again_later(tmp_path, monkeypatch):
+    bag = invgrid.Bag({"Etc": [(4000000, "Snail Shell"), (4000001, "Blue Snail Shell")]}, lambda i: "", tmp_path)
+    monkeypatch.setattr(bag, "_get", lambda iid: None)                    # offline
+    assert bag.book("Etc") == [] and "Etc" in bag.retry
+    monkeypatch.setattr(invgrid.time, "time", lambda: bag.retry["Etc"] + 1)
+    asked = []
+    monkeypatch.setattr(bag, "_get", lambda iid: asked.append(iid))
+    bag.book("Etc")
+    assert asked == [4000000, 4000001]                                      # after the wait: asked again
