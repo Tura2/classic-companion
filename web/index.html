@@ -1416,7 +1416,7 @@ function whereOnMap(x, y, size, portals){
   if (!size || !size.w) return "";
   const col = x < size.w / 3 ? "left" : x > size.w * 2 / 3 ? "right" : "middle", row = y < size.h * 0.45 ? "upper " : "";
   const near = (portals || []).map(p => [Math.hypot(p.x - x, p.y - y), p]).sort((a, b) => a[0] - b[0])[0];
-  return `stands on the ${row}${col}${near && near[0] < 600 ? `, by the ${near[1].to} door` : ""}`;
+  return `stands on the ${row}${col}${near && near[0] < 600 ? `, by the ${near[1].to.replace(/^(the|an?) /i, "")} door` : ""}`;
 }
 function hereLeft(h){
   if (!h) return win(`${itemIcon(GI.nav, 22)} Where you are`, `<div class="body">${searchBox("here", "Set the map you’re on")}</div>`);
