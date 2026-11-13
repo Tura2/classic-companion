@@ -194,6 +194,8 @@ a.btn{display:inline-flex;align-items:center;text-decoration:none}
 .md .detail > .win{overflow:clip}     /* hidden would make the window the scroller and stop .qact sticking */
 .qact{position:sticky;bottom:0;z-index:2;margin:14px -14px -12px;padding:10px 14px;background:var(--strip);border-top:1px solid var(--rim-soft)}
 .md .master > *{min-width:0}
+.md .master.paged{display:flex;flex-direction:column;overflow:hidden}
+.md .master.paged > .plist{flex:1;min-height:0;display:grid;gap:3px;align-content:start;overflow:hidden}
 .md .master{overflow-x:hidden}
 .mob .grow{flex:1;min-width:0}
 /* stacked beside the game: the list keeps to its own scroll, so the chosen one shows under it */
@@ -1154,7 +1156,7 @@ async function renderLive(){
 
 // Train: a tab per map, best first, the chosen map in full beside them; or a monster you searched for
 // and the maps it lives on, nearest to you first
-let trainPick = 0, huntName = null;
+let trainPick = 0, trainPage = 0, huntName = null;
 const mobFind = `<div class="mobfind searchbox"><label class="sub" for="mobq">Find a monster</label>
     <input id="mobq" type="search" placeholder="Type a monster name" autocomplete="off"><div class="results" id="mobq-r"></div></div>`;
 function wireMobFind(){
@@ -1187,7 +1189,7 @@ function huntWin(h){
 async function renderTrain(){
   const p = state.profile, maps = await api("/api/train");
   const mine = ((await api("/api/grind").catch(() => null)) || {}).by_map || {};
-  const note = `<p class="note">Best maps for level ${p.level}: the most EXP for the HP you chew through, and more monsters count extra.${state.on_island ? " Maple Island only, since you’re still there." : ""}</p>`;
+  const note = `<p class="note">Best maps for level ${p.level}, best first: the most EXP for the HP you chew through, and more monsters count extra. The best map scores 100.${state.on_island ? " Maple Island only, since you’re still there." : ""}</p>`;
   const hunt = huntName ? await api("/api/hunt?name=" + encodeURIComponent(huntName)).catch(() => null) : null;
   if (huntName && (!hunt || hunt.error)) huntName = null;
   if (!maps.length && !hunt){
@@ -1196,9 +1198,11 @@ async function renderTrain(){
   }
   trainPick = Math.min(trainPick, Math.max(0, maps.length - 1));
   const m = maps[trainPick];
-  const list = maps.map((x, i) => `<button class="vtab" role="tab" aria-selected="${!hunt && i === trainPick}" data-i="${i}">
-      <span class="rank">${i + 1}</span><span class="grow"><b>${pretty(x.name)}</b><small>${pretty(x.mobs.map(y => y.name).join(", "))}</small></span>
-      <span class="score">${(x.eff * 100).toFixed(1)}<small>per 100 HP, ${fmt(x.count)} mobs${mine[x.id] ? `<br><b class="mine">you: ${perHr(mine[x.id])} EXP/hr</b>` : ""}</small></span></button>`).join("");
+  // the list is ranked by score, so the number it shows is the score: the best map is 100
+  const top = Math.max(...maps.map(x => x.score), 1e-9);
+  const row = (x, i) => `<button class="vtab" role="tab" aria-selected="${!hunt && i === trainPick}" data-i="${i}">
+      <span class="rank">${i + 1}</span><span class="grow"><b>${pretty(x.name)}</b><small>${fmt(x.count)} × ${pretty(x.mobs.map(y => y.name).join(", "))}${x.hittable ? "" : " · can’t always hit"}</small></span>
+      <span class="score" title="Score: 100 is the best map for you">${Math.max(1, Math.round(x.score / top * 100))}<small>${(x.eff * 100).toFixed(1)} per 100 HP${mine[x.id] ? `<br><b class="mine">you: ${perHr(mine[x.id])} EXP/hr</b>` : ""}</small></span></button>`;
   const mobs = !m ? "" : m.mobs.map(x => `<tr><td>${x.img ? `<img src="${esc(x.img)}" alt="" loading="lazy">` : ""}</td>
       <td><b>${pretty(x.name)}</b>${x.weak.length ? `<small>weak to ${esc(x.weak.join(", "))}</small>` : ""}</td>
       <td>${x.level}</td><td>${fmt(x.hp)}</td><td>${fmt(x.exp)}</td><td>${x.need_acc}</td><td><b>×${x.count}</b></td></tr>`).join("");
@@ -1211,8 +1215,11 @@ async function renderTrain(){
       <table class="mobtable"><thead><tr><th></th><th>Monster</th><th>Level</th><th>HP</th><th>EXP</th><th>ACC</th><th>Spawns</th></tr></thead><tbody>${mobs}</tbody></table>
       <div class="btns" style="margin:12px 0 0"><button class="btn primary" id="go">Take me there</button></div>
     </div>`, esc(m.street || ""));
-  $("#view").innerHTML = note + `<div class="md"><div class="master" role="tablist" aria-label="Training maps">${mobFind}${list}</div><div class="detail">${detail}</div></div>`;
-  document.querySelectorAll(".vtab[data-i]").forEach(b => b.addEventListener("click", () => { trainPick = +b.dataset.i; huntName = null; renderTrain(); }));
+  $("#view").innerHTML = note + `<div class="md"><div class="master paged" role="tablist" aria-label="Training maps">${mobFind}
+      <div class="plist" id="tlist" data-page="${trainPage}"></div><div class="pager" id="tpager"></div></div><div class="detail">${detail}</div></div>`;
+  const tl = $("#tlist");
+  tl.addEventListener("click", e => { const b = e.target.closest(".vtab[data-i]"); if (b){ trainPick = +b.dataset.i; huntName = null; renderTrain(); } });
+  tl.addEventListener("paged", () => { trainPage = +tl.dataset.page; });
   wireMobFind();
   if (hunt){
     $("#hunt-close").addEventListener("click", () => { huntName = null; renderTrain(); });
@@ -1220,6 +1227,7 @@ async function renderTrain(){
   } else $("#go").addEventListener("click", () => goTo(m.id, m.name));
   wireMaps();
   fitPanes();
+  pageFit(tl, maps, row, $("#tpager"));
 }
 
 async function goTo(id, name, npc){
@@ -1937,7 +1945,9 @@ async function renderSettings(){
 // Fit the list and details panes to the window, so the page itself doesn't scroll
 function fitPanes(){
   document.querySelectorAll(".md .master, .md .detail").forEach(el => {
-    el.style.maxHeight = innerWidth > 820 ? Math.max(260, innerHeight - el.getBoundingClientRect().top - scrollY - 16) + "px" : "";
+    const h = innerWidth > 820 ? Math.max(260, innerHeight - el.getBoundingClientRect().top - scrollY - 16) + "px" : "";
+    el.style.maxHeight = h;
+    if (el.classList.contains("paged")) el.style.height = h || "70vh";    // a paged list fills its pane: as many rows as fit
   });
 }
 addEventListener("resize", fitPanes);
