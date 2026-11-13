@@ -66,3 +66,11 @@ def test_all_maps_has_kills_and_mesos_an_hour(tmp_path):
     m = g.all_maps(32, min_active=60)[0]                       # ~10 minutes of grinding
     assert m["map"] == "Ant Tunnel I"
     assert m["kills_hr"] == round(100 / m["active_s"] * 3600) and m["mesos_hr"] == round(3000 / m["active_s"] * 3600)
+
+
+def test_all_maps_estimates_kills_when_no_line_was_read(tmp_path):
+    g = tracker(tmp_path)
+    t = feed(g, [50000 + 100 * i for i in range(101)])            # 100 kills, no corner line
+    g.flush(t)
+    m = g.all_maps(32, min_active=60)[0]
+    assert m["kills_hr"] == round(100 / m["active_s"] * 3600)

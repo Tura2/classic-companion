@@ -48,7 +48,35 @@ def test_deaths_lower_exp_per_hour_and_are_saved(tmp_path):
     t = feed(g, [50000 + 100 * i for i in range(101)])
     hr = g.summary(t)["exp_hr"]
     t = feed(g, [60000 - round(NEED * 0.10)], t0=t)
-    assert g.summary(t)["exp_hr"] < hr
+    after = g.summary(t)["exp_hr"]
+    assert after is None or after < hr                           # None: the death cost more than was gained
     g.flush(t)
     row = g.db.execute("SELECT deaths, exp_lost FROM sessions").fetchone()
     assert row == (1, round(NEED * 0.10))
+
+
+def test_an_early_death_keeps_the_numbers_sane(tmp_path):
+    g = tracker(tmp_path)
+    t = feed(g, [50000 + 100 * i for i in range(20)])            # 19 kills
+    t = feed(g, [51900 - round(NEED * 0.10)], t0=t)              # then a death bigger than all of it
+    s = g.summary(t)
+    assert s["kills_total"] == 19                                # kills are what you killed, deaths aside
+    assert s["ttl_s"] is None or s["ttl_s"] > 0
+    assert s["exp_hr"] is None or s["exp_hr"] > 0
+
+
+def test_a_last_session_with_a_death_has_no_negative_rate(tmp_path):
+    g = tracker(tmp_path)
+    t = feed(g, [50000 + 100 * i for i in range(20)])
+    t = feed(g, [51900 - round(NEED * 0.10)], t0=t)
+    t = feed(g, [41000, 41000], t0=t, map_id=2, name="Kerning City")
+    last = g.last_session
+    assert last["kills_total"] == 19 and last["deaths"] == 1
+    assert last["exp_hr"] is None or last["exp_hr"] > 0
+
+
+def test_a_repeated_last_digit_misread_is_not_a_death(tmp_path):
+    g = tracker(tmp_path)
+    t = feed(g, [50000 + 100 * i for i in range(20)])            # 51900
+    t = feed(g, [51895, 51895, 51900], t0=t)                     # the HUD misreads the last digit, three times
+    assert g.summary(t)["deaths"] == []

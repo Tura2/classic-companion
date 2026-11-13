@@ -60,6 +60,7 @@ MAX_GAIN_SHARE = 0.6    # one step gaining more than this share of a level is a 
 SPARK_MINUTES = 30      # the chart: EXP per minute over this many minutes
 NEED_READS = 3          # reads that agree on the level's EXP (exp / pct) before any is trusted
 DEATH_MAX = 0.10        # a death costs up to this share of the level's EXP (LUK lowers it)
+DEATH_MIN = 0.005       # ...and at least this: a HUD digit misread that still fits the level is far less
 STALL_AFTER = 300.0     # "no EXP" note: only after this much grinding on the map you're still on
 KILL_SAMPLE = 30        # kills to level: the typical gain over this many recent ones
 KILL_MIN = 5            # ... once there are at least this many
@@ -133,9 +134,14 @@ class Grind:
         if not g or (g["exp"] <= 0 and not g.get("deaths")):     # a stretch with a death is kept, net below 0 too
             return
         active = now - g["start"] if g["pq"] else g["active"]      # a run counts all its time
+        if g.get("kills") is None and not g["pq"]:      # no corner line read: kills worked out from the EXP
+            k = self.per_kill()
+            killed = g["exp"] + g.get("exp_lost", 0)
+            g["kills_est"] = round(killed / k) if k and killed > 0 else None
         row = (g["start"], now, g["map_id"], g["map"], g["level_start"], g["level_end"], g["exp"], active,
                (g["mesos"] - g["mesos0"]) if g["mesos0"] is not None and g["mesos"] is not None else None, None,
-               1 if g["pq"] else 0, g["pq"], g.get("deaths", 0), g.get("exp_lost", 0), g.get("kills"), g.get("picked"))
+               1 if g["pq"] else 0, g["pq"], g.get("deaths", 0), g.get("exp_lost", 0),
+               g.get("kills") if g.get("kills") is not None else g.get("kills_est"), g.get("picked"))
         if g["id"] is None:
             cur = self.db.execute("INSERT INTO sessions (start, end, map_id, map, level_start, level_end, exp_gained,"
                                   " active_s, mesos_gained, potions_cost, party, pq, deaths, exp_lost, kills, mesos_picked)"
@@ -282,7 +288,7 @@ class Grind:
         if not need:
             return None
         lost = e0 - e1
-        return lost if e1 == 0 or lost <= DEATH_MAX * need + 1 else None
+        return lost if DEATH_MIN * need <= lost <= DEATH_MAX * need + 1 else None
 
     def _died(self, lost, read, now):
         """Count a death: its EXP comes off the session, the map's log, the chart and the rates."""
@@ -337,7 +343,8 @@ class Grind:
         if line:
             return line
         k = self.per_kill()
-        return round(self.s_paced / k) if k else 0
+        killed = self.s_paced + sum(d["lost"] for d in self.deaths)      # what was killed, deaths aside
+        return max(0, round(killed / k)) if k else 0
 
     def _mesos_picked(self):
         if self.picked:
@@ -359,8 +366,9 @@ class Grind:
         """The session as Now's town view shows it once it's over."""
         end = self.last_gain or now or self.s_start
         active = self.s_active
+        hr = round(self.s_paced / active * 3600) if active >= 1 else None
         return {"map": self.s_map, "start": self.s_start, "end": end, "active_s": round(active, 1),
-                "exp_hr": round(self.s_paced / active * 3600) if active >= 1 else None,
+                "exp_hr": hr if hr and hr > 0 else None,
                 "gain_pct": self._gain_pct(), "level": self.last[2] if self.last else None,
                 "kills_total": self._kills_total(), "items": sum(self.loot.values()),
                 "mesos_picked": self._mesos_picked(), "deaths": len(self.deaths)}
@@ -396,6 +404,8 @@ class Grind:
         # really made (2026-11-11). The last WINDOW seconds of grinding give the recent rate.
         active = self.s_active + self._open_gap(now)
         hr = self.s_paced / active * 3600 if active >= 1 else None
+        if hr is not None and hr <= 0:
+            hr = None                     # a death cost more than was gained: no rate to speak of yet
         span = min(WINDOW, active)
         hr5 = None
         if span >= MIN_TTL_DATA:
@@ -409,7 +419,7 @@ class Grind:
             if wall >= MIN_TTL_DATA:
                 clock_hr = sum(e[1] for e in self.events if e[0] > now - wall) / wall * 3600
         ttl = None
-        if self.last and clock_hr:
+        if self.last and clock_hr and clock_hr > 0:
             e, p, _ = self.last
             if p:
                 ttl = (e / (p / 100) - e) / (clock_hr / 3600)

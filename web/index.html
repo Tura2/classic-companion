@@ -773,7 +773,7 @@ input.sw:disabled{cursor:not-allowed}
 .lastcard{flex:none}.lastcard > .title > span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}.lastcard > .title > small{white-space:nowrap;flex:none}
 .gcard.small .dhead .sub{display:none}.lastrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
 .lastrow > span:not(.tomb){flex:1 1 28%;background:var(--cell);border-radius:6px;padding:4px 6px;text-align:center}
-.lastrow b{display:block;font-size:1rem}.lastrow b.g{color:var(--good)}.lastrow small{font-size:.7rem;color:var(--muted);font-weight:800}
+.lastrow b{display:block;font-size:1rem}.lastrow b.g{color:var(--good)}.lastrow b.neg{color:#B42318}.lastrow small{font-size:.7rem;color:var(--muted);font-weight:800}
 .gcard.small{flex:1}.gcard.small .best .sub{display:none}.gcard.small .bl{grid-template-columns:22px 1fr 52px 40px}
 .gmini{display:grid;grid-template-columns:1fr 1fr;gap:6px}.gmini span{background:var(--cell);border-radius:6px;padding:4px 6px;text-align:center}
 .gmini b{display:block;font-size:1.05rem}.gmini small{font-size:.72rem;color:var(--muted);font-weight:800}
@@ -1055,7 +1055,7 @@ function myShopCard(ms, full){
 }
 /* the grind tracker, small, for the Now tab */
 const dur = s => s == null ? "—" : s >= 3600 ? `${Math.floor(s / 3600)}h ${Math.round(s % 3600 / 60)}m` : s >= 60 ? `${Math.round(s / 60)}m` : `${Math.round(s)}s`;
-const perHr = n => n == null ? "—" : n >= 1e6 ? (n / 1e6).toFixed(2) + "M" : n >= 1e4 ? Math.round(n / 1000) + "K" : fmt(n);
+const perHr = n => n == null || n <= 0 ? "—" : n >= 1e6 ? (n / 1e6).toFixed(2) + "M" : n >= 1e4 ? Math.round(n / 1000) + "K" : fmt(n);
 function spark(vals){
   const max = Math.max(...vals, 1), w = 6, gap = 2, h = 34;
   return `<svg class="spark" viewBox="0 0 ${vals.length * (w + gap)} ${h}" preserveAspectRatio="none" role="img" aria-label="EXP per minute, the last ${vals.length} minutes">${
@@ -1327,7 +1327,7 @@ function lastSessionCard(gr){
   const tomb = L.deaths ? `<span class="tomb" title="Died ${L.deaths}× in that session">${TOMB(16)}<b>${L.deaths}</b></span>` : "";
   return `<section class="card win lastcard"><div class="title"><span>${itemIcon(4000094, 22)} ${live ? "This session" : `Last session${L.map ? ` · ${pretty(L.map)}` : ""}`}</span><small>${aside}</small></div>
     <div class="body"><div class="lastrow">
-      <span><b>${dur(L.active_s)}</b><small>grinding</small></span><span><b class="g">${g >= 0 ? "+" : ""}${g.toFixed(2)}%</b><small>Lv. ${L.level ?? "?"}</small></span>
+      <span><b>${dur(L.active_s)}</b><small>grinding</small></span><span><b class="${g >= 0 ? "g" : "neg"}">${g >= 0 ? "+" : ""}${g.toFixed(2)}%</b><small>Lv. ${L.level ?? "?"}</small></span>
       <span><b>${fmt(L.kills_total || 0)}</b><small>killed</small></span><span><b>${fmt(L.items || 0)}</b><small>items</small></span>
       <span><b class="g">+${fmt(L.mesos_picked || 0)}</b><small>mesos</small></span>${tomb}</div></div></section>`;
 }
@@ -1379,7 +1379,8 @@ function wireNow(gr, h){
   if (lg && gr && gr.session){
     const items = lootItems(gr.session);
     lg.addEventListener("paged", () => wireTips(lg, "[data-lk]", items, e => +e.dataset.lk));
-    pageFit(lg, items, lootTile, $("#lpager"), 99);
+    // as many tiles as fit: the grid's real column count (auto-fill), times the rows that fit
+    pageFit(lg, items, lootTile, $("#lpager"), Math.max(1, getComputedStyle(lg).gridTemplateColumns.split(" ").length));
   }
 }
 async function renderLive(){
