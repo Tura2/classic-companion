@@ -135,6 +135,12 @@ PORTAL_URL = "https://maplestory.io/api/wz/GMS/83/Map/MapHelper.img/portal/game/
 PORTAL_FRAMES = 8
 PORTAL_RETRY = 600      # seconds before trying the download again after it failed
 
+# People who take you to a map no portal reaches: (from map, NPC id, to map). The game data has
+# them only as people standing on a map, so without these Florina Beach and its Florina Road maps
+# had no route from Victoria Island at all.
+NPC_RIDES = ((10000000, 112, 10007000),     # Pason in Lith Harbor takes you to Florina Beach
+             (10007000, 801, 10000000))     # Pison on Florina Beach sends you back (Pason is the only way in)
+
 
 def compose_frames(frames):
     """[(picture, (origin x, y))] -> (pictures on one canvas with every origin at the same spot, that spot)."""
@@ -431,6 +437,7 @@ class GameData:
                 best = self.graph.setdefault(mid, {}).get(dest)
                 if best is None or (p.get("type") == 2 and best.get("type") != 2):
                     self.graph[mid][dest] = p
+        self.add_npc_rides()
         quests = fetch_json(OSMS + "current/quests.json", "quests.json", age)
         self.quest_list = quests["quests"]
         # quest lines, as the Quest window names them ("Caretaker's Ledger"): line -> its quest ids, in order
@@ -993,6 +1000,17 @@ class GameData:
         return {"side": side, "height": height, "arrow": arrow,
                 "text": side + (", " + height if height else "")}
 
+    def add_npc_rides(self):
+        """Edges for NPC_RIDES, where the NPC stands: a step through one is "talk to them"."""
+        for a, npc, b in NPC_RIDES:
+            if a not in self.maps or b not in self.maps or b in self.graph.get(a, {}):
+                continue
+            pos = next((q for q in self.maps[a].get("npc_positions") or [] if q.get("id") == npc), None)
+            if pos is None:
+                continue
+            self.graph.setdefault(a, {})[b] = {"x": pos["x"], "y": pos["y"], "npc": npc,
+                                               "name": self.npc_names.get(npc, ""), "type": "npc"}
+
     def route(self, start, goal):
         from collections import deque
         if start not in self.maps or goal not in self.maps:
@@ -1016,6 +1034,12 @@ class GameData:
         steps = []
         for a, b in zip(path, path[1:]):
             p = self.graph[a][b]
+            if p.get("npc"):        # no portal: someone here takes you (Pason to Florina Beach)
+                steps.append({**self.map_info(a), "portal": None, "talk": True,
+                              "npc": {"x": p["x"], "y": p["y"], "name": p["name"]},
+                              "hint": self.hint(a, {"x": p["x"], "y": p["y"]}), "to": self.map_info(b),
+                              "render": self.render_url(a)})
+                continue
             steps.append({**self.map_info(a), "portal": {"x": p["x"], "y": p["y"], "name": p.get("name"),
                           "type": p.get("type")}, "hint": self.hint(a, p), "to": self.map_info(b),
                           "render": self.render_url(a)})

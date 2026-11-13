@@ -247,7 +247,10 @@ def route_strip(nav, scale=1.0, width=None):
         line1, line2 = "You're there", (f"Find {step['npc']['name']}" if step.get("npc") else step["name"])
     else:
         hint = step["hint"]
-        line1 = f"Portal {SIDES.get(hint['side'], hint['side'])}" + (f", {hint['height']}" if hint.get("height") else "")
+        if step.get("talk"):           # no portal: someone here takes you (Pason to Florina Beach)
+            line1 = f"Talk to {step['npc']['name']}"
+        else:
+            line1 = f"Portal {SIDES.get(hint['side'], hint['side'])}" + (f", {hint['height']}" if hint.get("height") else "")
         line2 = f"to {step['to']['name']}"
     quest = nav.get("quest")
     goal, qname = (quest.get("goal") or "", quest.get("name") or "") if quest else ("", "")
