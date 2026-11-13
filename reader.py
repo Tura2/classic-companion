@@ -36,10 +36,29 @@ KEPT = ("stat", "inventory", "skills", "helper", "quest")   # windows remembered
 
 
 # ---------------------------------------------------------------- OCR
-def ocr(img, scale=1, x0=0, y0=0):
-    """[(text, x, y, w, h)] in frame pixels. `img` is a crop whose top-left sits at (x0, y0)."""
+WHITE = 200     # a pixel of white text: its darkest channel at least this bright
+
+
+def ink(img, prep=None):
+    """The picture OCR is given. Plain gray suits most of the game's text. The mini map's title is
+    white on a see-through light blue, so in gray it has little contrast and Windows OCR often drops
+    the map's name and always the "<7>" of "Free Market <7>". "white" keeps just the white text, black
+    on white; "bright" is each pixel's darkest channel, white text standing out of any colored
+    background, edges kept (2026-11-13: West Rocky Mountain IV read by both, never in gray)."""
+    if prep is None:
+        return ImageOps.grayscale(img)
+    import numpy as np
+    low = np.asarray(img.convert("RGB")).min(axis=2)
+    if prep == "white":
+        return Image.fromarray(np.where(low >= WHITE, 0, 255).astype("uint8"))
+    return Image.fromarray(low.astype("uint8"))
+
+
+def ocr(img, scale=1, x0=0, y0=0, prep=None):
+    """[(text, x, y, w, h)] in frame pixels. `img` is a crop whose top-left sits at (x0, y0); `prep`
+    is how its picture is made for OCR (see ink)."""
     import winocr
-    im = ImageOps.grayscale(img)
+    im = ink(img, prep)
     if scale != 1:
         im = im.resize((round(im.width * scale), round(im.height * scale)), Image.LANCZOS)
 
@@ -57,10 +76,10 @@ def ocr(img, scale=1, x0=0, y0=0):
     return out
 
 
-def read_box(frame, box, s=1.0, pad=0):
+def read_box(frame, box, s=1.0, pad=0, prep=None):
     """OCR one area of the frame (clipped to it), lines sorted top to bottom. Small UI text reads
     best at about 3x the 1200 px UI size. `pad` adds blank margin in the area's own background
-    color, for text that starts right at the area's edge."""
+    color, for text that starts right at the area's edge. `prep`: see ink."""
     l, t, r, b = (int(v) for v in box)
     l, t, r, b = max(0, l), max(0, t), min(frame.width, r), min(frame.height, b)
     if r - l < 8 or b - t < 8:
@@ -70,7 +89,7 @@ def read_box(frame, box, s=1.0, pad=0):
         bg = max(crop.getcolors(crop.width * crop.height) or [(0, (255, 255, 255))])[1]
         crop = ImageOps.expand(crop, border=pad, fill=bg)
         l, t = l - pad, t - pad
-    return sorted(ocr(crop, 3 / s, l, t), key=lambda ln: (ln[2], ln[1]))
+    return sorted(ocr(crop, 3 / s, l, t, prep), key=lambda ln: (ln[2], ln[1]))
 
 
 def to_int(s):
@@ -806,10 +825,9 @@ def read_minimap(lines, frame, s, map_names, streets=None):
     for _, a, b in sorted(pairs, key=lambda p: -p[0])[:3]:
         # the map's emblem sits just left of the title and can clip its first letter at 1x
         box = (min(a[1], b[1]) - 24 * s, a[2] - 4 * s, max(a[1] + a[3], b[1] + b[3]) + 40 * s, b[2] + b[4] + 5 * s)
-        street, last = title_lines(read_box(frame, box, s))
+        street, name, _, last = read_title(frame, box, s, map_names, streets)
         if street is None:
             continue
-        name = title_map(street, last, map_names, streets)
         score = fuzz.ratio(fix_numeral(last), name) if name else 0
         if name and (best is None or score > best[0]):
             best = (score, street, name, [round(v) for v in box])
@@ -843,6 +861,44 @@ def title_map(street, last, map_names, streets=None):
     return name
 
 
+TITLE_PREPS = ("white", "bright", None)
+
+
+def read_title(frame, box, s, map_names, streets=None, split=title_lines):
+    """(street, map name, lines, last row) of a mini map title in `box`, read close up from more than
+    one picture of it (see ink): the map two of them agree on, else the one read closest to its
+    map's name. A misread rarely comes out the same twice, and each picture misses different
+    things. The street is the one most pictures read. `split` turns the lines into (street, last row). All None but the last row if none
+    names a map."""
+    from collections import Counter
+
+    from rapidfuzz import fuzz
+    got, last_text, streets_read = {}, None, Counter()
+    for prep in TITLE_PREPS:
+        lines = read_box(frame, box, s, prep=prep)
+        street, last = split(lines)
+        if street:
+            streets_read[street] += 1
+        if last and last_text is None:
+            last_text = last
+        name = title_map(street, last, map_names, streets) if last else None
+        if not name:
+            continue
+        score = fuzz.ratio(fix_numeral(last), name)
+        votes = got.setdefault(name, [0, 0, street, lines, last])
+        votes[0] += 1
+        votes[1] = max(votes[1], score)
+        if votes[0] >= 2:
+            break
+    if not got:
+        return None, None, None, last_text
+    name, (_, _, street, lines, last) = max(got.items(), key=lambda kv: (kv[1][0], kv[1][1]))
+    # the street as most pictures read it: the one that made out the map's name can garble it
+    if streets_read and streets_read.most_common(1)[0][1] > streets_read[street]:
+        street = streets_read.most_common(1)[0][0]
+    return street, name, lines, last
+
+
 def read_minimap_at(frame, title, s, map_names, buttons=None, streets=()):
     """(street, map name, title box, False) of the open mini map whose "MINI MAP" title (found by
     its picture) is `title`: its two lines under the title, read close up. The window's own
@@ -850,11 +906,7 @@ def read_minimap_at(frame, title, s, map_names, buttons=None, streets=()):
     mini map isn't read with it. All None if the lines don't name a map."""
     x, y = title[1], title[2]
     right = buttons[1] + buttons[3] + 8 * s if buttons and abs(buttons[2] - y) < 20 * s else x + 340 * s
-    lines = read_box(frame, (x + 60 * s, y + 24 * s, right, y + 82 * s), s)
-    if not lines:
-        return None, None, None, None
-    street, last = title_lines(lines)
-    name = title_map(street, last, map_names, streets)
+    street, name, lines, last = read_title(frame, (x + 60 * s, y + 24 * s, right, y + 82 * s), s, map_names, streets)
     if not name:
         MISSED["text"] = last
         return None, None, None, None
@@ -868,13 +920,20 @@ def read_minibar_at(frame, buttons, s, map_names, streets=None):
     """(street, map name, bar box, True) of the collapsed mini map, from the bar's text left of its
     "– + WORLD" buttons (found by their picture), read close up. All None if it names no map."""
     bx, by, _, bh = buttons[1:]
-    lines = read_box(frame, (bx - 470 * s, by - 4 * s, bx, by + bh + 4 * s), s)
-    parts = BAR_SPLIT.split(" : ".join(ln[0] for ln in lines), maxsplit=1)
-    name = title_map(parts[0].strip(), parts[1], map_names, streets) if len(parts) == 2 else None
+    street, name, lines, last = read_title(frame, (bx - 470 * s, by - 4 * s, bx, by + bh + 4 * s), s, map_names,
+                                           streets, split=bar_parts)
     if not name:
-        MISSED["text"] = parts[-1].strip() or None
+        MISSED["text"] = last
         return None, None, None, None
-    return parts[0].strip(), name, _text_box(lines, s, 0, 0, 0), True
+    return street, name, _text_box(lines, s, 0, 0, 0), True
+
+
+def bar_parts(lines):
+    """(street, map) of the collapsed mini map's bar, "Victoria Road : Lith Harbor", read as lines."""
+    parts = BAR_SPLIT.split(" : ".join(ln[0] for ln in lines), maxsplit=1)
+    if len(parts) < 2:
+        return None, (parts[0].strip() or None) if parts else None
+    return parts[0].strip(), parts[1].strip()
 
 
 def read_minimap_bar(lines, frame, s, map_names, streets=None):
@@ -1341,23 +1400,7 @@ class Reader:
         done = quest_completed(lines, s, self.quest_names)
         if done:
             seen["quest_complete"] = done
-        # the mini map by its picture, read close up: open, by its title (its buttons look like the
-        # collapsed bar's, so the bar counts only when there's no open mini map); else as OCR saw it
-        mt, street, name = self.map_titles, None, None
-        MISSED["text"] = None
-        if "minimap" in mt:
-            street, name, title, collapsed = read_minimap_at(frame, mt["minimap"], s, self.map_names, mt.get("minibar"),
-                                                             self.street_names)
-        elif "minibar" in mt:
-            street, name, title, collapsed = read_minibar_at(frame, mt["minibar"], s, self.map_names, self.street_names)
-        if not name:
-            street, name, title, collapsed = read_minimap([ln for ln in lines if ln[2] < frame.height * 0.9], frame,
-                                                          s, self.map_names, self.street_names)
-        if not name and MISSED["text"]:
-            seen["map_missed"] = MISSED["text"]
-        if name:
-            seen["map"] = {"street": street, "name": name, "title": title, "collapsed": collapsed,
-                           "window": None if collapsed else minimap_window(frame, title, s)}
+        self._read_map(frame, s, self.map_titles, seen, lines)
         tips = read_tooltips(lines, frame, s, self.item_names, self.tip_skip(frame))
         if tips:
             seen["tooltips"] = tips
@@ -1397,6 +1440,40 @@ class Reader:
         else:
             seen["windows"].pop("myshop", None)
         seen["windows"].pop("mysales", None)
+        return seen
+
+    def _read_map(self, frame, s, mt, seen, lines=None):
+        """The mini map, by its title picture (`mt`: title -> its line), read close up: open, by its
+        title (its buttons look like the collapsed bar's, so the bar counts only when there's no open
+        mini map); else, given the frame's OCR `lines`, as OCR saw it. Into seen["map"], or the title
+        that named no map into seen["map_missed"]."""
+        street = name = None
+        MISSED["text"] = None
+        if "minimap" in mt:
+            street, name, title, collapsed = read_minimap_at(frame, mt["minimap"], s, self.map_names, mt.get("minibar"),
+                                                             self.street_names)
+        elif "minibar" in mt:
+            street, name, title, collapsed = read_minibar_at(frame, mt["minibar"], s, self.map_names, self.street_names)
+        if not name and lines is not None:
+            street, name, title, collapsed = read_minimap([ln for ln in lines if ln[2] < frame.height * 0.9], frame,
+                                                          s, self.map_names, self.street_names)
+        if not name and MISSED["text"]:
+            seen["map_missed"] = MISSED["text"]
+        if name:
+            seen["map"] = {"street": street, "name": name, "title": title, "collapsed": collapsed,
+                           "window": None if collapsed else minimap_window(frame, title, s)}
+
+    def read_map_only(self, frame):
+        """The quick look between full reads: just the mini map, around where its title was last
+        found by its picture, read close up (about 50 ms against a full read's 500). None while its
+        place isn't known: the next full read looks for it."""
+        if not {"minimap", "minibar"} & set(self.titles.last):
+            return None
+        s = frame.height / REF_HEIGHT
+        mt = self.titles.find(frame, s, None, set(), names=("minimap", "minibar"))
+        seen = {"scale": round(s, 3), "quick": True, "map_only": True, "windows": {}}
+        if mt:
+            self._read_map(frame, s, mt, seen)
         return seen
 
     def read_my_shop_at(self, frame, line, panel_line=None):

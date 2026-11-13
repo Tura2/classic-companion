@@ -114,13 +114,16 @@ class Titles:
             return None
         return l + int(x), t + int(y), best
 
-    def find(self, frame, s, hints=None, full=None):
+    def find(self, frame, s, hints=None, full=None, names=None):
         """{title: (text, x, y, w, h)}, in the shape of an OCR line, for each title found in the frame.
         Each is looked for around its last place and around where OCR saw it (`hints`: title -> OCR
-        line); the whole frame is searched only for titles in `full` (None: every title)."""
+        line); the whole frame is searched only for titles in `full` (None: every title). `names`
+        limits the look to those titles; the others keep their last place."""
         g = _gray(frame)
         out, self.scores = {}, {}
         for name, b in self.boxes.items():
+            if names is not None and name not in names:
+                continue
             tpl = self.template(name, frame.height, s)
             th, tw = tpl.shape
             dx, dy, lw, lh = self._offsets(name, s)
