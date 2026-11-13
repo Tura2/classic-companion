@@ -423,6 +423,12 @@ class GameData:
         self.equip_names = {i["name"] for i in self.equips if i.get("name")}
         self.item_ids = {i["name"]: int(i["id"]) for i in items["items"] + items.get("scrolls", [])
                          if i.get("name") and i.get("id")}
+        # what the inventory reader (invgrid) tells apart, by the game's own kinds: [(id, name)]
+        self.bag_items = {}
+        for i in items["items"]:
+            if i.get("name") and i.get("id") and i.get("category"):
+                self.bag_items.setdefault(i["category"], []).append((int(i["id"]), i["name"]))
+        self.bag_items["scrolls"] = [(int(i["id"]), i["name"]) for i in items.get("scrolls", []) if i.get("name") and i.get("id")]
         self.scroll_rates = {s["name"]: s["success_rate"] for s in items.get("scrolls", [])
                              if s.get("name") and s.get("success_rate") is not None}
         try:            # optional: without it, the map you're on shows its monsters and no drops

@@ -1784,7 +1784,7 @@ function skTip(x){
   return `<div class="tname"><i></i>${pretty(x.name)}</div>
     <div class="ttop"><div class="timg">${x.img ? `<img src="${esc(x.img)}" alt="">` : ""}</div>
       <div class="tv"><span class="vb v-${x.verdict}">${SKV[x.verdict] || ""}</span>${x.price ? `<b>${fmt(x.price)}</b><small>${x.verdict === "npc" ? "an NPC pays, each" : "MSC, usual price"}</small>` : ""}</div></div>
-    <p class="twhy">${esc(x.why)}</p><p class="tsub">${x.starred ? "★ Starred: always kept. Click to unstar." : "Click to always keep it."}</p>`;
+    <p class="twhy">${esc(x.why)}</p>${x.alt ? `<p class="tsub">Read off your inventory: it may be ${pretty(x.alt)}, which looks the same. Hover it in the game to be sure.</p>` : ""}<p class="tsub">${x.starred ? "★ Starred: always kept. Click to unstar." : "Click to always keep it."}</p>`;
 }
 function sellKeepView(list){
   const by = k => list.filter(x => x.verdict === k);
@@ -1793,9 +1793,9 @@ function sellKeepView(list){
   const fm = by("fm").sort((a, b) => (b.price || 0) - (a.price || 0)), npc = by("npc"), keep = by("keep"), unsure = by("unknown");
   const fmSum = fm.reduce((a, x) => a + (x.price || 0), 0), npcSum = npc.reduce((a, x) => a + (x.price || 0), 0);
   const left = gameWin("SELL OR KEEP", tabs.map(([k, label]) => [k, `${label} <small>${by(k).length}</small>`, k === skTab]),
-    `<div class="ghint">${list.length ? "Hover items in your inventory in the game and they land here" : "Nothing yet: with screen reading on, hover each item in your inventory once"}</div>
+    `<div class="ghint">${list.length ? "Open a tab of your inventory in the game, or hover an item, and it lands here" : "Nothing yet: with screen reading on, open each tab of your inventory (Equip, Use, Etc) once"}</div>
      <div class="igrid pfit" id="igrid"></div><div class="pager" id="ipager"></div>
-     <div class="gfoot2"><span>Keeps the last 48 items you hovered</span><button class="btn small" id="sk-clear">Clear</button></div>`, "skgwin");
+     <div class="gfoot2"><span>Keeps the last 120 items you hovered or opened</span><button class="btn small" id="sk-clear">Clear</button></div>`, "skgwin");
   const keepRows = keep.map(x => `<div class="wrow">${slot(x.img, 32)}<b>${pretty(x.name)}</b><span class="sub">${esc(x.why)}</span>
       ${x.quest_id ? `<button class="btn mini" data-done="${esc(x.quest_id)}">Done with this quest</button>` : "<span></span>"}</div>`).join("");
   const right = `<div class="skside">

@@ -115,9 +115,13 @@ Settings has two separate switches, both off by default:
      market, and logged with the seller's name; sold-out rows are skipped. Scroll the shop's list
      and the rest come in. Everything lands in **Shops → Shops you visited**, a grid like your
      inventory with each item's picture, the cheapest price you saw, where, and what it's worth.
-   - Items you hover in your inventory: **Shops → Sell or keep**, an inventory window with tabs (Free
-     Market, NPC, Keep, Not sure), the game's tooltip with the reason, and what your bag is worth. It
-     keeps the last 48 items. An item is kept for a quest only when the quest is in your log, or is a
+   - Items in your inventory: **Shops → Sell or keep**, an inventory window with tabs (Free
+     Market, NPC, Keep, Not sure), the game's tooltip with the reason, and what your bag is worth.
+     Open a tab of your Item Inventory (Equip, Use, Set-up, Etc) and every item on it is told apart
+     by its picture, against the icons of that tab's items (downloaded once into `cache/icons/`;
+     the first look at a tab takes a few seconds, on the side). Where two items look the same (Wild
+     Boar Tooth and Fire Boar's Tooth) the tooltip names both; hovering an item settles it. Counts
+     aren't read off the slots yet. It keeps the last 120 items. An item is kept for a quest only when the quest is in your log, or is a
      one-time quest near your level whose earlier quests you've done (never for a weekly board quest
      not in your log); "Done with this quest" fixes a quest Companion missed. If a shop window
      can't be read, the app saves a picture of it to `debug/samples/` so the reader can be fixed

@@ -551,11 +551,19 @@ def read_stat(frame, t, s, job_names):
 
 
 def read_inventory(frame, t, s):
+    """Your mesos, the open tab, and a picture of its slots for invgrid to tell the items apart
+    (that takes a while the first time, so the app does it on the side)."""
+    import invgrid
     x, y = t[1], t[2]
+    out = {}
+    tab = invgrid.open_tab(frame, t, s)
+    if tab:
+        out.update(tab=tab, grid=frame.crop(invgrid.grid_box(t, s)))
     for text, *_ in read_box(frame, (x + 20 * s, y + 395 * s, x + 252 * s, y + 424 * s), s):
         if re.fullmatch(r"\d{1,3}([,.\s]\d{3})*", text.strip()):     # "89,460", the comma sometimes read as a space
-            return {"mesos": to_int(text)}
-    return {}
+            out["mesos"] = to_int(text)
+            break
+    return out
 
 
 def read_skills(frame, t, s, skill_names):
