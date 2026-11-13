@@ -67,8 +67,14 @@ USE = ["Bronze Arrows for Bows"] * 9 + ["Orange Potion", "Blue Potion", "Warrior
        "Return Scroll to Sleepywood", None, "Lemon", "Arrows for Bows", "Arrows for Crossbows"]
 
 
+EQUIP = ["Cap of Memories", "White Undershirt", "Blue Jean Shorts", "Blue Jean Shorts", "Brown Cotton Shorts",
+         "Red Knucklevest Pants", "Leather Sandals", "Blue Rubber Boots", "Old Raggedy Cape", "Pumpkin Basket", "Hand Axe",
+         "Forked Dagger", "Beginner's War Bow", "Dark Master Sergeant", "Purple Steal Pants"]
+
+
 @pytest.mark.skipif(not ICONS.exists() or not (CASES / "inventory_etc.png").exists(), reason="no cases or icons on this PC")
-@pytest.mark.parametrize("case, tab, want", [("inventory_etc", "Etc", ETC), ("inventory_use", "Use", USE)])
+@pytest.mark.parametrize("case, tab, want", [("inventory_etc", "Etc", ETC), ("inventory_use", "Use", USE),
+                                             ("inventory_equip", "Equip", EQUIP)])
 def test_a_real_tab(game_reader, case, tab, want):
     frame = Image.open(CASES / f"{case}.png").convert("RGB")
     title = game_reader.titles.find(frame, 1.0, None, {"inventory"})["inventory"]
