@@ -21,6 +21,11 @@ MIN_SCORE = 0.75     # a title matches at least this well...
 MIN_GAP = 0.25       # ...and this much better than anywhere else more than FAR px from it
 FAR = 10
 NEAR = 40            # how far around a window's last place (or where OCR saw it) is looked at first
+# A big area (the whole game) is searched rough first: both pictures shrunk COARSE times, then only
+# around the PEAKS best spots of that at full size. ~300 ms a title over a 1920 x 1200 game before.
+COARSE = 3
+PEAKS = 5
+BIG = 300_000        # an area of more pixels than this is searched rough first
 
 
 def _fast_len(n):
@@ -63,6 +68,12 @@ def ncc(img, tpl):
     return np.where(flat | (tn == 0), 0.0, num / np.where(flat, 1, den))
 
 
+def _shrink(a, k):
+    """The picture k times smaller, each k x k block averaged."""
+    h, w = a.shape[0] // k * k, a.shape[1] // k * k
+    return a[:h, :w].reshape(h // k, k, w // k, k).mean((1, 3))
+
+
 def _gray(img):
     return np.asarray(img.convert("L"), dtype=np.float32)
 
@@ -99,9 +110,12 @@ class Titles:
 
     @staticmethod
     def _search(g, tpl, box):
-        """(x, y, score) of the best match inside box (left, top, right, bottom), or None."""
+        """(x, y, score) of the best match inside box (left, top, right, bottom), or None. It has to
+        match MIN_SCORE well, and MIN_GAP better than anywhere else more than FAR px away."""
         l, t, r, b = (int(round(v)) for v in box)
         l, t, r, b = max(0, l), max(0, t), min(g.shape[1], r), min(g.shape[0], b)
+        if (r - l) * (b - t) > BIG and min(tpl.shape) >= 2 * COARSE:
+            return Titles._rough_first(g, tpl, (l, t, r, b))
         score = ncc(g[t:b, l:r], tpl)
         if score.size == 0:
             return None
@@ -113,6 +127,39 @@ class Titles:
         if best < MIN_SCORE or best - second < MIN_GAP:
             return None
         return l + int(x), t + int(y), best
+
+    @staticmethod
+    def _rough_first(g, tpl, box):
+        """_search over a big area: the PEAKS best spots on both pictures shrunk COARSE times, each
+        then matched at full size around it. The runner-up the gap is measured against is the best
+        of the other spots (a window's title has no near twin elsewhere that the rough look misses)."""
+        l, t, r, b = box
+        k = COARSE
+        score = ncc(_shrink(g[t:b, l:r], k), _shrink(tpl, k))
+        if score.size == 0:
+            return None
+        spots, score = [], score.copy()
+        gap = FAR // k + 1
+        for _ in range(PEAKS):
+            y, x = np.unravel_index(int(np.argmax(score)), score.shape)
+            if score[y, x] <= 0:
+                break
+            spots.append((t + y * k, l + x * k))
+            score[max(0, y - gap):y + gap + 1, max(0, x - gap):x + gap + 1] = -2
+        th, tw = tpl.shape
+        fine = []
+        for y0, x0 in spots:
+            sub = ncc(g[max(0, y0 - k - 1):y0 + th + k + 1, max(0, x0 - k - 1):x0 + tw + k + 1], tpl)
+            if sub.size:
+                yy, xx = np.unravel_index(int(np.argmax(sub)), sub.shape)
+                fine.append((float(sub[yy, xx]), max(0, x0 - k - 1) + int(xx), max(0, y0 - k - 1) + int(yy)))
+        if not fine:
+            return None
+        best, x, y = max(fine)
+        second = max((f[0] for f in fine if abs(f[1] - x) > FAR or abs(f[2] - y) > FAR), default=-1.0)
+        if best < MIN_SCORE or best - second < MIN_GAP:
+            return None
+        return x, y, best
 
     def find(self, frame, s, hints=None, full=None, names=None):
         """{title: (text, x, y, w, h)}, in the shape of an OCR line, for each title found in the frame.

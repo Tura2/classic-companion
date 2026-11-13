@@ -56,6 +56,7 @@ def on_island(data, prof):
 
 def set_current(data, state, mid):
     """Record the map you're on and move the active route to it."""
+    came_from = state["profile"].get("current_map")
     state["profile"]["current_map"] = mid
     save_profile(state)
     nav = state.get("nav")
@@ -64,7 +65,7 @@ def set_current(data, state, mid):
         if mid in ids:
             nav["i"] = ids.index(mid)
         else:   # wandered off the route: re-plan from here
-            steps = data.route(mid, nav["to"]["id"])
+            steps = data.route(mid, nav["to"]["id"], came_from=came_from)
             if steps:
                 if nav["steps"][-1].get("npc"):     # keep the NPC circled on the last map
                     steps[-1]["npc"] = nav["steps"][-1]["npc"]
@@ -272,7 +273,8 @@ def make_handler(data, state, cfg):
                     for name, h in sorted((state.get("hovered") or {}).items(), key=lambda kv: -kv[1]["ts"]):
                         v = advisor.verdict(name, None, prof, data, data.market, h.get("untradable"))
                         out.append({"name": name, "img": data.item_img(name), "ts": h["ts"],
-                                    "starred": name in (prof.get("starred") or []), **v})
+                                    "starred": name in (prof.get("starred") or []), "bag": bool(h.get("bag")),
+                                    "alt": h.get("alt"), **v})
                     return self.send(200, out)
                 if url.path == "/api/grind":         # EXP/hr now, the log, and your real EXP/hr per map
                     g = state.get("grind")
@@ -480,7 +482,7 @@ def make_handler(data, state, cfg):
                     return self.send(400, {"error": "Set where you are first, under Go to → Change where you are."})
                 steps = data.route(start, goal)
                 if not steps:
-                    return self.send(404, {"error": "No walking route between these maps. You may need a taxi, boat or quest portal."})
+                    return self.send(404, {"error": "No route between these maps. You may need a boat or a quest portal."})
                 if body.get("npc_id") is not None:
                     place = data.npc_place(int(body["npc_id"]))
                     if place and place["id"] == steps[-1]["id"]:

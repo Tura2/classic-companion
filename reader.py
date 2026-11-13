@@ -272,6 +272,32 @@ def read_my_shop(frame, line, item_names):
             "u": round(u, 3), "box": [round(left), round(top), round(right - left), round(bottom - top)]}
 
 
+# Windows that can lie over your store, by where they reach from their title line's (x, y), at 1200 px
+# tall: what's under one of them can't be read (2026-11-13: the Item Inventory over the store read as
+# its rows gone and its mesos box as the inventory's "800" arrows, and a sale went to Discord).
+COVERS = {"inventory": (-20, -10, 320, 440), "stat": (-30, -10, 290, 420), "skills": (-30, -10, 300, 600),
+          "quest": (-30, -10, 370, 580)}
+
+
+def store_covered(box, wins, tips, s):
+    """The windows and item tooltips lying over your store's box [left, top, width, height]."""
+    l, t, w, h = box
+    r, b = l + w, t + h
+    out = []
+    for name, (x0, y0, x1, y1) in COVERS.items():
+        line = wins.get(name)
+        if line is None:
+            continue
+        x, y = line[1], line[2]
+        if x + x0 * s < r and x + x1 * s > l and y + y0 * s < b and y + y1 * s > t:
+            out.append(name)
+    for tip in tips or []:
+        tl, tt, tr, tb = tip["box"]
+        if tl < r and tr > l and tt < b and tb > t:
+            out.append("tooltip")
+    return out
+
+
 def _my_items(lines, frame, u, item_names):
     """Your store's listed rows, like _shop_items, but a name the list cuts short ("Overall Armor
     DEF Scroll:..") that matches more than one item is kept as its text, with no item: it can still
@@ -389,7 +415,7 @@ def level_glyphs(frame, lv_line):
 
 
 def _bits(g):
-    return f"{g.width}x{g.height}:" + "".join("1" if v < 128 else "0" for v in g.getdata())
+    return f"{g.width}x{g.height}:" + "".join("1" if v < 128 else "0" for v in g.convert("L").tobytes())
 
 
 _TEMPLATES = {}
@@ -407,7 +433,7 @@ def _font_digit(d, size):
 
 
 def _similar(a, b):
-    pa, pb = list(a.getdata()), list(b.getdata())
+    pa, pb = a.convert("L").tobytes(), b.convert("L").tobytes()     # getdata goes in Pillow 14
     return sum((x < 128) == (y < 128) for x, y in zip(pa, pb)) / len(pa)
 
 
@@ -570,11 +596,19 @@ def read_stat(frame, t, s, job_names):
 
 
 def read_inventory(frame, t, s):
+    """Your mesos, the open tab, and a picture of its slots for invgrid to tell the items apart
+    (that takes a while the first time, so the app does it on the side)."""
+    import invgrid
     x, y = t[1], t[2]
+    out = {}
+    tab = invgrid.open_tab(frame, t, s)
+    if tab:
+        out.update(tab=tab, grid=frame.crop(invgrid.grid_box(t, s)))
     for text, *_ in read_box(frame, (x + 20 * s, y + 395 * s, x + 252 * s, y + 424 * s), s):
         if re.fullmatch(r"\d{1,3}([,.\s]\d{3})*", text.strip()):     # "89,460", the comma sometimes read as a space
-            return {"mesos": to_int(text)}
-    return {}
+            out["mesos"] = to_int(text)
+            break
+    return out
 
 
 def read_skills(frame, t, s, skill_names):
@@ -1436,7 +1470,13 @@ class Reader:
             else:
                 seen["windows"].pop("shop", None)
         if "myshop" in wins and orange_buttons(frame, wins["myshop"]) == 1:
-            seen["myshop"] = self.read_my_shop_at(frame, wins["myshop"], wins.get("mysales"))
+            mine = seen["myshop"] = self.read_my_shop_at(frame, wins["myshop"], wins.get("mysales"))
+            covered = store_covered(mine["box"], wins, seen.get("tooltips"), s)
+            if covered:          # what's under another window isn't the store: nothing from its list or box
+                mine.update(covered=covered, items=None, mesos=None)
+            inv = (seen.get("inventory") or {}).get("mesos")
+            if inv is not None and mine.get("mesos") not in (None, inv):
+                mine["mesos"] = None     # the store's mesos box shows your mesos, as the inventory does
         else:
             seen["windows"].pop("myshop", None)
         seen["windows"].pop("mysales", None)
@@ -1497,7 +1537,13 @@ class Reader:
         if not panel:
             panel = find_sales_panel(frame, anchor)     # opened since, or moved down a row after a sale
         s = frame.height / REF_HEIGHT
-        return {"myshop": self.read_my_shop_at(frame, tuple(anchor), tuple(panel) if panel else None),
+        mine = self.read_my_shop_at(frame, tuple(anchor), tuple(panel) if panel else None)
+        # windows the last full read saw, still where they were: one over the store hides it
+        open_now = {k: v["line"] for k, v in self.kept.items() if still_there(frame, v)}
+        covered = store_covered(mine["box"], open_now, None, s)
+        if covered:
+            mine.update(covered=covered, items=None, mesos=None)
+        return {"myshop": mine,
                 "scale": round(s, 3), "quick": True,
                 "windows": {"myshop": [round(anchor[1] / frame.width, 4), round(anchor[2] / frame.height, 4)]}}
 

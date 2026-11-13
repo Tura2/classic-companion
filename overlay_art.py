@@ -248,7 +248,7 @@ def route_strip(nav, scale=1.0, width=None):
     else:
         hint = step["hint"]
         if step.get("talk"):           # no portal: someone here takes you (Pason to Florina Beach)
-            line1 = f"Talk to {step['npc']['name']}"
+            line1 = f"{'Take the' if step.get('taxi') else 'Talk to'} {step['npc']['name']}"
         else:
             line1 = f"Portal {SIDES.get(hint['side'], hint['side'])}" + (f", {hint['height']}" if hint.get("height") else "")
         line2 = f"to {step['to']['name']}"

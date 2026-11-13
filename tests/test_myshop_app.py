@@ -80,7 +80,7 @@ def test_a_wrong_sale_gets_a_correction_on_discord():
     items = [{"name": "Mokbi Throwing Stars", "text": "Mokbi Throwing Stars", "count": 1, "price": 1100, "sold": False}]
 
     def look(total, mesos, rows_left=True):
-        return {"myshop": {"title": "Scrolls", "mesos": mesos, "items": items if rows_left else [],
+        return {"myshop": {"title": "Scrolls", "mesos": mesos, "items": items if rows_left else [{**items[0], "sold": True}],
                            "panel": {"total_sales": total, "total_received": 0, "rows": []} if total is not None else None},
                 "hud": {"level": 32}}
     reads = [look(5245, 1000)] * 2 + [look(None, 1000)] * 2 + [look(None, 1000 + round(1100 * 0.97), False)] * 2         + [look(5245, 2067, False)] * 2
@@ -89,3 +89,29 @@ def test_a_wrong_sale_gets_a_correction_on_discord():
     assert [k for k, _ in a.state["outbox"].added] == ["sale"]
     assert len([m for m in a.sent if m.startswith("correction: Mokbi Throwing Stars")]) == 1
     assert a.state["myshop"]["sales"] == []
+
+
+def test_the_inventory_over_the_store_hides_it(game_reader):
+    """2026-11-13: the Item Inventory opened over your store. Its rows and mesos box can't be read
+    there: the read says what covers it and gives neither."""
+    import pytest
+    from PIL import Image
+    from casekit import CASES
+    if not (CASES / "myshop_ui100.png").exists() or not (CASES / "inventory_use.png").exists():
+        pytest.skip("no cases on this PC")
+    frame = Image.open(CASES / "myshop_ui100.png").convert("RGB")
+    inv = Image.open(CASES / "inventory_use.png").convert("RGB").crop((991, 373, 1331, 823))
+    frame.paste(inv, (820, 300))                 # over its mesos box and the right of its list; buttons and notice show
+    game_reader.kept = {}
+    mine = game_reader.read(frame)["myshop"]
+    assert "inventory" in mine["covered"] and mine["items"] is None and mine["mesos"] is None
+    clean = game_reader.read(Image.open(CASES / "myshop_ui100.png").convert("RGB"))["myshop"]
+    assert not clean.get("covered") and clean["mesos"] == 428351 and clean["items"]
+
+
+def test_store_covered_by_a_window_or_a_tooltip():
+    import reader
+    box = [600, 200, 340, 570]
+    assert reader.store_covered(box, {"inventory": ("ITEM INVENTORY", 900, 500, 113, 8)}, None, 1.0) == ["inventory"]
+    assert reader.store_covered(box, {"inventory": ("ITEM INVENTORY", 1300, 500, 113, 8)}, None, 1.0) == []
+    assert reader.store_covered(box, {}, [{"box": [700, 300, 900, 500]}], 1.0) == ["tooltip"]

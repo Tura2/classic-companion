@@ -142,6 +142,7 @@ img.icon{width:36px;height:36px;object-fit:contain;image-rendering:pixelated;fle
 /* Now: the status line and the open shop's rows */
 .status{display:flex;align-items:center;gap:8px;margin:0 2px 12px;font-weight:800;color:var(--muted);font-size:.92rem}
 a.btn{display:inline-flex;align-items:center;text-decoration:none}
+.stall{margin:0 0 8px;padding:6px 10px;border-radius:6px;background:var(--warnbg);border:1px solid #E7B860;font-weight:800}
 .gstrip{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center}
 .gstrip div{background:var(--cell);border-radius:6px;padding:6px 4px}
 .gstrip b{display:block;font-size:1.15rem}
@@ -191,7 +192,11 @@ a.btn{display:inline-flex;align-items:center;text-decoration:none}
 .md{display:grid;grid-template-columns:minmax(260px,350px) minmax(0,1fr);gap:14px;align-items:start}
 .md .master{display:grid;gap:3px;align-content:start;overflow:auto;background:var(--win);border:1px solid var(--rim);border-radius:8px;padding:6px;box-shadow:inset 0 0 0 1px var(--strip),0 2px 0 var(--shadow)}
 .md .detail{overflow:auto;border-radius:8px;min-width:0}
+.md .detail > .win{overflow:clip}     /* hidden would make the window the scroller and stop .qact sticking */
+.qact{position:sticky;bottom:0;z-index:2;margin:14px -14px -12px;padding:10px 14px;background:var(--strip);border-top:1px solid var(--rim-soft)}
 .md .master > *{min-width:0}
+.md .master.paged{display:flex;flex-direction:column;overflow:hidden}
+.md .master.paged > .plist{flex:1;min-height:0;display:grid;gap:3px;align-content:start;overflow:hidden}
 .md .master{overflow-x:hidden}
 .mob .grow{flex:1;min-width:0}
 /* stacked beside the game: the list keeps to its own scroll, so the chosen one shows under it */
@@ -300,6 +305,7 @@ a.btn{display:inline-flex;align-items:center;text-decoration:none}
 .mapview.drag{cursor:grabbing}
 .mapview .stage{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform}
 .mapview img{display:block;max-width:none;pointer-events:none}
+.mapview .backdrop{position:absolute;inset:-24px;background:center/cover no-repeat;filter:blur(16px) brightness(.5) saturate(.8);pointer-events:none}
 .mapview svg{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
 .mapview .stage,.mapview .mapctl{opacity:0;transition:opacity .2s}
 .mapview.ready .stage,.mapview.ready .mapctl{opacity:1}
@@ -1045,8 +1051,8 @@ function grindCard(gr, g){
       ? icon('<path d="M7 4l12 8-12 8z"/>', "Resume") : icon('<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>', "Pause")}</button>
     <button class="btn mini" data-grind="reset">${icon('<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>', "Start over")}</button></span>`;
   return `<section class="card win gcard"><div class="title"><span>${itemIcon(4000001, 22)} Grind${n.map ? ` · ${pretty(n.map)}` : ""}${n.paused ? ` <span class="chip warn">Paused</span>` : ""}</span>${btns}</div>
-    <div class="body">${strip}
-      ${pct != null ? `<div class="prog"><div class="lbl"><span>Lv. ${n.level ?? "?"} · ${pct.toFixed(2)}%</span><span>${n.left != null ? fmt(n.left) + " EXP to go" : ""}</span></div>
+    <div class="body">${n.stalled ? `<p class="stall">No EXP for ${dur(n.stalled_s)} on ${pretty(n.map || "this map")}. Still grinding?</p>` : ""}${strip}
+      ${pct != null ? `<div class="prog"><div class="lbl"><span>Lv. ${n.level ?? "?"} · ${pct.toFixed(2)}%</span><span>${n.left != null ? fmt(n.left) + " EXP to go" : ""}${n.kills_left != null && !q ? ` · about <b>${fmt(n.kills_left)}</b> kills` : ""}</span></div>
         <div class="bar" role="progressbar" aria-label="EXP to the next level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div>
         ${q ? "" : `<p class="sub">${n.ttl_s ? `By the clock (${perHr(n.exp_hr_clock)} an hour, breaks included), level ${up} at about <b>${clock(Date.now() / 1000 + n.ttl_s)}</b>.` : "Time to level shows after a minute of grinding."}</p>`}</div>` : ""}
       <div class="gspark">${spark(n.spark || [])}<div class="sub"><span>EXP per minute, last ${(n.spark || []).length} min</span><span>+${fmt(n.gained)} EXP this session</span></div></div>
@@ -1059,7 +1065,7 @@ function routeStrip(){
   if (!nav) return "";
   const st = nav.steps[nav.i], last = nav.steps.length - 1;
   const what = st.arrived ? `You’re there: <b>${pretty(st.name)}</b>`
-    : st.talk ? `Step ${nav.i + 1} of ${last} · talk to <b>${pretty(st.npc.name)}</b> ${esc(st.hint.arrow)} for <b>${pretty(st.to.name)}</b>`
+    : st.talk ? `Step ${nav.i + 1} of ${last} · ${st.taxi ? "take the" : "talk to"} <b>${pretty(st.npc.name)}</b> ${esc(st.hint.arrow)} for <b>${pretty(st.to.name)}</b>`
     : `Step ${nav.i + 1} of ${last} · portal ${esc(st.hint.text)} ${esc(st.hint.arrow)} <b>${pretty(st.to.name)}</b>`;
   return `<div class="rstrip">${itemIcon(GI.nav, 20)}<span>${what}</span><button class="btn mini" id="now-route">Go to</button><button class="btn mini" id="now-stop">Stop</button></div>`;
 }
@@ -1117,7 +1123,7 @@ async function renderLive(){
   if (tab !== "live") return;
   // rebuild only when what's shown changes, so nothing flickers and a page of drops stays put
   const key = JSON.stringify([on, gr && gr.now && [Math.round((gr.now.exp_hr ?? 0) / 100), gr.now.ttl_s && Math.round(gr.now.ttl_s / 60),
-    gr.now.paused, gr.now.no_reset, gr.now.map, gr.now.gained, gr.now.exp == null, gr.now.pq && [gr.now.pq.runs, gr.now.pq.run_exp]],
+    gr.now.paused, gr.now.no_reset, gr.now.kills_left, gr.now.stalled && Math.round(gr.now.stalled_s / 60), gr.now.map, gr.now.gained, gr.now.exp == null, gr.now.pq && [gr.now.pq.runs, gr.now.pq.run_exp]],
     gr && gr.best, (g.windows || {}).hud ? 1 : 0, g.level_hint, state.nav && [state.nav.i, state.nav.to.id], h && h.id, next && next.at, nowNpc]);
   if (key === liveKey && $(".now2")) return;
   liveKey = key;
@@ -1151,7 +1157,7 @@ async function renderLive(){
 
 // Train: a tab per map, best first, the chosen map in full beside them; or a monster you searched for
 // and the maps it lives on, nearest to you first
-let trainPick = 0, huntName = null;
+let trainPick = 0, trainPage = 0, huntName = null;
 const mobFind = `<div class="mobfind searchbox"><label class="sub" for="mobq">Find a monster</label>
     <input id="mobq" type="search" placeholder="Type a monster name" autocomplete="off"><div class="results" id="mobq-r"></div></div>`;
 function wireMobFind(){
@@ -1184,7 +1190,7 @@ function huntWin(h){
 async function renderTrain(){
   const p = state.profile, maps = await api("/api/train");
   const mine = ((await api("/api/grind").catch(() => null)) || {}).by_map || {};
-  const note = `<p class="note">Best maps for level ${p.level}: the most EXP for the HP you chew through, and more monsters count extra.${state.on_island ? " Maple Island only, since you’re still there." : ""}</p>`;
+  const note = `<p class="note">Best maps for level ${p.level}, best first: the most EXP for the HP you chew through, and more monsters count extra. The best map scores 100.${state.on_island ? " Maple Island only, since you’re still there." : ""}</p>`;
   const hunt = huntName ? await api("/api/hunt?name=" + encodeURIComponent(huntName)).catch(() => null) : null;
   if (huntName && (!hunt || hunt.error)) huntName = null;
   if (!maps.length && !hunt){
@@ -1193,9 +1199,11 @@ async function renderTrain(){
   }
   trainPick = Math.min(trainPick, Math.max(0, maps.length - 1));
   const m = maps[trainPick];
-  const list = maps.map((x, i) => `<button class="vtab" role="tab" aria-selected="${!hunt && i === trainPick}" data-i="${i}">
-      <span class="rank">${i + 1}</span><span class="grow"><b>${pretty(x.name)}</b><small>${pretty(x.mobs.map(y => y.name).join(", "))}</small></span>
-      <span class="score">${(x.eff * 100).toFixed(1)}<small>per 100 HP, ${fmt(x.count)} mobs${mine[x.id] ? `<br><b class="mine">you: ${perHr(mine[x.id])} EXP/hr</b>` : ""}</small></span></button>`).join("");
+  // the list is ranked by score, so the number it shows is the score: the best map is 100
+  const top = Math.max(...maps.map(x => x.score), 1e-9);
+  const row = (x, i) => `<button class="vtab" role="tab" aria-selected="${!hunt && i === trainPick}" data-i="${i}">
+      <span class="rank">${i + 1}</span><span class="grow"><b>${pretty(x.name)}</b><small>${fmt(x.count)} × ${pretty(x.mobs.map(y => y.name).join(", "))}${x.hittable ? "" : " · can’t always hit"}</small></span>
+      <span class="score" title="Score: 100 is the best map for you">${Math.max(1, Math.round(x.score / top * 100))}<small>${(x.eff * 100).toFixed(1)} per 100 HP${mine[x.id] ? `<br><b class="mine">you: ${perHr(mine[x.id])} EXP/hr</b>` : ""}</small></span></button>`;
   const mobs = !m ? "" : m.mobs.map(x => `<tr><td>${x.img ? `<img src="${esc(x.img)}" alt="" loading="lazy">` : ""}</td>
       <td><b>${pretty(x.name)}</b>${x.weak.length ? `<small>weak to ${esc(x.weak.join(", "))}</small>` : ""}</td>
       <td>${x.level}</td><td>${fmt(x.hp)}</td><td>${fmt(x.exp)}</td><td>${x.need_acc}</td><td><b>×${x.count}</b></td></tr>`).join("");
@@ -1208,8 +1216,11 @@ async function renderTrain(){
       <table class="mobtable"><thead><tr><th></th><th>Monster</th><th>Level</th><th>HP</th><th>EXP</th><th>ACC</th><th>Spawns</th></tr></thead><tbody>${mobs}</tbody></table>
       <div class="btns" style="margin:12px 0 0"><button class="btn primary" id="go">Take me there</button></div>
     </div>`, esc(m.street || ""));
-  $("#view").innerHTML = note + `<div class="md"><div class="master" role="tablist" aria-label="Training maps">${mobFind}${list}</div><div class="detail">${detail}</div></div>`;
-  document.querySelectorAll(".vtab[data-i]").forEach(b => b.addEventListener("click", () => { trainPick = +b.dataset.i; huntName = null; renderTrain(); }));
+  $("#view").innerHTML = note + `<div class="md"><div class="master paged" role="tablist" aria-label="Training maps">${mobFind}
+      <div class="plist" id="tlist" data-page="${trainPage}"></div><div class="pager" id="tpager"></div></div><div class="detail">${detail}</div></div>`;
+  const tl = $("#tlist");
+  tl.addEventListener("click", e => { const b = e.target.closest(".vtab[data-i]"); if (b){ trainPick = +b.dataset.i; huntName = null; renderTrain(); } });
+  tl.addEventListener("paged", () => { trainPage = +tl.dataset.page; });
   wireMobFind();
   if (hunt){
     $("#hunt-close").addEventListener("click", () => { huntName = null; renderTrain(); });
@@ -1217,6 +1228,7 @@ async function renderTrain(){
   } else $("#go").addEventListener("click", () => goTo(m.id, m.name));
   wireMaps();
   fitPanes();
+  pageFit(tl, maps, row, $("#tpager"));
 }
 
 async function goTo(id, name, npc){
@@ -1292,7 +1304,7 @@ function wireMaps(){
 function preloadMap(id){ if (id) new Image().src = "/api/mapimg?id=" + id; }
 function buildMap(el){
   const d = el.dataset, target = d.x != null ? {x:+d.x, y:+d.y, lift:+(d.lift || 0)} : null;
-  el.innerHTML = `<div class="stage"><img alt="Map of ${esc(d.name)}" draggable="false"><svg preserveAspectRatio="none"></svg></div>
+  el.innerHTML = `<div class="backdrop"></div><div class="stage"><img alt="Map of ${esc(d.name)}" draggable="false"><svg preserveAspectRatio="none"></svg></div>
     <div class="maploading">Loading the map…</div>
     <div class="mapctl"><button type="button" data-z="in" aria-label="Zoom in">+</button><button type="button" data-z="out" aria-label="Zoom out">−</button>
       ${target ? `<button type="button" data-z="focus">Circled spot</button>` : ""}<button type="button" data-z="fit">Whole map</button></div>`;
@@ -1310,8 +1322,11 @@ function buildMap(el){
   function view(mode){
     if (!ready || !el.clientWidth) return;
     const [w, h] = size();
-    if (mode === "fit" || !target) z = fitZ();
-    else {
+    if (mode === "fit") z = fitZ();
+    else if (!target){    // nothing circled: fill the box (a wide map shown whole is a thin strip in black), middle first
+      z = Math.min(3, Math.max(w / img.naturalWidth, h / img.naturalHeight));
+      tx = (w - img.naturalWidth * z) / 2; ty = (h - img.naturalHeight * z) / 2;
+    } else {
       z = Math.min(3, Math.max(fitZ(), Math.min(w, h) / (FOCUS_SPAN * scale)));
       tx = w / 2 - target.x * scale * z; ty = h / 2 - (target.y - target.lift) * scale * z;
     }
@@ -1335,6 +1350,7 @@ function buildMap(el){
         <circle class="ring" vector-effect="non-scaling-stroke" cx="${target.x}" cy="${cy}" r="${base}"/>`);
       ring = [...svg.querySelectorAll("circle")];
     }
+    el.querySelector(".backdrop").style.backgroundImage = `url("${img.src}")`;
     el.classList.add("ready");
     view("focus");
   }
@@ -1458,7 +1474,7 @@ async function renderNav(force){
     const extras = {key: "route" + nav.i, portals: ((sh && sh.portals) || []).map(p => ({...p, target: st.portal && p.x === st.portal.x && p.y === st.portal.y}))};
     const head = st.arrived
       ? `<div class="rhead"><div class="arrow ok">✓</div><div><h3>You’re there: ${pretty(st.name)}</h3>${st.npc ? `<div class="sub">Find ${pretty(st.npc.name)}, circled on the map.</div>` : ""}</div></div>`
-      : st.talk ? `<div class="rhead"><div class="arrow">${esc(st.hint.arrow)}</div><div><h3>Talk to ${pretty(st.npc.name)}</h3><div class="sub">on the ${esc(st.hint.text)} of ${pretty(st.name)}, circled on the map. They take you to ${pretty(st.to.name)}.</div></div></div>`
+      : st.talk ? `<div class="rhead"><div class="arrow">${esc(st.hint.arrow)}</div><div><h3>${st.taxi ? "Take the" : "Talk to"} ${pretty(st.npc.name)}</h3><div class="sub">on the ${esc(st.hint.text)} of ${pretty(st.name)}, circled on the map. ${st.taxi ? `It drives you to ${pretty(st.to.name)} for a fare${state.profile.job === "Beginner" ? " (90% off while you're a Beginner)" : ""}.` : `They take you to ${pretty(st.to.name)}.`}</div></div></div>`
       : `<div class="rhead"><div class="arrow">${esc(st.hint.arrow)}</div><div><h3>Portal on the ${esc(st.hint.text)}</h3><div class="sub">in ${pretty(st.name)}, leads to ${pretty(st.to.name)}</div></div></div>`;
     const target = st.portal ? {...st.portal, lift: portalMeta ? 110 : 0} : st.npc ? {...st.npc, lift: 75} : null;
     right = `<section class="card win route"><div class="title"><span>${st.arrived ? "Arrived" : `Step ${nav.i + 1} of ${last}`}</span><small>to ${pretty(nav.to.name)}</small></div>
@@ -1542,7 +1558,7 @@ function questDetail(q, h, kind){
       ${q.next ? `<p class="sub" style="margin:8px 0 0">Leads to: ${pretty(q.next)}</p>` : ""}
       ${q.intro ? `<p class="sub" style="margin:10px 0 0">${pretty(q.intro)}</p>` : ""}
       ${q.wiki ? `<p class="sub" style="margin:10px 0 0;font-size:.78rem">Steps and drops: <a href="https://classicmaple.wiki" target="_blank" rel="noopener">Classic Maple Wiki</a> contributors, from <a href="${esc(q.wiki)}" target="_blank" rel="noopener">MapleClassic Wiki</a>, CC BY-NC-SA 4.0, reformatted.</p>` : ""}
-      <div class="btns" style="margin:14px 0 0">${actions}</div></div>`, kind === "active" ? "in progress" : "");
+      <div class="btns qact">${actions}</div></div>`, kind === "active" ? "in progress" : "");
 }
 async function renderQuests(){
   const d = await api("/api/quests"), p = state.profile;
@@ -1768,7 +1784,7 @@ function skTip(x){
   return `<div class="tname"><i></i>${pretty(x.name)}</div>
     <div class="ttop"><div class="timg">${x.img ? `<img src="${esc(x.img)}" alt="">` : ""}</div>
       <div class="tv"><span class="vb v-${x.verdict}">${SKV[x.verdict] || ""}</span>${x.price ? `<b>${fmt(x.price)}</b><small>${x.verdict === "npc" ? "an NPC pays, each" : "MSC, usual price"}</small>` : ""}</div></div>
-    <p class="twhy">${esc(x.why)}</p><p class="tsub">${x.starred ? "★ Starred: always kept. Click to unstar." : "Click to always keep it."}</p>`;
+    <p class="twhy">${esc(x.why)}</p>${x.alt ? `<p class="tsub">Read off your inventory: it may be ${pretty(x.alt)}, which looks the same. Hover it in the game to be sure.</p>` : ""}<p class="tsub">${x.starred ? "★ Starred: always kept. Click to unstar." : "Click to always keep it."}</p>`;
 }
 function sellKeepView(list){
   const by = k => list.filter(x => x.verdict === k);
@@ -1777,9 +1793,9 @@ function sellKeepView(list){
   const fm = by("fm").sort((a, b) => (b.price || 0) - (a.price || 0)), npc = by("npc"), keep = by("keep"), unsure = by("unknown");
   const fmSum = fm.reduce((a, x) => a + (x.price || 0), 0), npcSum = npc.reduce((a, x) => a + (x.price || 0), 0);
   const left = gameWin("SELL OR KEEP", tabs.map(([k, label]) => [k, `${label} <small>${by(k).length}</small>`, k === skTab]),
-    `<div class="ghint">${list.length ? "Hover items in your inventory in the game and they land here" : "Nothing yet: with screen reading on, hover each item in your inventory once"}</div>
+    `<div class="ghint">${list.length ? "Open a tab of your inventory in the game, or hover an item, and it lands here" : "Nothing yet: with screen reading on, open each tab of your inventory (Equip, Use, Etc) once"}</div>
      <div class="igrid pfit" id="igrid"></div><div class="pager" id="ipager"></div>
-     <div class="gfoot2"><span>Keeps the last 48 items you hovered</span><button class="btn small" id="sk-clear">Clear</button></div>`, "skgwin");
+     <div class="gfoot2"><span>Keeps the last 120 items you hovered or opened</span><button class="btn small" id="sk-clear">Clear</button></div>`, "skgwin");
   const keepRows = keep.map(x => `<div class="wrow">${slot(x.img, 32)}<b>${pretty(x.name)}</b><span class="sub">${esc(x.why)}</span>
       ${x.quest_id ? `<button class="btn mini" data-done="${esc(x.quest_id)}">Done with this quest</button>` : "<span></span>"}</div>`).join("");
   const right = `<div class="skside">
@@ -1930,7 +1946,9 @@ async function renderSettings(){
 // Fit the list and details panes to the window, so the page itself doesn't scroll
 function fitPanes(){
   document.querySelectorAll(".md .master, .md .detail").forEach(el => {
-    el.style.maxHeight = innerWidth > 820 ? Math.max(260, innerHeight - el.getBoundingClientRect().top - scrollY - 16) + "px" : "";
+    const h = innerWidth > 820 ? Math.max(260, innerHeight - el.getBoundingClientRect().top - scrollY - 16) + "px" : "";
+    el.style.maxHeight = h;
+    if (el.classList.contains("paged")) el.style.height = h || "70vh";    // a paged list fills its pane: as many rows as fit
   });
 }
 addEventListener("resize", fitPanes);
