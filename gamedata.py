@@ -1220,7 +1220,10 @@ class GameData:
                 seen.add(d["item"])
                 price = (self.market.items.get(d["item"]) or {}).get("p")
                 drops.append({"item": d["item"], "img": self.item_img(d["item"]), "from": mob["name"],
-                              "rate": d["rate"], "price": price, "success": self.scroll_rates.get(d["item"])})
+                              "rate": d["rate"], "price": price, "success": self.scroll_rates.get(d["item"]),
+                              "npc": self.npc_price(d["item"]) if hasattr(self, "npc_sell") else None,
+                              **(getattr(self, "item_info", {}).get(d["item"])
+                                                                  or {"kind": "", "desc": ""})})
         drops.sort(key=lambda d: -(d["price"] or -1))
         givers = {q.get("npc_id") for q in self.quest_list}
         npcs = []

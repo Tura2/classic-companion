@@ -41,7 +41,7 @@ def test_load_drops_keys_by_monster_id():
 def test_drops_most_valuable_first_with_scroll_rate():
     h = bare().here(ANT1)
     assert h["drops"][0] == {"item": CLAW, "from": "Zombie Mushroom", "rate": None, "price": 449999,
-                             "success": 60, "img": ANY}
+                             "success": 60, "img": ANY, "npc": None, "kind": "", "desc": ""}
     assert [d["item"] for d in h["drops"]] == [CLAW, "Cutlus", "Orange Potion"]   # unpriced last
     assert [m["name"] for m in h["mobs"]] == ["Zombie Mushroom", "Horny Mushroom"] and h["drops_ok"]
     assert h["mobs"][0] == {"id": 21, "name": "Zombie Mushroom", "level": 24, "hp": ANY, "count": 11, "exp": 45, "img": ANY}
@@ -75,3 +75,10 @@ def test_here_has_each_monsters_hp(game_reader):
     d = game_reader.data
     mobs = d.here(d.match_map_name("Line 2 <Area 1>"))["mobs"]
     assert {m["name"]: m["hp"] for m in mobs}["Jr. Wraith"] == 982
+
+
+def test_drops_carry_what_the_tooltip_shows(game_reader):
+    d = game_reader.data
+    drops = d.here(d.match_map_name("Line 2 <Area 1>"))["drops"]
+    cloth = next(x for x in drops if x["item"] == "Tablecloth")
+    assert cloth["kind"] == "Etc" and cloth["desc"].startswith("A tablecloth") and "npc" in cloth
