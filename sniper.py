@@ -184,7 +184,7 @@ def handle_grind(app, seen, prof):
         g.mesos(seen["inventory"]["mesos"], now)
 
 
-HOVER_KEEP = 48     # items Sell or keep remembers
+HOVER_KEEP = 120    # items Sell or keep remembers (hovered, or read off an inventory tab)
 
 
 def note_hovered(state, tips):
@@ -195,6 +195,21 @@ def note_hovered(state, tips):
             seen.pop(t["name"], None)       # hovered again: it moves to the newest end
             seen[t["name"]] = {"ts": time.time(), "untradable": bool(t.get("untradable"))}
     for old in list(seen)[:-HOVER_KEEP]:  # only the newest few, so the list never grows without end
+        del seen[old]
+
+
+def note_bag(state, items):
+    """Items read off the open inventory tab (invgrid) join Sell or keep's list like hovered ones. One
+    that looks like another item too is listed as both ("alt"); hovering it settles which."""
+    seen = state.setdefault("hovered", {})
+    now = time.time()
+    for it in items or []:
+        name = it.get("name")
+        if not name or (name in seen and not seen[name].get("bag")):
+            continue                      # hovered already: the tooltip said exactly what it is
+        seen.pop(name, None)
+        seen[name] = {"ts": now, "untradable": False, "bag": True, "alt": it.get("alt")}
+    for old in list(seen)[:-HOVER_KEEP]:
         del seen[old]
 
 
@@ -815,6 +830,8 @@ class App:
             self.apply_seen(msg[1], msg[2])
         elif kind == "tips_up":
             self.tips_ts = time.time()      # the same tooltip is still up: its prices stay
+        elif kind == "bag":
+            note_bag(self.state, msg[1])
         elif kind == "tips":
             note_hovered(self.state, msg[1])
             if self.drawing():
@@ -1168,6 +1185,7 @@ class App:
             game.update(error="", ts=time.time(), windows={**game.get("windows", {}), **seen["windows"]})
             return
         note_hovered(self.state, seen.get("tooltips"))
+        self.read_bag(seen.get("inventory"))
         if self.drawing() and seen.get("tooltips"):
             # only adds: a full read takes about a second and can miss a tooltip that came up
             # meanwhile; the quick tooltip check is what takes them away
@@ -1180,6 +1198,30 @@ class App:
         if self.state.get("guide") and self.state.get("guide_tick"):
             self.state["guide_tick"]()       # follow the guided quest's counts and where you are
         handle_grind(self, seen, prof)
+
+    def read_bag(self, inv):
+        """Tell apart the items on the open inventory tab, on the side: the first look at a tab
+        downloads its icons and takes a few seconds, later looks only match slots not seen before."""
+        if not inv or inv.get("grid") is None or getattr(self, "bag_busy", False):
+            return
+        import invgrid
+        if inv.get("tab") not in invgrid.KINDS:
+            return
+        if getattr(self, "bag", None) is None:
+            from gamedata import CACHE, OSMS
+            self.bag = invgrid.Bag(self.data.bag_items, lambda i: f"{OSMS}current/images/items/{i:08d}.png", CACHE / "icons")
+        self.bag_busy = True
+
+        def run():
+            try:
+                items = self.bag.read(inv["grid"], inv["tab"])
+            except Exception as e:
+                print("Reading the inventory failed:", e)
+                items = []
+            finally:
+                self.bag_busy = False
+            self.q.put(("bag", items))
+        threading.Thread(target=run, daemon=True).start()
 
     def anchor(self):
         """Where the route strip goes under the mini map: where the mini map was last seen, for as

@@ -272,7 +272,8 @@ def make_handler(data, state, cfg):
                     for name, h in sorted((state.get("hovered") or {}).items(), key=lambda kv: -kv[1]["ts"]):
                         v = advisor.verdict(name, None, prof, data, data.market, h.get("untradable"))
                         out.append({"name": name, "img": data.item_img(name), "ts": h["ts"],
-                                    "starred": name in (prof.get("starred") or []), **v})
+                                    "starred": name in (prof.get("starred") or []), "bag": bool(h.get("bag")),
+                                    "alt": h.get("alt"), **v})
                     return self.send(200, out)
                 if url.path == "/api/grind":         # EXP/hr now, the log, and your real EXP/hr per map
                     g = state.get("grind")
