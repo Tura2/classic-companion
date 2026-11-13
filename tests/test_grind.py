@@ -118,6 +118,42 @@ def test_low_level_kills_are_not_lumps(tmp_path):
     assert abs(s["exp_hr_5m"] - 30000) / 30000 < 0.05
 
 
+def test_exp_hr_counts_waits_but_not_breaks(tmp_path):
+    """Live, 2026-11-11 (Ant Tunnel I): counting only 15 s after each gain showed ~100K/hr against
+    ~66K really made. EXP/hr is the session's EXP over its grinding time: waits up to a minute
+    (respawns, walking) count, a longer break doesn't."""
+    g = tracker(tmp_path)
+    exps, e = [], 50000
+    for _ in range(5):
+        for _ in range(10):                                   # 10 kills, +100 EXP every 6 s
+            e += 100
+            exps.append(e)
+        exps += [e] * 5                                       # a 36 s wait for the respawn
+    exps += [e] * 30                                          # a 3-minute break
+    for _ in range(10):
+        e += 100
+        exps.append(e)
+    t = feed(g, [50000] + exps)
+    s = g.summary(t)
+    # the gaps between the 60 kills: 9 x 6 s in each of the 6 runs of kills, and 4 waits of 36 s;
+    # the 5th wait runs into the break (216 s since the last kill), so none of it counts
+    grinding = 6 * 9 * 6 + 4 * 36
+    assert s["gained"] == 6000
+    assert abs(s["active_s"] - grinding) < 7                  # + the open gap since the last kill
+    assert abs(s["exp_hr"] - 6000 / grinding * 3600) / (6000 / grinding * 3600) < 0.03
+
+
+def test_paused_time_is_not_grinding_time(tmp_path):
+    g = tracker(tmp_path)
+    t = feed(g, [50000 + 100 * i for i in range(11)])         # 10 kills in a minute
+    active = g.summary(t)["active_s"]
+    g.pause(True)
+    t = feed(g, [51000] * 5, t0=t)                            # 30 s paused
+    g.pause(False)
+    t = feed(g, [51100], t0=t)
+    assert abs(g.summary(t)["active_s"] - active) < 7
+
+
 def test_time_to_level_by_the_clock_counts_idle_minutes(tmp_path):
     g = tracker(tmp_path)
     t = feed(g, [50000 + 100 * i for i in range(51)])        # 5 minutes at 60K/hr
