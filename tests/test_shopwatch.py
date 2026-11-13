@@ -145,7 +145,7 @@ def test_a_sale_told_from_the_mesos_box_isnt_told_again_when_the_panel_returns()
     w = ShopWatch()
     after = [LIVE[2], LIVE[3]]
     feed(w, [store(40, after, mesos=768883), store(40, after, mesos=768883)])
-    gone = [LIVE[2]]                                      # the Red Potion row sold out
+    gone = [LIVE[2], {**LIVE[3], "sold": True}]           # the Red Potion row sold out: it went gray
     sales = feed(w, [store(None, after, mesos=768883, panel=False)] * 2
                  + [store(None, gone, mesos=768888, panel=False)] * 2, 20)
     assert [(s["item"], s["price"]) for s in sales] == [("Red Potion", 5)]
@@ -185,7 +185,7 @@ def test_mesos_that_only_fit_a_price_are_not_a_sale():
 def test_a_sale_the_panel_doesnt_show_is_taken_back():
     w = ShopWatch()
     feed(w, [store(5245, MOKBI, mesos=665292), store(5245, MOKBI, mesos=665292)])
-    gone = MOKBI[1:]                                     # misread: the Mokbi row seemed to go
+    gone = [{**MOKBI[0], "sold": True}, MOKBI[1]]        # misread: the Mokbi row seemed to go gray
     sales = feed(w, [store(None, MOKBI, mesos=665292, panel=False)] * 2
                  + [store(None, gone, mesos=666359, panel=False)] * 2, 20)
     assert [s["item"] for s in sales] == ["Mokbi Throwing Stars"]
@@ -201,7 +201,7 @@ def test_a_sale_the_panel_doesnt_show_is_taken_back():
 def test_the_panel_back_with_no_rise_takes_the_sale_back():
     w = ShopWatch()
     feed(w, [store(5245, MOKBI, mesos=665292), store(5245, MOKBI, mesos=665292)])
-    gone = MOKBI[1:]
+    gone = [{**MOKBI[0], "sold": True}, MOKBI[1]]
     feed(w, [store(None, MOKBI, mesos=665292, panel=False)] * 2 + [store(None, gone, mesos=666359, panel=False)] * 2, 20)
     assert feed(w, [store(5245, MOKBI, mesos=666359)] * 2, 60) == []
     assert len(w.take_fixes()) == 1 and w.status["sales"] == []
@@ -222,3 +222,29 @@ def test_mesos_baseline_follows_while_the_panel_is_open():
     feed(w, [store(0, after, mesos=1000), store(0, after, mesos=1000)])
     feed(w, [store(5, after, mesos=1005), store(5, after, mesos=1005)], 20)    # told from the panel
     assert feed(w, [store(None, after, mesos=1005, panel=False)] * 3, 40) == []  # panel lost: no repeat
+
+
+# 2026-11-13: the store listed "Bron.." 1 for 2,000. The Item Inventory was opened over it: the
+# store's rows read as gone, and its mesos box read the inventory's "800" arrows, then the
+# inventory's own 980,907 mesos. That posted "Bron x505 for 1,010,420" and "sold out" to Discord.
+BRON = [{"name": None, "text": "Bron", "count": 1, "price": 2000, "sold": False},
+        {"name": "Red Potion", "text": "Red Potion", "count": 1, "price": 5, "sold": False}]
+
+
+def test_a_covered_store_and_a_misread_mesos_box_are_not_a_sale():
+    w = ShopWatch()
+    feed(w, [store(panel=False, items=BRON, mesos=800), store(panel=False, items=BRON, mesos=800)])
+    covered = [store(panel=False, items=[], mesos=980907)] * 6
+    assert feed(w, covered, 20) == []
+    assert w.events == []                       # rows that can't be seen didn't sell out
+
+
+def test_a_price_any_rise_fits_tells_nothing():
+    # 0.2% of a 1,010,420 rise is more than half a 2,000 row: every amount "fits" it
+    assert ShopWatch._from_items(BRON, [{**BRON[0], "sold": True}, BRON[1]], 1010420, tol=0.002, sold_out=True) is None
+
+
+def test_a_row_gone_from_the_list_did_not_sell_out():
+    gone = BRON[1:]
+    assert ShopWatch._from_items(BRON, gone, 2000, tol=0.002, sold_out=True) is None
+    assert ShopWatch._from_items(BRON, [{**BRON[0], "sold": True}, BRON[1]], 2000, tol=0.002, sold_out=True) == ("Bron", 1)

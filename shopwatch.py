@@ -133,8 +133,10 @@ class ShopWatch:
         else:
             sales += self._from_mesos(read.get("mesos"), items_before, cap, now)
         self.sales += sales
-        if self.items is not None and items_before and not _rows(self.items) and _rows(items_before) \
-                and "soldout" not in self.events:
+        # sold out: every row seen gone gray. Rows that can't be read at all (another window over the
+        # store, 2026-11-13) aren't sold out
+        if self.items and items_before and not _rows(self.items) and _rows(items_before) \
+                and all(i.get("sold") for i in self.items) and "soldout" not in self.events:
             self.events.append("soldout")
         return sales
 
@@ -173,15 +175,21 @@ class ShopWatch:
     def _from_items(before, after, delta, tol=0, sold_out=False):
         """(item, how many) for a sale worth `delta`: the one row whose price it's a whole multiple of
         (within tol, a share, for amounts worked back from the fee), preferring a row that has just
-        sold out (gone gray, or gone); with sold_out, only such a row. None if no single row explains it."""
+        sold out (gone gray, or gone); with sold_out, only a row seen gone gray (one that went missing
+        may just be covered by another window). A price whose multiples are closer together than the
+        slack fits any amount, so it tells nothing. None if no single row explains it."""
         if not before or (sold_out and after is None):
             return None
         b, a = _rows(before), _rows(after) if after is not None else {}
+        gray = {(i.get("text") or i.get("name"), i.get("price"), i.get("count")) for i in after or [] if i.get("sold")}
         fits = []
         for text, (price, per, name) in b.items():
             k = round(delta / price)
-            if k >= 1 and abs(k * price - delta) <= tol * delta:
-                fits.append((text not in a, name or text[0], k * (per or 1)))
+            if k >= 1 and abs(k * price - delta) <= tol * delta and tol * delta < price / 2:
+                gone = text not in a
+                if sold_out and text[:3] not in gray:
+                    gone = False
+                fits.append((gone, name or text[0], k * (per or 1)))
         if sold_out:
             fits = [f for f in fits if f[0]]
         elif len(fits) > 1:

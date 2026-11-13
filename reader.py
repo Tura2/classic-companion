@@ -253,6 +253,32 @@ def read_my_shop(frame, line, item_names):
             "u": round(u, 3), "box": [round(left), round(top), round(right - left), round(bottom - top)]}
 
 
+# Windows that can lie over your store, by where they reach from their title line's (x, y), at 1200 px
+# tall: what's under one of them can't be read (2026-11-13: the Item Inventory over the store read as
+# its rows gone and its mesos box as the inventory's "800" arrows, and a sale went to Discord).
+COVERS = {"inventory": (-20, -10, 320, 440), "stat": (-30, -10, 290, 420), "skills": (-30, -10, 300, 600),
+          "quest": (-30, -10, 370, 580)}
+
+
+def store_covered(box, wins, tips, s):
+    """The windows and item tooltips lying over your store's box [left, top, width, height]."""
+    l, t, w, h = box
+    r, b = l + w, t + h
+    out = []
+    for name, (x0, y0, x1, y1) in COVERS.items():
+        line = wins.get(name)
+        if line is None:
+            continue
+        x, y = line[1], line[2]
+        if x + x0 * s < r and x + x1 * s > l and y + y0 * s < b and y + y1 * s > t:
+            out.append(name)
+    for tip in tips or []:
+        tl, tt, tr, tb = tip["box"]
+        if tl < r and tr > l and tt < b and tb > t:
+            out.append("tooltip")
+    return out
+
+
 def _my_items(lines, frame, u, item_names):
     """Your store's listed rows, like _shop_items, but a name the list cuts short ("Overall Armor
     DEF Scroll:..") that matches more than one item is kept as its text, with no item: it can still
@@ -1401,7 +1427,13 @@ class Reader:
             else:
                 seen["windows"].pop("shop", None)
         if "myshop" in wins and orange_buttons(frame, wins["myshop"]) == 1:
-            seen["myshop"] = self.read_my_shop_at(frame, wins["myshop"], wins.get("mysales"))
+            mine = seen["myshop"] = self.read_my_shop_at(frame, wins["myshop"], wins.get("mysales"))
+            covered = store_covered(mine["box"], wins, seen.get("tooltips"), s)
+            if covered:          # what's under another window isn't the store: nothing from its list or box
+                mine.update(covered=covered, items=None, mesos=None)
+            inv = (seen.get("inventory") or {}).get("mesos")
+            if inv is not None and mine.get("mesos") not in (None, inv):
+                mine["mesos"] = None     # the store's mesos box shows your mesos, as the inventory does
         else:
             seen["windows"].pop("myshop", None)
         seen["windows"].pop("mysales", None)
@@ -1428,7 +1460,13 @@ class Reader:
         if not panel:
             panel = find_sales_panel(frame, anchor)     # opened since, or moved down a row after a sale
         s = frame.height / REF_HEIGHT
-        return {"myshop": self.read_my_shop_at(frame, tuple(anchor), tuple(panel) if panel else None),
+        mine = self.read_my_shop_at(frame, tuple(anchor), tuple(panel) if panel else None)
+        # windows the last full read saw, still where they were: one over the store hides it
+        open_now = {k: v["line"] for k, v in self.kept.items() if still_there(frame, v)}
+        covered = store_covered(mine["box"], open_now, None, s)
+        if covered:
+            mine.update(covered=covered, items=None, mesos=None)
+        return {"myshop": mine,
                 "scale": round(s, 3), "quick": True,
                 "windows": {"myshop": [round(anchor[1] / frame.width, 4), round(anchor[2] / frame.height, 4)]}}
 
