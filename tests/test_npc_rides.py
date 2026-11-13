@@ -61,7 +61,7 @@ def test_real_data_reaches_florina_road(game_reader):
     data = game_reader.data
     steps = data.route(HENESYS, SHED)
     assert steps, "no route from Henesys to the Look-Out Shed"
-    talks = [s for s in steps if s.get("talk")]
+    talks = [s for s in steps if s.get("talk") and not s.get("taxi")]     # the cab to Lith Harbor aside
     assert [(s["name"], s["npc"]["name"], s["to"]["name"]) for s in talks] == [("Lith Harbor", "Pason", "Florina Beach")]
     back = data.route(SHED, HENESYS)
-    assert [(s["name"], s["npc"]["name"]) for s in back if s.get("talk")] == [("Florina Beach", "Pison")]
+    assert [(s["name"], s["npc"]["name"]) for s in back if s.get("talk") and not s.get("taxi")] == [("Florina Beach", "Pison")]
