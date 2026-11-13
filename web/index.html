@@ -300,6 +300,7 @@ a.btn{display:inline-flex;align-items:center;text-decoration:none}
 .mapview.drag{cursor:grabbing}
 .mapview .stage{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform}
 .mapview img{display:block;max-width:none;pointer-events:none}
+.mapview .backdrop{position:absolute;inset:-24px;background:center/cover no-repeat;filter:blur(16px) brightness(.5) saturate(.8);pointer-events:none}
 .mapview svg{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
 .mapview .stage,.mapview .mapctl{opacity:0;transition:opacity .2s}
 .mapview.ready .stage,.mapview.ready .mapctl{opacity:1}
@@ -1292,7 +1293,7 @@ function wireMaps(){
 function preloadMap(id){ if (id) new Image().src = "/api/mapimg?id=" + id; }
 function buildMap(el){
   const d = el.dataset, target = d.x != null ? {x:+d.x, y:+d.y, lift:+(d.lift || 0)} : null;
-  el.innerHTML = `<div class="stage"><img alt="Map of ${esc(d.name)}" draggable="false"><svg preserveAspectRatio="none"></svg></div>
+  el.innerHTML = `<div class="backdrop"></div><div class="stage"><img alt="Map of ${esc(d.name)}" draggable="false"><svg preserveAspectRatio="none"></svg></div>
     <div class="maploading">Loading the map…</div>
     <div class="mapctl"><button type="button" data-z="in" aria-label="Zoom in">+</button><button type="button" data-z="out" aria-label="Zoom out">−</button>
       ${target ? `<button type="button" data-z="focus">Circled spot</button>` : ""}<button type="button" data-z="fit">Whole map</button></div>`;
@@ -1310,8 +1311,11 @@ function buildMap(el){
   function view(mode){
     if (!ready || !el.clientWidth) return;
     const [w, h] = size();
-    if (mode === "fit" || !target) z = fitZ();
-    else {
+    if (mode === "fit") z = fitZ();
+    else if (!target){    // nothing circled: fill the box (a wide map shown whole is a thin strip in black), middle first
+      z = Math.min(3, Math.max(w / img.naturalWidth, h / img.naturalHeight));
+      tx = (w - img.naturalWidth * z) / 2; ty = (h - img.naturalHeight * z) / 2;
+    } else {
       z = Math.min(3, Math.max(fitZ(), Math.min(w, h) / (FOCUS_SPAN * scale)));
       tx = w / 2 - target.x * scale * z; ty = h / 2 - (target.y - target.lift) * scale * z;
     }
@@ -1335,6 +1339,7 @@ function buildMap(el){
         <circle class="ring" vector-effect="non-scaling-stroke" cx="${target.x}" cy="${cy}" r="${base}"/>`);
       ring = [...svg.querySelectorAll("circle")];
     }
+    el.querySelector(".backdrop").style.backgroundImage = `url("${img.src}")`;
     el.classList.add("ready");
     view("focus");
   }
