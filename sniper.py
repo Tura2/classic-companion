@@ -180,7 +180,19 @@ def handle_grind(app, seen, prof):
         pq = getattr(app, "grind_pq", None)
         if pq and pq_of(name) != pq:
             mid, name = -1, dict(PQS)[pq]       # the PQ by its prefix: no stage known
-        g.update(hud["exp"], hud.get("exp_pct"), prof.get("level"), mid, name, now)
+        gain = g.update(hud["exp"], hud.get("exp_pct"), prof.get("level"), mid, name, now)
+        if gain and gain > 0 and not getattr(g, "last_lump", False):
+            # the kills behind this gain, named by this map's monsters' EXP; a gain none of them
+            # explains (a party share, a bonus) is kills all the same, unnamed, at the usual kill
+            split = getattr(app.data, "split_kills", None)
+            names = split(mid, gain) if split and mid in getattr(app.data, "maps", {}) else None
+            if names:
+                for n in names:
+                    g.add_kill(n, now)
+            else:
+                k = g.per_kill()
+                for _ in range(max(1, round(gain / k)) if k else 1):
+                    g.add_kill(None, now)
     if (seen.get("inventory") or {}).get("mesos") is not None:
         g.mesos(seen["inventory"]["mesos"], now)
     tracker = getattr(app, "notices", None)
@@ -192,8 +204,8 @@ def handle_grind(app, seen, prof):
         mid = prof.get("current_map")
         for ev in tracker.update(seen["notices"], seen.get("notice_row") or 13, names):
             if ev[0] == "exp":
-                g.add_kill(data.kill_name(mid, ev[1]) if mid else None, now)
-            elif ev[0] == "mesos":
+                continue                  # kills come from the HUD's EXP gains, named the same way
+            if ev[0] == "mesos":
                 g.add_mesos(ev[1], now)
             elif ev[0] == "item" and ev[1]:
                 g.add_loot(ev[1], ev[2], now)

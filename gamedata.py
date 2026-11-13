@@ -1240,6 +1240,40 @@ class GameData:
                 "town": bool(m.get("is_town")), "mark": f"{OSMS}current/images/map_marks/{mark}.png" if mark else None,
                 "mobs": mobs, "drops": drops, "drops_ok": bool(self.drops_by_mob), "npcs": npcs, "portals": portals}
 
+    def split_kills(self, map_id, gain, most=6):
+        """The kills behind one EXP gain on this map, from its monsters' EXP: [name, ...], or None when
+        no mix of at most `most` kills adds up to it (a party share, a bonus, a quest). Of the mixes
+        that do, the fewest kills, then the likeliest by how many of each spawn here."""
+        import math
+        cache = self.__dict__.setdefault("_map_mobs", {})
+        if map_id not in cache:
+            mobs = {}
+            for mob in self.monsters:
+                spot = next((x for x in mob.get("maps") or [] if x.get("id") == map_id), None)
+                if spot and mob.get("exp"):
+                    mobs[mob["name"]] = (int(mob["exp"]), spot.get("count") or 1)
+            total = sum(c for _, c in mobs.values()) or 1
+            cache[map_id] = sorted(((e, n, math.log(c / total)) for n, (e, c) in mobs.items()), reverse=True)
+        mobs = cache[map_id]
+        if not mobs or gain <= 0:
+            return None
+        best = None
+
+        def walk(i, left, picked, score):
+            nonlocal best
+            if left == 0:
+                key = (len(picked), -score)
+                if best is None or key < best[0]:
+                    best = (key, list(picked))
+                return
+            if i == len(mobs) or len(picked) == most or (best and len(picked) >= best[0][0]):
+                return
+            e, name, lp = mobs[i]
+            for k in range(min(most - len(picked), left // e), -1, -1):
+                walk(i + 1, left - k * e, picked + [name] * k, score + k * lp)
+        walk(0, int(gain), [], 0.0)
+        return best[1] if best else None
+
     def kill_name(self, map_id, exp):
         """The monster on this map whose kill gives `exp` (the corner's "You received EXP" line); the one
         with the most spawns when several do. None when none does (a party share, an event bonus)."""

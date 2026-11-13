@@ -80,3 +80,22 @@ def test_the_view_says_whether_the_corner_is_read(tmp_path, game_reader):
     g = grind.Grind(tmp_path / "grind.sqlite")
     v = companion.grind_view(g, game_reader.data, {"current_map": game_reader.data.match_map_name("Line 2 <Area 1>"), "level": 32}, 30)
     assert v["corner"] is reader.CORNER_READ
+
+
+def test_hud_gains_become_named_kills(tmp_path, game_reader):
+    d = game_reader.data
+    a, prof = app(tmp_path, d), {"current_map": d.match_map_name("Line 2 <Area 1>"), "level": 32}
+    reads(a, prof, 50000, [])
+    reads(a, prof, 50066, [])
+    reads(a, prof, 50171, [])                     # +105: a Jr. Wraith and a Jr. Necki
+    reads(a, prof, 50242, [])                     # +71: nothing here gives that
+    kills = {k["name"]: k["count"] for k in a.grind.summary(1e10)["kills"]}
+    assert kills["Jr. Wraith"] == 2 and kills["Jr. Necki"] == 1 and kills[None] >= 1
+
+
+def test_corner_exp_lines_are_not_counted_twice(tmp_path, game_reader):
+    d = game_reader.data
+    a, prof = app(tmp_path, d), {"current_map": d.match_map_name("Line 2 <Area 1>"), "level": 32}
+    reads(a, prof, 50000, [])
+    reads(a, prof, 50066, [("You received EXP (+66)", 500)])
+    assert a.grind.summary(1e10)["kills"] == [{"name": "Jr. Wraith", "count": 1}]

@@ -216,6 +216,7 @@ class Grind:
         self.last_any = now
         need = self.need or need_of(exp, pct) or 0
         lump = resumed and gain > LUMP_SHARE * need     # a quest turned in, not a kill
+        self.last_lump = lump
         if not lump:                       # a lump isn't grinding: it doesn't start the clock either
             dt = self._open_gap(now)       # the wait since the last gain is grinding time, unless a break
             self.s_active += dt
