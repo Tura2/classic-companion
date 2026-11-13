@@ -142,6 +142,7 @@ img.icon{width:36px;height:36px;object-fit:contain;image-rendering:pixelated;fle
 /* Now: the status line and the open shop's rows */
 .status{display:flex;align-items:center;gap:8px;margin:0 2px 12px;font-weight:800;color:var(--muted);font-size:.92rem}
 a.btn{display:inline-flex;align-items:center;text-decoration:none}
+.stall{margin:0 0 8px;padding:6px 10px;border-radius:6px;background:var(--warnbg);border:1px solid #E7B860;font-weight:800}
 .gstrip{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center}
 .gstrip div{background:var(--cell);border-radius:6px;padding:6px 4px}
 .gstrip b{display:block;font-size:1.15rem}
@@ -1045,8 +1046,8 @@ function grindCard(gr, g){
       ? icon('<path d="M7 4l12 8-12 8z"/>', "Resume") : icon('<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>', "Pause")}</button>
     <button class="btn mini" data-grind="reset">${icon('<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>', "Start over")}</button></span>`;
   return `<section class="card win gcard"><div class="title"><span>${itemIcon(4000001, 22)} Grind${n.map ? ` · ${pretty(n.map)}` : ""}${n.paused ? ` <span class="chip warn">Paused</span>` : ""}</span>${btns}</div>
-    <div class="body">${strip}
-      ${pct != null ? `<div class="prog"><div class="lbl"><span>Lv. ${n.level ?? "?"} · ${pct.toFixed(2)}%</span><span>${n.left != null ? fmt(n.left) + " EXP to go" : ""}</span></div>
+    <div class="body">${n.stalled ? `<p class="stall">No EXP for ${dur(n.stalled_s)} on ${pretty(n.map || "this map")}. Still grinding?</p>` : ""}${strip}
+      ${pct != null ? `<div class="prog"><div class="lbl"><span>Lv. ${n.level ?? "?"} · ${pct.toFixed(2)}%</span><span>${n.left != null ? fmt(n.left) + " EXP to go" : ""}${n.kills_left != null && !q ? ` · about <b>${fmt(n.kills_left)}</b> kills` : ""}</span></div>
         <div class="bar" role="progressbar" aria-label="EXP to the next level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div>
         ${q ? "" : `<p class="sub">${n.ttl_s ? `By the clock (${perHr(n.exp_hr_clock)} an hour, breaks included), level ${up} at about <b>${clock(Date.now() / 1000 + n.ttl_s)}</b>.` : "Time to level shows after a minute of grinding."}</p>`}</div>` : ""}
       <div class="gspark">${spark(n.spark || [])}<div class="sub"><span>EXP per minute, last ${(n.spark || []).length} min</span><span>+${fmt(n.gained)} EXP this session</span></div></div>
@@ -1117,7 +1118,7 @@ async function renderLive(){
   if (tab !== "live") return;
   // rebuild only when what's shown changes, so nothing flickers and a page of drops stays put
   const key = JSON.stringify([on, gr && gr.now && [Math.round((gr.now.exp_hr ?? 0) / 100), gr.now.ttl_s && Math.round(gr.now.ttl_s / 60),
-    gr.now.paused, gr.now.no_reset, gr.now.map, gr.now.gained, gr.now.exp == null, gr.now.pq && [gr.now.pq.runs, gr.now.pq.run_exp]],
+    gr.now.paused, gr.now.no_reset, gr.now.kills_left, gr.now.stalled && Math.floor(gr.now.stalled_s / 60), gr.now.map, gr.now.gained, gr.now.exp == null, gr.now.pq && [gr.now.pq.runs, gr.now.pq.run_exp]],
     gr && gr.best, (g.windows || {}).hud ? 1 : 0, g.level_hint, state.nav && [state.nav.i, state.nav.to.id], h && h.id, next && next.at, nowNpc]);
   if (key === liveKey && $(".now2")) return;
   liveKey = key;

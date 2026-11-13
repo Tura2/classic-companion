@@ -59,6 +59,9 @@ MIN_TTL_DATA = 60.0     # seconds of active time before time-to-level is shown
 MAX_GAIN_SHARE = 0.6    # one step gaining more than this share of a level is a misread
 SPARK_MINUTES = 30      # the chart: EXP per minute over this many minutes
 NEED_READS = 3          # reads that agree on the level's EXP (exp / pct) before any is trusted
+STALL_AFTER = 300.0     # "no EXP" note: only after this much grinding on the map you're still on
+KILL_SAMPLE = 30        # kills to level: the typical gain over this many recent ones
+KILL_MIN = 5            # ... once there are at least this many
 RETHINK_VALUES = 3      # different EXPs in a row agreeing on another level EXP replace one set by misreads
 
 
@@ -320,16 +323,36 @@ class Grind:
         now_m = int(now // 60)
         spark = [self.minutes.get(m, 0) for m in range(now_m - SPARK_MINUTES + 1, now_m + 1)]
         level = self.last[2] if self.last else None
+        # "no EXP for a minute": you were grinding here a while and the HUD still reads, but nothing comes
+        stalled = (not self.paused and self.last_gain is not None and self.seg is not None
+                   and self.seg.get("active", 0) >= STALL_AFTER and now - self.last_gain >= BREAK)
         need = self.need if self.need is not None else (need_of(self.last[0], self.last[1]) if self.last else None)
         return {"running": running, "paused": self.paused, "no_reset": self.no_reset, "gained": self.s_gained,
                 "level": level, "need": round(need) if need else None,
                 "left": round(need - self.last[0]) if need and self.last else None,
                 "since": self.s_start, "spark": spark,
                 "active_s": round(active, 1), "exp_hr": hr, "exp_hr_5m": hr5, "exp_hr_clock": clock_hr,
-                "ttl_s": ttl, "mesos_hr": mhr,
+                "ttl_s": ttl, "mesos_hr": mhr, "stalled": stalled,
+                "stalled_s": round(now - self.last_gain) if stalled else None,
+                "per_kill": self.per_kill(), "kills_left": self.kills_left(need),
                 "map": self.pq or self.map, "map_id": self.map_id,
                 "pq": self.pq_summary(now, need - self.last[0] if need and self.last else None) if self.pq else None,
                 "exp": self.last[0] if self.last else None, "pct": self.last[1] if self.last else None}
+
+    def per_kill(self):
+        """The EXP a kill usually gives: the median of the recent killing gains (a read that caught two
+        kills at once is rarer than one), None until KILL_MIN of them."""
+        gains = [e[1] for e in self.events if not e[3]][-KILL_SAMPLE:]
+        if len(gains) < KILL_MIN:
+            return None
+        return sorted(gains)[len(gains) // 2]
+
+    def kills_left(self, need):
+        """About how many kills to the next level, at the usual EXP a kill."""
+        k = self.per_kill()
+        if not k or not need or not self.last:
+            return None
+        return max(0, math.ceil((need - self.last[0]) / k))
 
     def pq_summary(self, now, left=None):
         """The run you're in, and today's finished runs of the same party quest."""
