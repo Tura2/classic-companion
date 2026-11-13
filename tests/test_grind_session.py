@@ -74,3 +74,14 @@ def test_all_maps_estimates_kills_when_no_line_was_read(tmp_path):
     g.flush(t)
     m = g.all_maps(32, min_active=60)[0]
     assert m["kills_hr"] == round(100 / m["active_s"] * 3600)
+
+
+def test_your_party_kills_are_kept_apart(tmp_path):
+    g = tracker(tmp_path)
+    t = feed(g, [50000 + 100 * i for i in range(5)])
+    g.add_kill("Wild Boar", t)
+    g.add_kill("Wild Boar", t, party=True)
+    g.add_kill("Wild Boar", t, party=True)
+    s = g.summary(t)
+    assert s["kills"] == [{"name": "Wild Boar", "count": 1}] and s["kills_total"] == 1
+    assert s["party_kills"] == [{"name": "Wild Boar", "count": 2}]

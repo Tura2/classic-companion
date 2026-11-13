@@ -745,7 +745,7 @@ input.sw:disabled{cursor:not-allowed}
 .mst b{font-size:.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mst span{display:flex;align-items:center;gap:5px;font-size:.8rem;font-weight:800;color:var(--ink)}
 .mi{width:14px;height:14px;flex:none}
-.kc{text-align:right;line-height:1;align-self:start;padding-top:4px}.kc b{font-size:1.3rem}.kc small{display:block;font-size:.7rem;color:var(--muted);font-weight:800}
+.kc{text-align:right;line-height:1;align-self:start;padding-top:4px}.kc small.pk{color:var(--blue);margin-top:3px;white-space:nowrap}.kc b{font-size:1.3rem}.kc small{display:block;font-size:.7rem;color:var(--muted);font-weight:800}
 .modal{position:fixed;inset:0;background:rgba(20,28,45,.55);display:grid;place-items:center;z-index:40}
 .popwin{width:min(900px,94vw);max-height:90vh;display:flex;flex-direction:column;margin:0}
 .popwin > .body{min-height:0;display:flex;flex-direction:column}
@@ -1229,13 +1229,14 @@ function sessionCard(gr){
 function mapCard(h, sv){
   if (!h || h.error) return hereCard(h);
   const counts = Object.fromEntries(((sv && sv.kills) || []).map(k => [k.name, k.count]));
+  const byParty = Object.fromEntries(((sv && sv.kills) || []).map(k => [k.name, k.party || 0]));
   // no corner line read this session: the kills are only an estimate from the EXP, with no names
   const named = ((sv && sv.kills) || []).some(k => k.count);
   const guess = !named && sv && sv.kills_total ? sv.kills_total : 0;
   const mobs = [...h.mobs].sort((a, b) => (counts[b.name] || 0) - (counts[a.name] || 0) || (b.count || 0) - (a.count || 0));
   const boxes = mobs.map(m => `<div class="mbox"><div class="mpic">${m.img ? `<img src="${esc(m.img)}" alt="">` : ""}</div>
       <div class="mst"><b>${pretty(m.name)}</b><span>${IC_LV}Lv ${m.level ?? "?"}</span><span>${IC_HP}${m.hp != null ? fmt(m.hp) : "?"} HP</span><span>${IC_EXP}${m.exp != null ? fmt(m.exp) : "?"} EXP</span></div>
-      <div class="kc"><b>${named ? fmt(counts[m.name] || 0) : "—"}</b><small>killed</small></div></div>`).join("");
+      <div class="kc"><b>${named ? fmt(counts[m.name] || 0) : "—"}</b><small>killed</small>${byParty[m.name] ? `<small class="pk">+${fmt(byParty[m.name])} by party</small>` : ""}</div></div>`).join("");
   const other = ((sv && sv.kills) || []).filter(k => k.count && !h.mobs.some(m => m.name === k.name)).reduce((a, k) => a + k.count, 0);
   const dropsBtn = h.drops_ok && h.drops.length ? `<button class="btn mini" id="drops-btn">${itemIcon(2028000, 16)} Worth picking up ›</button>`
     : `<small>${h.mobs.length ? "No drop data right now" : esc(h.street || "")}</small>`;
@@ -1357,7 +1358,7 @@ function hereCard(h, size){
 }
 
 // what Now shows of the session: it's redrawn only when one of these changes
-const sessionKey = sv => [sv.kills_total, (sv.kills || []).map(k => k.count).join(","), (sv.loot || []).map(x => x.count).join(","),
+const sessionKey = sv => [sv.kills_total, (sv.kills || []).map(k => k.count + "/" + (k.party || 0)).join(","), (sv.loot || []).map(x => x.count).join(","),
   sv.mesos_picked, (sv.deaths || []).length, sv.gain_pct, sv.level, (sv.chart && sv.chart.vals || []).length,
   (sv.chart && sv.chart.vals || []).slice(-1)[0]].join("|");
 function wireNow(gr, h){

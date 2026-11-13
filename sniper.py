@@ -34,6 +34,7 @@ from trust import Gate
 from shopwatch import ShopWatch
 from grind import PQS, Grind, pq_of, pq_of_read
 import notices as notice_lines
+import party as party_split
 from capture import GameCapture, client_box, find_window, foreground_window, window_bounds
 from gamedata import JOBS, NPC_PRICES, MapMove
 
@@ -185,10 +186,26 @@ def handle_grind(app, seen, prof):
             # the kills behind this gain, named by this map's monsters' EXP; a gain none of them
             # explains (a party share, a bonus) is kills all the same, unnamed, at the usual kill
             split = getattr(app.data, "split_kills", None)
-            names = split(mid, gain) if split and mid in getattr(app.data, "maps", {}) else None
+            on_map = split and mid in getattr(app.data, "maps", {})
+            names = split(mid, gain) if on_map else None
+            fit = getattr(app, "party", None)
+            if fit is None:
+                fit = app.party = party_split.Fitter()
+            if on_map:
+                fit.add(gain)
+            told = None
+            if not names and on_map:
+                # not whole kills: in a party each kill's EXP is shared. Learn the split, then tell
+                # the gain as your kills and your party's
+                mobs = app.data.map_mobs(mid)
+                model = fit.model(mobs)
+                told = party_split.split(mobs, gain, model) if model else None
             if names:
                 for n in names:
                     g.add_kill(n, now)
+            elif told:
+                for n, who in told:
+                    g.add_kill(n, now, party=who == "party")
             else:
                 k = g.per_kill()
                 for _ in range(max(1, round(gain / k)) if k else 1):
@@ -768,6 +785,7 @@ class App:
         self.shopwatch = ShopWatch()  # sales in your own store
         self.grind = Grind(APP_DIR / "grind.sqlite") if GRIND_ON else None   # EXP/hr per session and per map
         self.notices = notice_lines.Tracker()   # the corner's EXP / mesos / item lines, each counted once
+        self.party = party_split.Fitter()        # learns how a party splits kills' EXP, from the gains
         state["grind"] = self.grind
         self.myshop_anchor = None   # your own store's fee notice, for the slow store-only look
         self.myshop_panel = None    # its SOLD ITEMS panel's title, when that's open
