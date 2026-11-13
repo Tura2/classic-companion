@@ -1180,7 +1180,7 @@ class GameData:
         for mob in self.monsters:
             spot = next((x for x in mob.get("maps") or [] if x.get("id") == mid), None)
             if spot:
-                mobs.append({"id": mob.get("id"), "name": mob["name"], "level": mob.get("level"),
+                mobs.append({"id": mob.get("id"), "name": mob["name"], "level": mob.get("level"), "hp": mob.get("hp"),
                              "count": spot.get("count"), "exp": mob.get("exp"), "img": self.mob_img(mob.get("id"))})
         drops, seen = [], set()
         for mob in mobs:
@@ -1206,6 +1206,18 @@ class GameData:
         return {"id": mid, "name": m.get("name", "?"), "street": m.get("street_name") or m.get("region", ""),
                 "town": bool(m.get("is_town")), "mark": f"{OSMS}current/images/map_marks/{mark}.png" if mark else None,
                 "mobs": mobs, "drops": drops, "drops_ok": bool(self.drops_by_mob), "npcs": npcs, "portals": portals}
+
+    def kill_name(self, map_id, exp):
+        """The monster on this map whose kill gives `exp` (the corner's "You received EXP" line); the one
+        with the most spawns when several do. None when none does (a party share, an event bonus)."""
+        best = None
+        for mob in self.monsters:
+            if mob.get("exp") != exp:
+                continue
+            spot = next((x for x in mob.get("maps") or [] if x.get("id") == map_id), None)
+            if spot and (best is None or (spot.get("count") or 0) > best[0]):
+                best = (spot.get("count") or 0, mob["name"])
+        return best[1] if best else None
 
     def _huntable(self):
         """Monsters you can go and hunt (not party quest or job test copies), by name."""

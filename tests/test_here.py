@@ -58,3 +58,20 @@ def test_town_has_npcs_no_drops():
     h = bare().here(HENESYS)
     assert h["town"] and h["mobs"] == [] and h["drops"] == []
     assert {"id": 202, "name": "Chief Stan", "x": 4166, "y": 719, "role": "Quests", "img": ANY} in h["npcs"]
+
+
+def test_a_kill_is_named_by_its_exp(game_reader):
+    d = game_reader.data
+    line2 = d.match_map_name("Line 2 <Area 1>")
+    assert d.kill_name(line2, 66) == "Jr. Wraith" and d.kill_name(line2, 39) == "Jr. Necki"
+
+
+def test_unknown_exp_is_an_unnamed_kill(game_reader):
+    d = game_reader.data
+    assert d.kill_name(d.match_map_name("Line 2 <Area 1>"), 71) is None
+
+
+def test_here_has_each_monsters_hp(game_reader):
+    d = game_reader.data
+    mobs = d.here(d.match_map_name("Line 2 <Area 1>"))["mobs"]
+    assert {m["name"]: m["hp"] for m in mobs}["Jr. Wraith"] == 982
