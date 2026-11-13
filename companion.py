@@ -263,6 +263,9 @@ def make_handler(data, state, cfg):
                 if url.path == "/api/portal.webp":   # the game's portal, drawn on maps
                     p = data.portal_sprite()
                     return self.send(200, p.read_bytes(), "image/webp", "max-age=86400") if p else self.send(404, {"error": "no portal picture"})
+                if url.path == "/api/tomb.png":      # the game's tombstone: deaths on Now
+                    p = data.tomb_sprite()
+                    return self.send(200, p.read_bytes(), "image/png", "max-age=86400") if p else self.send(404, {"error": "no tombstone picture"})
                 if url.path == "/api/portal":
                     return self.send(200, (portal_meta() or {}) if data.portal_sprite() else {})
                 if url.path == "/discord":           # where Discord sends you back after Authorize

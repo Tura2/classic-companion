@@ -134,6 +134,8 @@ def single_points(steps, now, n=3):
 PORTAL_URL = "https://maplestory.io/api/wz/GMS/83/Map/MapHelper.img/portal/game/pv/{n}"
 PORTAL_FRAMES = 8
 PORTAL_RETRY = 600      # seconds before trying the download again after it failed
+# The game's tombstone, as it lies on the ground after a death: Now marks deaths with it
+TOMB_URL = "https://maplestory.io/api/wz/GMS/83/Effect/Tomb.img/land/0"
 
 # People who take you to a map no portal reaches: (from map, NPC id, to map). The game data has
 # them only as people standing on a map, so without these Florina Beach and its Florina Road maps
@@ -1170,6 +1172,27 @@ class GameData:
         except Exception as e:
             print("Portal picture unavailable:", e)
             self._portal_failed = time.time()
+            return None
+
+    def tomb_sprite(self):
+        """The game's tombstone as a PNG on disk (cache/tomb.png), downloaded once; None when it can't
+        be had (tried again after PORTAL_RETRY seconds, not on every request)."""
+        path = CACHE / "tomb.png"
+        if path.exists():
+            return path
+        if time.time() - getattr(self, "_tomb_failed", 0) < PORTAL_RETRY:
+            return None
+        try:
+            import base64
+            r = requests.get(TOMB_URL, timeout=10, headers=UA)
+            r.raise_for_status()
+            tmp = path.with_name("tomb.tmp.png")
+            tmp.write_bytes(base64.b64decode(r.json()["value"]))
+            os.replace(tmp, path)
+            return path
+        except Exception as e:
+            print("Tombstone picture unavailable:", e)
+            self._tomb_failed = time.time()
             return None
 
     def here(self, mid):
