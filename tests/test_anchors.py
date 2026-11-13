@@ -75,3 +75,27 @@ def test_learned_title_for_a_new_height(tmp_path):
     found = again.find(img, 1080 / 1200)
     assert (round(found["stat"][1]), round(found["stat"][2])) == (821, 40)
     assert again.scores["stat"] >= 0.98
+
+
+def test_shrink_averages_blocks():
+    a = np.arange(36, dtype=float).reshape(6, 6)
+    assert np.allclose(anchors._shrink(a, 3), [[7, 10], [25, 28]])
+
+
+@pytest.mark.parametrize("case", ["fm_quest_window", "skills_1st", "hunt_moved_a"])
+def test_rough_first_finds_what_the_exact_search_does(case, tmp_path, monkeypatch):
+    f = frame(case)
+    s = f.height / 1200
+    rough = anchors.Titles(tmp_path, res_dir=APP).find(f, s, None, None)
+    monkeypatch.setattr(anchors, "BIG", 10 ** 12)          # every area searched exactly, as before
+    exact = anchors.Titles(tmp_path, res_dir=APP).find(f, s, None, None)
+    assert {k: v[1:3] for k, v in rough.items()} == {k: v[1:3] for k, v in exact.items()}
+
+
+def test_two_copies_of_a_title_find_neither(titles):
+    tpl = titles.template("inventory", 1200, 1.0).astype(np.uint8)
+    g = Image.new("L", (1920, 1200), 128)
+    pic = Image.fromarray(tpl)
+    g.paste(pic, (300, 200))
+    g.paste(pic, (1200, 900))                               # the same title twice: no telling which
+    assert titles._search(np.asarray(g, dtype=np.float32), titles.template("inventory", 1200, 1.0), (0, 0, 1920, 1200)) is None
