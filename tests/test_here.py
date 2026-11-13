@@ -44,7 +44,7 @@ def test_drops_most_valuable_first_with_scroll_rate():
                              "success": 60, "img": ANY}
     assert [d["item"] for d in h["drops"]] == [CLAW, "Cutlus", "Orange Potion"]   # unpriced last
     assert [m["name"] for m in h["mobs"]] == ["Zombie Mushroom", "Horny Mushroom"] and h["drops_ok"]
-    assert h["mobs"][0] == {"id": 21, "name": "Zombie Mushroom", "level": 24, "count": 11, "exp": 45, "img": ANY}
+    assert h["mobs"][0] == {"id": 21, "name": "Zombie Mushroom", "level": 24, "hp": ANY, "count": 11, "exp": 45, "img": ANY}
     assert h["portals"] == [{"x": 543, "y": 427, "to": "Henesys", "to_id": HENESYS}]
     assert h["mark"].endswith("map_marks/Dungeon.png") and h["town"] is False
 
