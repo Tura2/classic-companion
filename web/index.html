@@ -191,6 +191,8 @@ a.btn{display:inline-flex;align-items:center;text-decoration:none}
 .md{display:grid;grid-template-columns:minmax(260px,350px) minmax(0,1fr);gap:14px;align-items:start}
 .md .master{display:grid;gap:3px;align-content:start;overflow:auto;background:var(--win);border:1px solid var(--rim);border-radius:8px;padding:6px;box-shadow:inset 0 0 0 1px var(--strip),0 2px 0 var(--shadow)}
 .md .detail{overflow:auto;border-radius:8px;min-width:0}
+.md .detail > .win{overflow:clip}     /* hidden would make the window the scroller and stop .qact sticking */
+.qact{position:sticky;bottom:0;z-index:2;margin:14px -14px -12px;padding:10px 14px;background:var(--strip);border-top:1px solid var(--rim-soft)}
 .md .master > *{min-width:0}
 .md .master{overflow-x:hidden}
 .mob .grow{flex:1;min-width:0}
@@ -1542,7 +1544,7 @@ function questDetail(q, h, kind){
       ${q.next ? `<p class="sub" style="margin:8px 0 0">Leads to: ${pretty(q.next)}</p>` : ""}
       ${q.intro ? `<p class="sub" style="margin:10px 0 0">${pretty(q.intro)}</p>` : ""}
       ${q.wiki ? `<p class="sub" style="margin:10px 0 0;font-size:.78rem">Steps and drops: <a href="https://classicmaple.wiki" target="_blank" rel="noopener">Classic Maple Wiki</a> contributors, from <a href="${esc(q.wiki)}" target="_blank" rel="noopener">MapleClassic Wiki</a>, CC BY-NC-SA 4.0, reformatted.</p>` : ""}
-      <div class="btns" style="margin:14px 0 0">${actions}</div></div>`, kind === "active" ? "in progress" : "");
+      <div class="btns qact">${actions}</div></div>`, kind === "active" ? "in progress" : "");
 }
 async function renderQuests(){
   const d = await api("/api/quests"), p = state.profile;
