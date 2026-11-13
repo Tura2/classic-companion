@@ -763,6 +763,20 @@ input.sw:disabled{cursor:not-allowed}
 #tip .tkind{font-size:.75rem;color:#9AA3D0;font-weight:800}
 #tip .tdesc{margin:6px 0 0;font-weight:600;font-size:.8rem;color:#DDE3F5}
 #tip .thave{margin-top:6px;font-size:.85rem}
+
+/* Now in a town (2026-11-13 design): the town's map biggest, last session and a small Grind beside it */
+.now2.town{grid-template-columns:minmax(0,1.7fr) minmax(0,1fr)}
+.now2.town > .colL{display:flex;flex-direction:column;min-height:0}.now2.town > .colL > .win{flex:1}
+.herecard.town .npcs.pfit{flex:1;min-height:90px;overflow:hidden;align-content:start}
+.herecard.town .pager{margin-top:4px}
+.lastcard{flex:none}.lastcard > .title > span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}.lastcard > .title > small{white-space:nowrap;flex:none}
+.gcard.small .dhead .sub{display:none}.lastrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.lastrow > span:not(.tomb){flex:1 1 28%;background:var(--cell);border-radius:6px;padding:4px 6px;text-align:center}
+.lastrow b{display:block;font-size:1rem}.lastrow b.g{color:var(--good)}.lastrow small{font-size:.7rem;color:var(--muted);font-weight:800}
+.gcard.small{flex:1}.gcard.small .best .sub{display:none}.gcard.small .bl{grid-template-columns:22px 1fr 52px 40px}
+.gmini{display:grid;grid-template-columns:1fr 1fr;gap:6px}.gmini span{background:var(--cell);border-radius:6px;padding:4px 6px;text-align:center}
+.gmini b{display:block;font-size:1.05rem}.gmini small{font-size:.72rem;color:var(--muted);font-weight:800}
+.chip{font:800 .72rem "Nunito",sans-serif;background:var(--cell);color:var(--muted);border-radius:10px;padding:1px 8px;margin-left:6px}
 </style>
 </head>
 <body>
@@ -1289,9 +1303,40 @@ function townCard(h, size){
       <small>Town · ${h.npcs.length} people · ${h.portals.length} portals</small></div>
     <div class="body">${where}${mapBox(h.id, null, h.name, pick ? {x: pick.x, y: pick.y, lift: 75} : null, extras)}
       <div class="qh">People here · tap one to see where they stand</div>
-      <div class="npcs scrolly">${h.npcs.map(n => `<button class="npc${nowNpc === n.id ? " on" : ""}" data-nownpc="${n.id}"><img src="${esc(n.img)}" alt="" loading="lazy">
-        <b>${pretty(n.name)}</b>${n.role ? `<span class="role r-${n.role.toLowerCase()}">${n.role}</span>` : "<span></span>"}</button>`).join("")}</div>
+      <div class="npcs pfit" id="npcs"></div><div class="pager" id="npager"></div>
     </div></section>`;
+}
+const npcRow = n => `<button class="npc${nowNpc === n.id ? " on" : ""}" data-nownpc="${n.id}"><img src="${esc(n.img)}" alt="" loading="lazy">
+    <b>${pretty(n.name)}</b>${n.role ? `<span class="role r-${n.role.toLowerCase()}">${n.role}</span>` : "<span></span>"}</button>`;
+let npcPage = {};      // the page of people you're on, per town
+// In a town: the session that just ended (or this one, still counting across maps), in one row
+function lastSessionCard(gr){
+  if (!gr || !gr.available) return "";
+  const n = gr.now, sv = gr.session || {};
+  const live = gr.keep && sv.since;
+  const L = live ? {map: n.map, active_s: n.active_s, gain_pct: sv.gain_pct, level: sv.level, kills_total: sv.kills_total,
+                    items: (sv.loot || []).reduce((a, x) => a + x.count, 0), mesos_picked: sv.mesos_picked, deaths: (sv.deaths || []).length,
+                    start: sv.since, end: null} : gr.last;
+  if (!L) return "";
+  const aside = live ? `still counting · since ${clock(L.start)}` : L.start ? `${clock(L.start)} – ${clock(L.end)}` : "";
+  const g = L.gain_pct ?? 0;
+  const tomb = L.deaths ? `<span class="tomb" title="Died ${L.deaths}× in that session">${TOMB(16)}<b>${L.deaths}</b></span>` : "";
+  return `<section class="card win lastcard"><div class="title"><span>${itemIcon(4000094, 22)} ${live ? "This session" : `Last session${L.map ? ` · ${pretty(L.map)}` : ""}`}</span><small>${aside}</small></div>
+    <div class="body"><div class="lastrow">
+      <span><b>${dur(L.active_s)}</b><small>grinding</small></span><span><b class="g">${g >= 0 ? "+" : ""}${g.toFixed(2)}%</b><small>Lv. ${L.level ?? "?"}</small></span>
+      <span><b>${fmt(L.kills_total || 0)}</b><small>killed</small></span><span><b>${fmt(L.items || 0)}</b><small>items</small></span>
+      <span><b class="g">+${fmt(L.mesos_picked || 0)}</b><small>mesos</small></span>${tomb}</div></div></section>`;
+}
+// In a town, Grind shrinks: last session's EXP an hour, the time to level at that pace, your best maps
+function grindSmall(gr, g){
+  if (!state.screen.reading || !gr || !gr.available) return grindCard(gr, g);
+  const n = gr.now, L = gr.keep ? null : gr.last;
+  const hr = L ? L.exp_hr : n.exp_hr, up = n.level ? n.level + 1 : "up";
+  const ttl = hr && n.left != null ? n.left / hr * 3600 : null;
+  return `<section class="card win gcard small"><div class="title"><span>${itemIcon(4000001, 22)} Grind <span class="chip">not grinding</span></span></div>
+    <div class="body"><div class="gmini">
+        <span><b>${perHr(hr)}</b><small>EXP / hour ${L ? "last session" : "so far"}</small></span><span><b>${dur(ttl)}</b><small>to level ${up} at that pace</small></span></div>
+      ${bestMaps(gr.best)}</div></section>`;
 }
 function hereCard(h, size){
   if (!h || h.error) return win(`${itemIcon(GI.nav, 22)} This map`, `<div class="body"><p class="sub" style="margin:0">Set the map you’re on in Go to, or turn on screen reading so Companion follows the mini map.</p></div>`);
@@ -1314,6 +1359,18 @@ const sessionKey = sv => [sv.kills_total, (sv.kills || []).map(k => k.count).joi
 function wireNow(gr, h){
   const ab = $("#allmaps-btn"); if (ab) ab.addEventListener("click", allMapsModal);
   const db = $("#drops-btn"); if (db) db.addEventListener("click", () => dropsModal(h));
+  const pe = $("#npcs");
+  if (pe && h && h.npcs){
+    pe.dataset.page = npcPage[h.id] || 0;
+    pe.addEventListener("paged", () => {
+      npcPage[h.id] = +pe.dataset.page;
+      pe.querySelectorAll("[data-nownpc]").forEach(b => b.addEventListener("click", () => {
+        nowNpc = nowNpc === +b.dataset.nownpc ? null : +b.dataset.nownpc; renderLive(); }));
+    });
+    pageFit(pe, h.npcs, npcRow, $("#npager"), 2);
+    // the town's map lays out a moment later and the list's box settles: count the rows that fit again
+    [250, 1000].forEach(ms => setTimeout(() => { if (pe.isConnected && pe._draw) pe._draw(); }, ms));
+  }
   const lg = $("#lgrid");
   if (lg && gr && gr.session){
     const items = lootItems(gr.session);
@@ -1329,7 +1386,8 @@ async function renderLive(){
   // rebuild only when what's shown changes, so nothing flickers and a page of drops stays put
   const key = JSON.stringify([on, gr && gr.now && [Math.round((gr.now.exp_hr ?? 0) / 100), gr.now.ttl_s && Math.round(gr.now.ttl_s / 60),
     gr.now.paused, gr.now.no_reset, gr.now.kills_left, gr.now.stalled && Math.round(gr.now.stalled_s / 60), gr.now.map, gr.now.gained, gr.now.exp == null, gr.now.pq && [gr.now.pq.runs, gr.now.pq.run_exp]],
-    gr && gr.best, (g.windows || {}).hud ? 1 : 0, g.level_hint, h && h.id, nowNpc, gr && gr.session && sessionKey(gr.session), gr && gr.town]);
+    gr && gr.best, (g.windows || {}).hud ? 1 : 0, g.level_hint, h && h.id, nowNpc, gr && gr.session && sessionKey(gr.session), gr && gr.town,
+    gr && gr.keep, gr && gr.last && gr.last.end]);
   if (key === liveKey && $(".now2")) return;
   liveKey = key;
   const town = h && h.town && h.npcs && h.npcs.length;
@@ -1338,11 +1396,10 @@ async function renderLive(){
   const size = town && nowNpc ? await api("/api/mapsize?id=" + h.id).catch(() => null) : null;
   if (tab !== "live") return;
   const hint = g.level_hint ? `<p class="risk" style="margin:0 0 8px">The HUD seems to show level ${g.level_hint}, but those digits are new to Companion. Open Character Stat (S) once so it learns them.</p>` : "";
-  const right = town ? hereCard(h, size) : `${sessionCard(gr)}${mapCard(h, gr && gr.session)}`;
-  $("#view").innerHTML = `${hint}<div class="now2"><div class="colL">${grindCard(gr, g)}</div><div class="colR">${right}</div></div>`;
+  $("#view").innerHTML = town
+    ? `${hint}<div class="now2 town"><div class="colL">${hereCard(h, size)}</div><div class="colR">${lastSessionCard(gr)}${grindSmall(gr, g)}</div></div>`
+    : `${hint}<div class="now2"><div class="colL">${grindCard(gr, g)}</div><div class="colR">${sessionCard(gr)}${mapCard(h, gr && gr.session)}</div></div>`;
   wireNow(gr, h);
-  document.querySelectorAll("#view [data-nownpc]").forEach(b => b.addEventListener("click", () => {
-    nowNpc = nowNpc === +b.dataset.nownpc ? null : +b.dataset.nownpc; renderLive(); }));
   if (town) wireMaps();
   if (h && h.drops && h.drops_ok){      // the page of drops you're on stays put when Now redraws
     const dl = $("#dlist");             // none in a town: no monsters, so no drop list
