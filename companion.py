@@ -283,9 +283,10 @@ def make_handler(data, state, cfg):
                     g = state.get("grind")
                     if not g:
                         return self.send(200, {"available": False})
-                    return self.send(200, {"available": True, "now": g.summary(time.time()), "history": g.history(12),
-                                           "best": g.best_maps(int(prof.get("level") or 1)),
-                                           "by_map": {str(k): round(v) for k, v in g.by_map().items()}})
+                    return self.send(200, grind_view(g, data, prof, time.time()))
+                if url.path == "/api/allmaps":       # every map of your last 5 levels, for Now's pop-up
+                    g = state.get("grind")
+                    return self.send(200, g.all_maps(int(prof.get("level") or 1)) if g else [])
                 if url.path == "/api/myshop":
                     return self.send(200, state.get("myshop") or {"watching": False, "sales": []})
                 if url.path == "/api/state":
@@ -541,6 +542,39 @@ class Server(ThreadingHTTPServer):
     # Python's HTTP server asks for SO_REUSEADDR, which on Windows lets a second copy bind a port
     # the first still holds, and then requests land on either copy
     allow_reuse_address = sys.platform != "win32"
+
+
+def session_view(g, data, map_id, now):
+    """This grind session as Now draws it: the map's monsters with your kills (and kills of monsters
+    not on it, and unnamed ones), the loot with what each item is and is worth (for its tooltip),
+    mesos picked up and a minute's worth, where the EXP bar started and moved, deaths, the chart."""
+    s = g.summary(now)
+    here = data.here(map_id) if map_id in getattr(data, "maps", {}) else {"mobs": []}
+    counts = {k["name"]: k["count"] for k in s["kills"]}
+    kills = [{"name": m["name"], "count": counts.pop(m["name"], 0), "img": m.get("img"), "level": m.get("level"),
+              "hp": m.get("hp"), "exp": m.get("exp")} for m in here["mobs"]]
+    kills += [{"name": n, "count": c, "img": None, "level": None, "hp": None, "exp": None}
+              for n, c in counts.items()]          # killed elsewhere this session, or not named (None)
+    info = getattr(data, "item_info", {})
+    loot = [{"name": x["name"], "count": x["count"], "img": data.item_img(x["name"]),
+             "kind": (info.get(x["name"]) or {}).get("kind", ""), "desc": (info.get(x["name"]) or {}).get("desc", ""),
+             "msc": (data.market.items.get(x["name"]) or {}).get("p"), "npc": data.npc_price(x["name"])}
+            for x in s["loot"]]
+    minutes = (now - s["since"]) / 60 if s.get("since") else 0
+    return {"kills": kills, "kills_total": s["kills_total"], "loot": loot, "mesos_picked": s["mesos_picked"],
+            "mesos_per_min": round(s["mesos_picked"] / minutes) if minutes >= 1 else None,
+            "start": s["start"], "level": s["level"], "pct": s["pct"], "gain_pct": s["gain_pct"],
+            "deaths": s["deaths"], "exp_lost": s["exp_lost"], "chart": s["chart"], "since": s["since"]}
+
+
+def grind_view(g, data, prof, now):
+    """Everything Now's grind side needs, for /api/grind."""
+    mid = prof.get("current_map")
+    level = int(prof.get("level") or 1)
+    return {"available": True, "now": g.summary(now), "history": g.history(12), "best": g.best_maps(level),
+            "by_map": {str(k): round(v) for k, v in g.by_map().items()},
+            "session": session_view(g, data, mid, now), "last": g.last_session,
+            "town": bool((getattr(data, "maps", {}).get(mid) or {}).get("is_town")), "keep": bool(g.no_reset)}
 
 
 def remember_recent(prof, map_id, keep=5):

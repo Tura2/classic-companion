@@ -576,6 +576,15 @@ def read_stat(frame, t, s, job_names):
     return out
 
 
+NOTICE_ROW = 13      # the corner lines' height at a 1200 px tall game (measured on samples in Task 9)
+
+
+def read_notices(frame, s):
+    """The game's bottom-right corner lines (EXP, mesos, items picked up), (text, y) top to bottom.
+    Not read yet: filled in once there are samples of them at the player's setup."""
+    return []
+
+
 def read_inventory(frame, t, s):
     """Your mesos, the open tab, and a picture of its slots for invgrid to tell the items apart
     (that takes a while the first time, so the app does it on the side)."""
@@ -1407,6 +1416,7 @@ class Reader:
                     seen["hud"].update(exp=got["exp"], exp_pct=got["pct"])
         if "inventory" in wins:
             seen["inventory"] = read_inventory(frame, wins["inventory"], s)
+        seen["notices"], seen["notice_row"] = read_notices(frame, s), NOTICE_ROW * s
         if "skills" in wins:
             seen["skills"] = read_skills(frame, wins["skills"], s, self.skill_names)
         if "quest" in wins:
