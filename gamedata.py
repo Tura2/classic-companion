@@ -1126,6 +1126,50 @@ class GameData:
                 "town": bool(m.get("is_town")), "mark": f"{OSMS}current/images/map_marks/{mark}.png" if mark else None,
                 "mobs": mobs, "drops": drops, "drops_ok": bool(self.drops_by_mob), "npcs": npcs, "portals": portals}
 
+    def _huntable(self):
+        """Monsters you can go and hunt (not party quest or job test copies), by name."""
+        out = {}
+        for m in self.monsters:
+            if m.get("special") or not any(x.get("count") and x.get("id") in self.maps for x in m.get("maps") or []):
+                continue
+            out.setdefault(m["name"], []).append(m)
+        return out
+
+    def find_mobs(self, q, limit=8, level=None):
+        """Monsters whose name looks like q, once per name, for Train's monster search: names holding
+        what you typed first (nearest your level first), then near misses for typos."""
+        from rapidfuzz import fuzz, process, utils
+        q = (q or "").strip()
+        if not q:
+            return []
+        mobs = self._huntable()
+        hits = process.extract(q, list(mobs), scorer=fuzz.WRatio, processor=utils.default_process,
+                               limit=None, score_cutoff=60)
+        off = (lambda n: abs((mobs[n][0].get("level") or 0) - level)) if level else (lambda n: 0)
+        has = utils.default_process(q)
+        hits = sorted(hits, key=lambda h: (has not in utils.default_process(h[0]), off(h[0]) if has in
+                                           utils.default_process(h[0]) else -h[1]))[:limit]
+        return [{"name": h[0], "level": mobs[h[0]][0].get("level"), "img": self.mob_img(mobs[h[0]][0].get("id"))}
+                for h in hits]
+
+    def hunt(self, name, start, limit=6):
+        """Where to hunt a monster: every map it lives on, the fewest portals from start first (busiest
+        first among equals); maps you can't walk to (or every map, with no start) last, busiest first."""
+        mobs = self._huntable().get(name)
+        if not mobs:
+            return None
+        dist = self.hops_from(start) if start in self.maps else {}
+        spots = {}
+        for m in mobs:
+            for x in m.get("maps") or []:
+                if x.get("count") and x.get("id") in self.maps:
+                    spots[x["id"]] = spots.get(x["id"], 0) + x["count"]
+        maps = [{**self.map_info(i), "count": c, "hops": dist.get(i), "render": self.render_url(i)} for i, c in spots.items()]
+        maps.sort(key=lambda x: (x["hops"] is None, x["hops"] or 0, -x["count"]))
+        m = mobs[0]
+        return {"mob": {"name": name, "level": m.get("level"), "hp": m.get("hp"), "exp": m.get("exp"),
+                        "img": self.mob_img(m.get("id"))}, "maps": maps[:limit]}
+
 
     # ---- quests
     JOB_REGIONS = {"warrior": "Warrior", "magician": "Magician", "archer": "Bowman", "rogue": "Thief"}

@@ -325,6 +325,11 @@ def make_handler(data, state, cfg):
                                            "discord": discord_status(state, cfg, self.server.server_address[1])})
                 if url.path == "/api/maps":
                     return self.send(200, data.find_maps(q.get("q", "")))
+                if url.path == "/api/mobs":          # Train's monster search
+                    return self.send(200, data.find_mobs(q.get("q", ""), level=int(prof.get("level") or 1)))
+                if url.path == "/api/hunt":          # where a monster lives, nearest to the map you're on first
+                    got = data.hunt(q.get("name", ""), prof.get("current_map"))
+                    return self.send(200 if got else 404, got or {"error": "That monster doesn't spawn anywhere we know."})
                 if url.path in ("/api/mapimg", "/api/mapsize"):   # a map's picture, kept on disk after the first time
                     got = data.map_image(int(q["id"]))
                     if not got:
