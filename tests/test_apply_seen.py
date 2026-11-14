@@ -13,7 +13,7 @@ def app(profile):
         agree=sniper.Agree(), notice=sniper.Agree(2), counts=sniper.SteadyCounts(),
         reader=SimpleNamespace(quests_by_name={}, learn_level=lambda level: None),
         data=SimpleNamespace(chains={}, quest_list=[]), shop_rows=[], overlay=SimpleNamespace(region=None),
-        drawing=lambda: False, publish=lambda: None, read_bag=lambda inv: None)
+        drawing=lambda: False, publish=lambda: None, apply_map=lambda seen, prof: None, read_bag=lambda inv: None)
 
 
 def stat(**kw):

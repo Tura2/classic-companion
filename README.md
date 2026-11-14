@@ -90,7 +90,9 @@ Settings has two separate switches, both off by default:
    seconds, wherever you dragged it, with Windows' built-in OCR, and looks for item tooltips in
    between. Nothing to select. The **Now** tab shows what it read; its "What Companion sees" opens
    the picture.
-   - HUD: level and job. Mini map: the map you're on, so routes move along by themselves.
+   - HUD: level and job. Mini map: the map you're on, so routes move along by themselves. Between
+     full reads it takes a quick look at just the mini map every half second (about 40 ms each), so
+     a new map counts within a second or so of the title showing.
    - Quest Helper: the quests you track and their kill / collect counts. Over a busy map a count
      is often half read; when only its goal comes through ("25" of "3 / 25 Axe Stump"), the count
      is left unread rather than taken as reached.

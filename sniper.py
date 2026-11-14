@@ -84,6 +84,7 @@ TIP_SECONDS = 1.0         # a tooltip's prices go away this long after it was la
 SHOP_LABEL_SECONDS = 8    # labels disappear this long after the last scan that found shop rows
 PAD_W = 300               # room for labels beside the shop, at 100% display scale
 WATCH_EVERY = 1.5         # seconds between looks at the game while screen reading is on
+MAP_EVERY = 0.5           # seconds between quick looks at just the mini map, between those
 SHOP_EVERY = 0.3          # seconds between quick re-reads of an open shop's item list
 PREVIEW_W = 960           # width of the live picture of the game in the dashboard
 SAMPLE_EVERY = 60         # seconds between saved pictures of a shop window (to tune the shop reader)
@@ -774,6 +775,7 @@ class App:
         self.my_reads = 0
         self.last_shop = None       # the open shop's last full read, for when an item's tooltip covers it
         self.watching = False       # a look at the game is in progress
+        self.map_looking = False    # ...and it's a quick look at just the mini map
         self.sample_ts = 0.0        # when a shop window's picture was last saved
         self.auto_job = None        # the pending auto-scan timer, so there's only ever one
         self.game_hwnd = None       # the game window, looked up every 3 s
@@ -786,6 +788,7 @@ class App:
         self.root.after(30 * 60 * 1000, self.refresh_prices)
         self.root.after(1000, self.watch_loop)
         self.root.after(1200, self.tip_loop)
+        self.root.after(1700, self.map_loop)
         self.root.after(500, self.focus_loop)
 
     def run(self):
@@ -888,10 +891,55 @@ class App:
         windows are open, wherever they are. Nothing to select. While a shop is open, only its item
         list is re-read, about three times a second, so prices and labels keep up as you scroll."""
         every = SHOP_EVERY if self.shop_anchor else MYSHOP_EVERY if self.myshop_anchor else WATCH_EVERY
+        if self.cfg["screen_reading"] and self.watching and self.map_looking:
+            self.root.after(100, self.watch_loop)      # a quick mini map look is on: right after it
+            return
         self.root.after(int(every * 1000), self.watch_loop)
         if self.cfg["screen_reading"] and not self.watching:
             self.watching = True
             threading.Thread(target=self._watch, daemon=True).start()
+
+    def map_loop(self):
+        """Between full reads, a quick look at just the mini map, so a new map counts within a second
+        or so rather than after a few full reads (one every 1.5 s). Not while a shop is open: its own
+        quick reads run then. Waits for a full read in progress, since both use the same reader."""
+        self.root.after(int(MAP_EVERY * 1000), self.map_loop)
+        if self.cfg["screen_reading"] and not self.watching and not self.shop_anchor and not self.myshop_anchor:
+            self.watching = self.map_looking = True
+            threading.Thread(target=self._map_look, daemon=True).start()
+
+    def _map_look(self):
+        try:
+            frame = self.capture.grab_game()
+            if frame is None or frame.height < reader.MIN_HEIGHT:
+                return
+            seen = self.reader.read_map_only(frame)
+            if seen and (seen.get("map") or seen.get("map_missed")):
+                cl, ct, _, _ = client_box(self.capture.hwnd) if self.capture.hwnd else (0, 0, 0, 0)
+                self.place_strip(seen, cl, ct)
+                self.q.put(("seen", seen, None))
+        except Exception as e:
+            print("Looking at the mini map failed:", e)
+        finally:
+            self.map_looking = self.watching = False
+
+    @staticmethod
+    def place_strip(seen, cl, ct):
+        """Where the route strip goes on screen, by the mini map just read (`cl`, `ct`: the game
+        area's corner on screen), into seen["map"]["strip_at"]."""
+        mini, s = seen.get("map"), seen.get("scale", 1)
+        if mini and mini.get("window"):
+            # the route strip hangs under the open mini map, as wide as its window
+            wl, _, wr, wb = mini["window"]
+            mini["strip_at"] = [cl + wl, ct + wb + round(3 * s), wr - wl + 1]
+        elif mini and mini.get("collapsed"):
+            # or under the collapsed mini map's bar, at its own width
+            tl, _, _, tb = mini["title"]
+            mini["strip_at"] = [cl + tl - round(10 * s), ct + tb + round(10 * s), None]
+        elif mini:
+            # open, but its frame wasn't found: beside its title, so it still stays by the mini map
+            _, tt, tr, _ = mini["title"]
+            mini["strip_at"] = [cl + tr + round(8 * s), ct + tt, None]
 
     def tip_loop(self):
         """Seven times a second while the game is in front and drawing on it is on: has an item
@@ -985,19 +1033,7 @@ class App:
             self.myshop_anchor = mine["anchor"] if mine else None
             self.myshop_panel = mine["panel_anchor"] if mine else None
             cl, ct, _, _ = client_box(self.capture.hwnd) if self.capture.hwnd else (0, 0, 0, 0)
-            mini, s = seen.get("map"), seen.get("scale", 1)
-            if mini and mini.get("window"):
-                # the route strip hangs under the open mini map, as wide as its window
-                wl, _, wr, wb = mini["window"]
-                mini["strip_at"] = [cl + wl, ct + wb + round(3 * s), wr - wl + 1]
-            elif mini and mini.get("collapsed"):
-                # or under the collapsed mini map's bar, at its own width
-                tl, _, _, tb = mini["title"]
-                mini["strip_at"] = [cl + tl - round(10 * s), ct + tb + round(10 * s), None]
-            elif mini:
-                # open, but its frame wasn't found: beside its title, so it still stays by the mini map
-                _, tt, tr, _ = mini["title"]
-                mini["strip_at"] = [cl + tr + round(8 * s), ct + tt, None]
+            self.place_strip(seen, cl, ct)
             self.tips_on_screen(seen.get("tooltips") or [], frame)
             if not seen.get("quick"):
                 self.read_tips = (time.time(), seen.get("tooltips") or [])
@@ -1042,9 +1078,53 @@ class App:
         finally:
             self.watching = False
 
+    def apply_map(self, seen, prof):
+        """The map a read named: you move there once enough reads agree (gamedata.MapMove), and the
+        route strip follows the mini map. Returns the map's id, or None."""
+        mid = None
+        missed = seen.get("map_missed")
+        if missed and missed != getattr(self, "map_missed", None):
+            print(f"Mini map title not recognised: {missed!r}")   # once per title, to fix the matching
+        self.map_missed = missed or getattr(self, "map_missed", None)
+        if seen.get("map"):
+            nav = self.state["nav"]
+            mid = self.data.match_map_name(seen["map"]["name"], prefer=[s["id"] for s in nav["steps"]] if nav else ())
+            # a move counts only once a few reads in a row agree (gamedata.MapMove): a misread title
+            # moved Grind and the route, and re-planned the route from the wrong map
+            if self.map_move.read(self.data, prof.get("current_map"), mid):
+                self.state["set_current"](mid)         # saves the profile and moves an active route along
+            at = seen["map"].get("strip_at")
+            if at:
+                m, name = self.mini, seen["map"]["name"]
+                kind = "window" if seen["map"].get("window") else "bar" if seen["map"].get("collapsed") else "title"
+                near = lambda o: abs(o["x"] - at[0]) <= 4 and abs(o["y"] - at[1]) <= 4 and abs((o["w"] or 0) - (at[2] or 0)) <= 6
+                same = m and m["map"] == name and m["bounds"] == self.bounds
+                if same and (m["kind"] == kind and near(m) or STRIP_RANK[kind] < STRIP_RANK[m["kind"]]):
+                    # the same mini map, where it was: a read a pixel or two off, or one that only made
+                    # out its title, leaves the strip still
+                    m["ts"], self.mini_next = time.time(), None
+                elif (p := self.mini_next) and p["kind"] == kind and p["map"] == name and near(p):
+                    # a new place, read the same way twice in a row: the strip moves there. One odd read
+                    # (another window's border taken for the mini map's) doesn't move it
+                    width = m and m["w"]
+                    self.mini, self.mini_next = {**p, "ts": time.time(), "bounds": self.bounds}, None
+                    if self.drawing() and at[2] != width:
+                        self.redraw()              # no wider than this mini map
+                    else:
+                        self.layout()
+                else:
+                    self.mini_next = {"x": at[0], "y": at[1], "w": at[2], "map": name, "kind": kind}
+        return mid
+
     def apply_seen(self, seen, picture):
         """Fold what was just seen into the profile and the dashboard (UI thread)."""
         game = self.state.setdefault("game", {})
+        if seen and seen.get("map_only"):
+            # a quick look at just the mini map: where you are, and nothing else changes
+            mid = self.apply_map(seen, self.state["profile"])
+            if seen.get("map"):
+                game["map"] = {**seen["map"], "id": mid}
+            return
         if picture:
             self.state["frame"] = picture
         handle_myshop(self, seen, time.time())
@@ -1153,39 +1233,7 @@ class App:
                     if self.state.get("nav") and self.state["nav"].get("guide_to"):
                         self.state["nav"] = None
                     self.q.put(("nav",))
-        mid = None
-        missed = seen.get("map_missed")
-        if missed and missed != getattr(self, "map_missed", None):
-            print(f"Mini map title not recognised: {missed!r}")   # once per title, to fix the matching
-        self.map_missed = missed or getattr(self, "map_missed", None)
-        if seen.get("map"):
-            nav = self.state["nav"]
-            mid = self.data.match_map_name(seen["map"]["name"], prefer=[s["id"] for s in nav["steps"]] if nav else ())
-            # a move counts only once a few reads in a row agree (gamedata.MapMove): a misread title
-            # moved Grind and the route, and re-planned the route from the wrong map
-            if self.map_move.read(self.data, prof.get("current_map"), mid):
-                self.state["set_current"](mid)         # saves the profile and moves an active route along
-            at = seen["map"].get("strip_at")
-            if at:
-                m, name = self.mini, seen["map"]["name"]
-                kind = "window" if seen["map"].get("window") else "bar" if seen["map"].get("collapsed") else "title"
-                near = lambda o: abs(o["x"] - at[0]) <= 4 and abs(o["y"] - at[1]) <= 4 and abs((o["w"] or 0) - (at[2] or 0)) <= 6
-                same = m and m["map"] == name and m["bounds"] == self.bounds
-                if same and (m["kind"] == kind and near(m) or STRIP_RANK[kind] < STRIP_RANK[m["kind"]]):
-                    # the same mini map, where it was: a read a pixel or two off, or one that only made
-                    # out its title, leaves the strip still
-                    m["ts"], self.mini_next = time.time(), None
-                elif (p := self.mini_next) and p["kind"] == kind and p["map"] == name and near(p):
-                    # a new place, read the same way twice in a row: the strip moves there. One odd read
-                    # (another window's border taken for the mini map's) doesn't move it
-                    width = m and m["w"]
-                    self.mini, self.mini_next = {**p, "ts": time.time(), "bounds": self.bounds}, None
-                    if self.drawing() and at[2] != width:
-                        self.redraw()              # no wider than this mini map
-                    else:
-                        self.layout()
-                else:
-                    self.mini_next = {"x": at[0], "y": at[1], "w": at[2], "map": name, "kind": kind}
+        mid = self.apply_map(seen, prof)
         if changed:
             self.state["save_profile"]()
             print(f"Character: {prof.get('name') or '?'}, {prof['job']} level {prof['level']}")
