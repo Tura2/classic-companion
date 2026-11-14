@@ -99,3 +99,21 @@ def test_corner_exp_lines_are_not_counted_twice(tmp_path, game_reader):
     reads(a, prof, 50000, [])
     reads(a, prof, 50066, [("You received EXP (+66)", 500)])
     assert a.grind.summary(1e10)["kills"] == [{"name": "Jr. Wraith", "count": 1}]
+
+
+def test_party_gains_become_your_kills_and_your_partys(tmp_path, game_reader):
+    d = game_reader.data
+    a, prof = app(tmp_path, d), {"current_map": d.match_map_name("West Rocky Mountain IV"), "level": 37}
+    exp = 166000
+    reads(a, prof, exp, [])
+    for gain in [62, 43, 46, 31, 31, 20, 31, 51, 30, 31, 21, 62, 31, 20, 44, 31]:      # read live, two players
+        exp += gain
+        reads(a, prof, exp, [])
+    s = a.grind.summary(1e10)
+    yours = {k["name"]: k["count"] for k in s["kills"]}
+    party = {k["name"]: k["count"] for k in s["party_kills"]}
+    assert yours.get("Wild Boar", 0) >= 10 and party.get("Wild Boar", 0) >= 2
+    assert None not in yours or yours[None] <= 2           # nearly every gain told, not left unnamed
+    v = companion.session_view(a.grind, d, prof["current_map"], 1e10)
+    boar = next(k for k in v["kills"] if k["name"] == "Wild Boar")
+    assert boar["party"] == party["Wild Boar"]

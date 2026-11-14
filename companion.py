@@ -551,9 +551,10 @@ def session_view(g, data, map_id, now):
     s = g.summary(now)
     here = data.here(map_id) if map_id in getattr(data, "maps", {}) else {"mobs": []}
     counts = {k["name"]: k["count"] for k in s["kills"]}
-    kills = [{"name": m["name"], "count": counts.pop(m["name"], 0), "img": m.get("img"), "level": m.get("level"),
-              "hp": m.get("hp"), "exp": m.get("exp")} for m in here["mobs"]]
-    kills += [{"name": n, "count": c, "img": None, "level": None, "hp": None, "exp": None}
+    party = {k["name"]: k["count"] for k in s.get("party_kills", [])}
+    kills = [{"name": m["name"], "count": counts.pop(m["name"], 0), "party": party.get(m["name"], 0), "img": m.get("img"),
+              "level": m.get("level"), "hp": m.get("hp"), "exp": m.get("exp")} for m in here["mobs"]]
+    kills += [{"name": n, "count": c, "party": party.get(n, 0), "img": None, "level": None, "hp": None, "exp": None}
               for n, c in counts.items()]          # killed elsewhere this session, or not named (None)
     info = getattr(data, "item_info", {})
     loot = [{"name": x["name"], "count": x["count"], "img": data.item_img(x["name"]),

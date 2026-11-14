@@ -116,7 +116,8 @@ class Grind:
         self.last_gain = None        # the last gain that counted as killing (runs the clock)
         self.last_any = None         # the last gain of any kind, lumps too (tells a break)
         self.deaths = []             # {"ts", "lost", "map"}: EXP drops of up to DEATH_MAX of the level
-        self.kills = {}              # monster name (None: not named) -> kills, from the corner's EXP lines
+        self.kills = {}              # monster name (None: not named) -> your kills, from the EXP gains
+        self.party_kills = {}        # monster name -> kills your party made (their share of the EXP came to you)
         self.loot = {}               # item name -> how many picked up, from the corner's lines
         self.picked = 0              # mesos picked up, from the corner's lines
         self.s_first = None          # {"level", "pct"} where the session's EXP bar started
@@ -323,8 +324,12 @@ class Grind:
             return None
         return e1 - e0
 
-    def add_kill(self, name, now):
-        """A kill told by the corner's "You received EXP" line; name None when no monster here gives it."""
+    def add_kill(self, name, now, party=False):
+        """A kill told by an EXP gain; name None when no monster here gives it. party: a party member's
+        kill, whose share of the EXP came to you (not yours: kept apart, not in your kill counts)."""
+        if party:
+            self.party_kills[name] = self.party_kills.get(name, 0) + 1
+            return
         self.kills[name] = self.kills.get(name, 0) + 1
         if self.seg is not None:
             self.seg["kills"] = (self.seg.get("kills") or 0) + 1
@@ -443,6 +448,7 @@ class Grind:
                 "deaths": [{"ts": d["ts"], "lost": d["lost"]} for d in self.deaths],
                 "kills": [{"name": n, "count": c} for n, c in sorted(self.kills.items(), key=lambda kv: -kv[1])],
                 "kills_total": self._kills_total(),
+                "party_kills": [{"name": n, "count": c} for n, c in sorted(self.party_kills.items(), key=lambda kv: -kv[1])],
                 "loot": [{"name": n, "count": c} for n, c in self.loot.items()],
                 "mesos_picked": self._mesos_picked(), "start": self.s_first, "gain_pct": self._gain_pct(),
                 "chart": self._chart(now),
