@@ -1240,6 +1240,15 @@ class GameData:
                 "town": bool(m.get("is_town")), "mark": f"{OSMS}current/images/map_marks/{mark}.png" if mark else None,
                 "mobs": mobs, "drops": drops, "drops_ok": bool(self.drops_by_mob), "npcs": npcs, "portals": portals}
 
+    def map_drop_names(self, map_id):
+        """The names of every item this map's monsters drop (kept: asked on every corner look)."""
+        cache = self.__dict__.setdefault("_drop_names", {})
+        if map_id not in cache:
+            ids = {mob.get("id") for mob in self.monsters
+                   if any(x.get("id") == map_id for x in mob.get("maps") or [])} if map_id is not None else set()
+            cache[map_id] = {d["item"] for i in ids for d in self.drops_by_mob.get(i, [])}
+        return cache[map_id]
+
     def map_mobs(self, map_id):
         """[(name, EXP, how many spawn)] of the monsters on a map (kept: asked on every EXP gain)."""
         cache = self.__dict__.setdefault("_mob_list", {})
