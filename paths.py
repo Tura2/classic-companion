@@ -60,5 +60,6 @@ def load_json(path, default):
             os.replace(path, bad)
         except OSError:
             pass
-        print(f"{path.name} was unreadable ({e}). Kept it as {bad.name} and started fresh.")
+        import applog
+        applog.problem("file", f"{path.name} was damaged, so Companion started it fresh. The old one is kept as {bad.name}.", exc=e)
         return default

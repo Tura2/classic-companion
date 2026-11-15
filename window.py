@@ -12,6 +12,7 @@ import tkinter as tk
 import webbrowser
 
 from paths import RES_DIR
+import applog
 
 if sys.platform == "win32":
     # the same physical pixels as the on-game windows, which share this window's Tk (see sniper.py)
@@ -163,7 +164,7 @@ class Window:
                         value()
                     except Exception:
                         import traceback
-                        traceback.print_exc()
+                        applog.log(traceback.format_exc())
         except queue.Empty:
             pass
         except tk.TclError:

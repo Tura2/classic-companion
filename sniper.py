@@ -48,6 +48,7 @@ if sys.platform == "win32":  # make Tk and window capture use the same physical 
             pass
 
 from paths import APP_DIR, DATA_DIR, DEBUG_DIR, load_json, save_json
+import applog
 
 HERE = APP_DIR
 CONFIG = DATA_DIR / "config.json"
@@ -284,7 +285,7 @@ def handle_myshop(app, seen, now):
     linked = cfg.get("discord_enabled") and cfg.get("discord_id")
     for sale in sales:
         what = f"{sale['item']} x{sale.get('count') or 1}" if sale.get("item") else "something"
-        print(f"Your shop sold {what} for {sale['price']:,} mesos")
+        applog.say(f"Your shop sold {what} for {sale['price']:,} mesos")
         if cfg.get("sound"):
             try:
                 import winsound
@@ -300,7 +301,7 @@ def handle_myshop(app, seen, now):
     for fix in sw.take_fixes():           # Total Sales doesn't show a sale told from the mesos box
         wrong = ", ".join(f"{s['item']} x{s.get('count') or 1}" if s.get("item") else "something"
                           for s in fix["wrong"])
-        print(f"Correction: {wrong} didn't sell (Total Sales doesn't show it)")
+        applog.say(f"Correction: {wrong} didn't sell after all (Total Sales doesn't show it)")
         if send and cfg.get("discord_post_sales") and fix["key"] not in told:
             told.add(fix["key"])
             send(f"correction: {wrong} didn't sell after all, that post was wrong (your shop's Total Sales "
@@ -853,7 +854,7 @@ class App:
             try:
                 self.handle(msg)
             except Exception:
-                traceback.print_exc()      # one bad message must not stop the ones after it
+                applog.log("A message to the on-game windows failed: " + traceback.format_exc())   # the next ones still run
         self.root.after(50, self.pump)
 
     def handle(self, msg):
@@ -937,7 +938,7 @@ class App:
                 self.place_strip(seen, cl, ct)
                 self.q.put(("seen", seen, None))
         except Exception as e:
-            print("Looking at the mini map failed:", e)
+            applog.problem("read", "Reading the game hit an error. Companion keeps trying.", exc=e)
         finally:
             self.map_looking = self.watching = False
 
@@ -991,7 +992,7 @@ class App:
             if found or tips:
                 self.q.put(("tips", self.tips_on_screen(found, frame)))
         except Exception as e:
-            print("Looking for item tooltips failed:", e)
+            applog.problem("read", "Reading the game hit an error. Companion keeps trying.", exc=e)
         finally:
             self.tip_busy = False
 
@@ -1091,7 +1092,7 @@ class App:
                         old.unlink(missing_ok=True)
             self.q.put(("seen", seen, preview(frame, seen)))
         except Exception as e:
-            print("Reading the game failed:", e)
+            applog.problem("read", "Reading the game hit an error. Companion keeps trying.", exc=e)
             self.q.put(("seen", {"error": f"Reading failed: {e}"}, None))
         finally:
             self.watching = False
@@ -1102,7 +1103,7 @@ class App:
         mid = None
         missed = seen.get("map_missed")
         if missed and missed != getattr(self, "map_missed", None):
-            print(f"Mini map title not recognised: {missed!r}")   # once per title, to fix the matching
+            applog.log(f"Mini map title not recognised: {missed!r}")   # once per title, to fix the matching
         self.map_missed = missed or getattr(self, "map_missed", None)
         if seen.get("map"):
             nav = self.state["nav"]
@@ -1245,7 +1246,7 @@ class App:
                 put("quests_done", sorted(set(map(str, prof.get("quests_done", []))) | {str(q["id"])}))
                 put("quests_active", [a for a in prof.get("quests_active", []) if a.get("name") != name])
                 game["completed"] = {"name": name, "ts": time.time()}
-                print(f"Quest complete: {name}")
+                applog.say(f"Quest complete: {name}")
                 if (self.state.get("guide") or {}).get("id") == str(q["id"]):
                     self.state["guide"] = None              # guided quest done: the guide ends
                     if self.state.get("nav") and self.state["nav"].get("guide_to"):
@@ -1254,7 +1255,7 @@ class App:
         mid = self.apply_map(seen, prof)
         if changed:
             self.state["save_profile"]()
-            print(f"Character: {prof.get('name') or '?'}, {prof['job']} level {prof['level']}")
+            applog.say(f"{prof.get('name') or 'Your character'}: {prof['job']}, level {prof['level']}")
         shop = seen.get("shop")
         if shop:
             verdicts = {(r["name"], r["unit"]): r for r in shop["rows"]}
@@ -1310,7 +1311,7 @@ class App:
             try:
                 items = self.bag.read(inv["grid"], inv["tab"])
             except Exception as e:
-                print("Reading the inventory failed:", e)
+                applog.problem("read", "Reading the game hit an error. Companion keeps trying.", exc=e)
                 items = []
             finally:
                 self.bag_busy = False
@@ -1500,7 +1501,7 @@ class App:
                 if key in self.last_listings and key not in self.announced:
                     self.announced.add(key)
                     stamp = datetime.now().strftime("%H:%M:%S")
-                    print(f"[{stamp}] {r['name']} at {fmt(r['unit'])}: {text}")
+                    applog.say(f"Deal: {r['name']} at {fmt(r['unit'])} ({text})")
                     self.state["deals"].insert(0, {"time": stamp, "name": r["name"], "unit": r["unit"],
                                                     "text": text, "verdict": verdict})
                     del self.state["deals"][40:]

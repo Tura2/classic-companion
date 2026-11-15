@@ -18,6 +18,7 @@ from datetime import datetime
 import requests
 
 from paths import APP_DIR, CACHE_DIR, RES_DIR
+import applog
 
 HERE = APP_DIR
 # SP order per job, from the class guides (meowdb.com/msclassic/guides); see make_builds.py
@@ -189,7 +190,7 @@ def fetch_json(url, name, max_age):
         os.replace(tmp, path)
         return data
     except Exception as e:
-        print(f"Download failed for {name}: {e}")
+        applog.problem("download", "Some game data couldn't download (no internet?). Using the saved copy.", exc=e)
         if (data := read_cache(path)) is not None:
             return data
         raise SystemExit(f"No data for {name} yet. Connect to the internet and start again.")
@@ -443,7 +444,7 @@ class GameData:
         try:            # optional: without it, the map you're on shows its monsters and no drops
             self.drops_by_mob = load_drops(fetch_json(CLUBFM, "clubfm_itemguide.json", age))
         except (Exception, SystemExit) as e:
-            print("Drop lists unavailable:", e)
+            applog.problem("drops", "Monster drop lists couldn't load. The rest works.", exc=e)
             self.drops_by_mob = {}
         self.skills = fetch_json(OSMS + "current/skills.json", "skills.json", age)
         maps = fetch_json(OSMS + "current/maps.json", "maps.json", age)
@@ -498,7 +499,7 @@ class GameData:
         try:
             w = {c: fetch_json(WIKI + f"{c}.json", f"wiki_{c}.json", age) for c in ("quests", "monsters", "npcs", "maps", "items")}
         except (Exception, SystemExit) as e:
-            print("Quest steps and drops unavailable:", e)
+            applog.problem("wiki", "Quest steps couldn't load. The rest works.", exc=e)
             return
         self.wiki_names = {c: {r["id"]: r["name"] for r in w[c]} for c in ("npcs", "maps", "items", "monsters")}
         self.wiki_quests = {r["name"].lower(): r for r in w["quests"]}
@@ -989,7 +990,7 @@ class GameData:
             try:
                 self.map_image(mid)
             except Exception as e:
-                print("Map picture unavailable:", mid, e)
+                applog.log(f"Map picture unavailable: {mid} {e}")
 
     def _bounds(self, mid):
         m = self.maps.get(mid, {})
@@ -1177,7 +1178,7 @@ class GameData:
             (CACHE / "portal.json").write_text(json.dumps({"anchor": list(anchor), "size": list(pics[0].size)}), "utf-8")
             return path
         except Exception as e:
-            print("Portal picture unavailable:", e)
+            applog.log(f"Portal picture unavailable: {e}")
             self._portal_failed = time.time()
             return None
 
@@ -1198,7 +1199,7 @@ class GameData:
             os.replace(tmp, path)
             return path
         except Exception as e:
-            print("Tombstone picture unavailable:", e)
+            applog.log(f"Tombstone picture unavailable: {e}")
             self._tomb_failed = time.time()
             return None
 
