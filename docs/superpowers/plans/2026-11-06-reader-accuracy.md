@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python 3.12, Pillow, winocr, rapidfuzz, numpy (already shipped via windows-capture), pytest (dev only). No OpenCV (user's choice, 2026-11-06).
 
-**Spec:** the "Findings" section below (live tests, 2026-11-06, game windowed, character Tura1, Hunter level 32).
+**Spec:** the "Findings" section below (live tests, 2026-11-06, game windowed, character Hero1, Hunter level 32).
 
 ## Findings (the spec)
 
@@ -27,7 +27,7 @@ Field misreads:
 
 | field | truth | read | cause |
 |---|---|---|---|
-| `stat.name` | `Tura1` | `Tural`, every frame | OCR word guess. The game's 1 has a flag in its top rows; an l is a straight stem |
+| `stat.name` | `Hero1` | `Herol`, every frame | OCR word guess. The game's 1 has a flag in its top rows; an l is a straight stem |
 | `stat.dex_base` | 142 | 152, every frame | OCR text `1 52 (1 42+1 0)`; the `\(\s*(\d+)\s*\+` pattern fails on the spaces |
 | `stat.ap` | 0 | 1 or None | the values box catches "…OINT" and the box edge. `read_small_number` on (x+122, y+388, x+170, y+410) reads 0 |
 | `stat.level` | 32 | 132 on 1/15 | title read as `I CHARACTER STAT` at x=771, not 778 (a tooltip's edge glued on); every offset shifted 7 px |
@@ -37,9 +37,9 @@ Field misreads:
 | `shop` | — | 0 items on 17/17 saved pictures | 11 are NPC shops ("50 Mesos" rows) taken for player shops; the rest have only gray sold-out rows |
 | `shop` item | Hat Accuracy Scroll: Intermediate | …: Greater | a name cut with "..." is fuzzy-matched whole, not by its start |
 | `helper` at 1080 | 4 tracked quests | 5, one never tracked | a misread line matched a similar quest; it repeats every read, so the 3-read `Agree` would add it |
-| `profile.json` | Tura1, 385,973 mesos | `Tural`, mesos 61 | single reads are saved with no check |
+| `profile.json` | Hero1, 385,973 mesos | `Herol`, mesos 61 | single reads are saved with no check |
 
-Rules verified on Tura1:
+Rules verified on Hero1:
 - **AP:** base STR+DEX+INT+LUK + unspent AP = 30+142+4+4+0 = 180 = 5 × 32 + 20.
 - **SP:** 1st-job tab skill levels sum to 61 = 1 + 3 × 20. The Hunter tab sums to 7 = 1 + 3 × 2. With 0 SP left, the total 68 = 3 × 32 − 28.
 
@@ -69,7 +69,7 @@ Tried and dropped:
 ## Review Focus
 
 1. A window dragged over another window's title. Task 3 test: a gray block over half the stat title → stat comes from the OCR finder or is absent, never at a wrong place.
-2. Switching characters (Offir vs Tura1): the gate must not save one character's stats into the other's profile. Task 8 test: a name agreed 3 times that differs from `profile.name` → no stat, level, mesos or skill write.
+2. Switching characters (Alt2 vs Hero1): the gate must not save one character's stats into the other's profile. Task 8 test: a name agreed 3 times that differs from `profile.name` → no stat, level, mesos or skill write.
 3. A level-up during play: the gate must accept level+1 at once (Task 8 test), or the guide lags behind the player.
 4. The game's UI Size setting (not tested): the learned per-height templates of Task 3 also cover it, because the title is found at the size it is drawn. Task 3 test: the 1080 frame with templates cut at 1200 still finds stat.
 5. A magician (job advance at 8, not 10): the SP rule's constant differs. Task 8 falls back to "5 equal reads" for any character the rule doesn't fit; test it with a total that is off by 3.
@@ -92,7 +92,7 @@ Tried and dropped:
 
 - [ ] **Step 1: Write `tools/make_case.py --frame PATH --name NAME --job JOB --keep l,t,r,b [--keep ...] [--tip l,t,r,b]`**. It writes `samples/cases/NAME.png` (masked as in Global Constraints) and `NAME.json`, with `expect` pre-filled from the current reader output for correcting by hand against the picture.
 - [ ] **Step 2: Make the cases** from the 13 frames kept in `samples/raw/cases-src/` (git-ignored; the frame names below are those files). True values come from the Findings and from the frames themselves; job "Hunter" throughout. Once every case is made and passes Step 4's check, delete `samples/raw/cases-src/`.
-  - `fm_quest_window` (t1): `stat.name` "Tura1", `stat.level` 32, `stat.exp` 1206, `stat.str_base` 30, `stat.dex_base` 142, `stat.ap` 0, `stat.acc` 72, `hud.level` 32, `inventory.mesos` 385973, `map.street` "Hidden Street", `map.name` "Free Market <7>", `quest.tab` "in_progress", `quest.lines` ["Caretaker's Ledger", "Legend of the Snail", "Maple World's Unique Fun: Omok"] (the 5th confirmed by the user's screenshot: its current step is "Make a Pig & Octopus Omok Set").
+  - `fm_quest_window` (t1): `stat.name` "Hero1", `stat.level` 32, `stat.exp` 1206, `stat.str_base` 30, `stat.dex_base` 142, `stat.ap` 0, `stat.acc` 72, `hud.level` 32, `inventory.mesos` 385973, `map.street` "Hidden Street", `map.name` "Free Market <7>", `quest.tab` "in_progress", `quest.lines` ["Caretaker's Ledger", "Legend of the Snail", "Maple World's Unique Fun: Omok"] (the 5th confirmed by the user's screenshot: its current step is "Make a Pig & Octopus Omok Set").
   - `fm_tooltip` (s1_07): the stat values above; `helper.list` = the 4 quests with 0/30, 0/1, 0/25, 0/1 ×3; `quicklook.tooltips` ["Lemon"].
   - `fm_title_glued` (s1_04): `stat.level` 32.
   - `hunt_moved` (s2_00 and s2_13): `map.name` "A Hill West of Henesys", `stat.exp` 1334 / 1344, and `helper.list` as on the frame. The Omok lines must be 0/1, 0/1, 0/1 on s2_00 and 0/1, 1/1, 0/1 on s2_13.
@@ -283,14 +283,14 @@ Tried and dropped:
   - prof 32, stat 33 once → 33.
   - bases 30/142/4/4 + ap 0 at level 32 → accepted. Bases 30/152/4/4 + ap 1 → rejected.
   - prof mesos 385973, read 61 once → rejected; twice in a row → 61.
-  - prof name "Tura1", read "Tural" 3 times → no name write, `other_name == "Tural"`, and the stats in those reads are not accepted.
+  - prof name "Hero1", read "Herol" 3 times → no name write, `other_name == "Herol"`, and the stats in those reads are not accepted.
   - Skills: prof has the 1st-job tab from `skills_1st` and the read is the `skills_hunter` tab with sp 0 at level 32 → accepted (61 + 7 + 0 = 68). The same read with Bow Mastery 8 → rejected. "Arrow Blow" 20 → read 2 → rejected. Arrow Blow 21 with max 20 → rejected.
   - A total off by 3 (Review Focus 5), read 5 times in a row → accepted.
   - `LevelDigits`: learning shape A as "9" then as "8" → A is deleted, not remapped.
 - [ ] **Step 2: Run** `python -I -m pytest tests/test_gate.py -q`. Expected: FAIL (no module).
 - [ ] **Step 3: Implement `trust.py`** and route `apply_seen` through it. Call `reader.learn_level(level)` only when the gate accepted a stat-window level.
 - [ ] **Step 4: Run** all tests. Expected: everything passes, and the case pass count is unchanged.
-- [ ] **Step 5: Fix `profile.json` by hand** after asking the user: name "Tura1", mesos 385973, level 32.
+- [ ] **Step 5: Fix `profile.json` by hand** after asking the user: name "Hero1", mesos 385973, level 32.
 - [ ] **Step 6: Commit** `"Check every value against the game's rules before saving it"`.
 
 ### Task 9: Tell 1 from l in names
@@ -303,7 +303,7 @@ Tried and dropped:
 - Produces: `reader.fix_one_vs_l(text: str, crop: PIL.Image) -> str`.
 
 - [ ] **Step 1: Write failing tests**:
-  - On the name crop from `fm_quest_window`, `fix_one_vs_l("Tural", crop) == "Tura1"`.
+  - On the name crop from `fm_quest_window`, `fix_one_vs_l("Herol", crop) == "Hero1"`.
   - A synthetic straight 2-px stem 14 px tall reads as `l`. A stem with a 2-px flag to its left in its top 3 rows reads as `1`.
 - [ ] **Step 2: Run.** Expected: FAIL.
 - [ ] **Step 3: Implement**:

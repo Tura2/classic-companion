@@ -31,7 +31,7 @@ def sale(key, item="Bazlud", price=24999, count=1, ts=0.0):
 
 
 def build(sales):
-    return dl.sale_message(sales, "123", "Tura1", median=lambda n: 20000, img=lambda n: None, total_today=24999)
+    return dl.sale_message(sales, "123", "Hero1", median=lambda n: 20000, img=lambda n: None, total_today=24999)
 
 
 def outbox(tmp_path, poster):
@@ -42,7 +42,7 @@ def test_only_the_owner_is_mentioned():
     m = build([sale("a")])
     assert m["allowed_mentions"] == {"parse": [], "users": ["123"]}
     assert m["content"].startswith("<@123> sold Bazlud ×1 for 24,999 mesos")
-    assert m["username"] == "Tura1"
+    assert m["username"] == "Hero1"
     assert "25% above the market median" in m["embeds"][0]["description"]
 
 
@@ -94,7 +94,7 @@ def test_the_same_sale_twice_is_posted_once(tmp_path):
 def test_text_messages_go_as_they_are(tmp_path):
     p = Poster()
     box = outbox(tmp_path, p)
-    box.add("text", dl.text_message("123", "Tura1", "Test from Companion"), "t:1")
+    box.add("text", dl.text_message("123", "Hero1", "Test from Companion"), "t:1")
     assert box.pump(0) == 1
     assert p.posts[0]["allowed_mentions"] == {"parse": [], "users": ["123"]}
 

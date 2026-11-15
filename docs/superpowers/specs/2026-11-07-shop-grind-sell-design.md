@@ -5,7 +5,7 @@ Source: the owner's feature brief "Companion: next features" (pasted 2026-11-07)
 code and two live frames of the owner's own shop showed. README's "Rules the app follows" apply to
 everything here and are not repeated.
 
-## What the live frames settled (2026-11-07, Tura1 in Free Market <7>)
+## What the live frames settled (2026-11-07, Hero1 in Free Market <7>)
 
 Frames are in `samples/raw/` (git-ignored: they show names and chat).
 

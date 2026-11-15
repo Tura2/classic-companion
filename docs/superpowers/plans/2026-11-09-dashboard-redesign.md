@@ -133,7 +133,7 @@ def test_best_maps_empty_log(tmp_path):    # Review Focus 3
 - Produces: `single_points(steps: list[tuple[int, str, int]], now: dict[str, int], n: int = 3) -> list[dict]`: the first `n` single points in the guide's order that `now` hasn't reached, each `{"skill", "from", "to", "level"}` with `to == from + 1`.
 - Produces: `next_points(...)` result gains `"sp3": single_points(steps, now)`; existing `"sp"` unchanged.
 
-- [ ] **Step 1: Write the failing test** (Tura1's real case):
+- [ ] **Step 1: Write the failing test** (Hero1's real case):
 
 ```python
 def test_next_three_points_are_single_steps():
