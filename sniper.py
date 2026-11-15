@@ -35,6 +35,7 @@ from shopwatch import ShopWatch
 from grind import PQS, Grind, pq_of, pq_of_read
 import notices as notice_lines
 import party as party_split
+import quickslots
 from capture import GameCapture, client_box, find_window, foreground_window, window_bounds
 from gamedata import JOBS, NPC_PRICES, MapMove
 
@@ -217,7 +218,8 @@ def handle_grind(app, seen, prof):
 
 
 def handle_corner(app, events):
-    """Feed the grind session the corner's new lines (notices.Corner): the mesos and items picked up.
+    """Feed the grind session the corner's new lines (notices.Corner): the mesos and items picked up;
+    and the potions drunk from the quick slots (quickslots.QuickSlots, ("used", name, n)).
     Its EXP lines aren't kills here: those come from the HUD's EXP gains, named the same way."""
     g = getattr(app, "grind", None)
     if g is None:
@@ -228,6 +230,8 @@ def handle_corner(app, events):
             g.add_mesos(ev[1], now)
         elif ev[0] == "item" and ev[1]:
             g.add_loot(ev[1], ev[2], now)
+        elif ev[0] == "used" and ev[1]:
+            g.add_used(ev[1], ev[2], now)
 
 
 HOVER_KEEP = 120    # items Sell or keep remembers (hovered, or read off an inventory tab)
@@ -789,6 +793,9 @@ class App:
         self.corner = notice_lines.Corner()       # the corner's EXP / mesos / item lines, each counted once
         self.corner_busy = False    # a look at the corner's lines is in progress
         self.corner_names = False   # the corner reader knows the game's item names
+        # potions drunk from the quick slots: their icons load on their own thread (start), never in a look
+        self.slots = quickslots.QuickSlots(quickslots.Icons(data.bag_items.get("Consumable", []),
+                                                            lambda iid: self.icon_bag()._get(iid)))
         self.party = party_split.Fitter()        # learns how a party splits kills' EXP, from the gains
         state["grind"] = self.grind
         self.myshop_anchor = None   # your own store's fee notice, for the slow store-only look
@@ -812,6 +819,21 @@ class App:
         self.root.after(1700, self.map_loop)
         self.root.after(1900, self.corner_loop)
         self.root.after(500, self.focus_loop)
+        threading.Thread(target=self._load_slot_icons, daemon=True).start()
+
+    def _load_slot_icons(self):
+        try:
+            self.slots.icons.load()
+        except Exception as e:
+            print("Loading the quick slots' icons failed:", e)
+
+    def icon_bag(self):
+        """The item icons' store (invgrid.Bag): downloads an icon once into cache/icons/."""
+        if getattr(self, "bag", None) is None:
+            import invgrid
+            from gamedata import CACHE, OSMS
+            self.bag = invgrid.Bag(self.data.bag_items, lambda i: f"{OSMS}current/images/items/{i:08d}.png", CACHE / "icons")
+        return self.bag
 
     def run(self):
         self.start()
@@ -983,7 +1005,12 @@ class App:
                 self.corner.set_names(list(getattr(self.data, "item_ids", {}) or {}))
                 self.corner_names = True
             mid = self.state["profile"].get("current_map")
-            events = self.corner.step(frame, time.time(), prefer=self.data.map_drop_names(mid))
+            now = time.time()
+            events = self.corner.step(frame, now, prefer=self.data.map_drop_names(mid))
+            try:
+                events = events + self.slots.step(frame, now)
+            except Exception as e:      # the quick slots failing never loses the corner's lines
+                print("Reading the quick slots failed:", e)
             if events:
                 self.q.put(("corner", events))
         except Exception as e:
@@ -1333,9 +1360,7 @@ class App:
         import invgrid
         if inv.get("tab") not in invgrid.KINDS:
             return
-        if getattr(self, "bag", None) is None:
-            from gamedata import CACHE, OSMS
-            self.bag = invgrid.Bag(self.data.bag_items, lambda i: f"{OSMS}current/images/items/{i:08d}.png", CACHE / "icons")
+        self.icon_bag()
         self.bag_busy = True
 
         def run():

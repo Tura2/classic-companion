@@ -38,6 +38,13 @@ def test_items_and_mesos_from_lines(tmp_path, game_reader):
     assert s["loot"] == [{"name": "Tablecloth", "count": 3}] and s["mesos_picked"] == 15
 
 
+def test_used_events_reach_the_session(tmp_path, game_reader):
+    d = game_reader.data
+    a, prof = app(tmp_path, d), {"current_map": d.match_map_name("Line 2 <Area 1>"), "level": 32}
+    reads(a, prof, 50000, [("used", "Orange Potion", 2), ("used", None, 1)])
+    assert a.grind.summary(1e10)["used"] == [{"name": "Orange Potion", "count": 2}]
+
+
 def test_an_item_line_naming_no_item_is_not_loot(tmp_path, game_reader):
     d = game_reader.data
     a, prof = app(tmp_path, d), {"current_map": d.match_map_name("Line 2 <Area 1>"), "level": 32}
