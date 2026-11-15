@@ -4,112 +4,446 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Companion for MapleStory Classic</title>
-<meta name="description" content="A free, open-source helper for MapleStory Classic World: where to train, which quests to do, what gear to wear, what to flip, and routes between maps.">
+<meta name="description" content="A free, open-source helper for MapleStory Classic World: where to train, which quests to take, what gear to wear, which skills to level, and the way to any map, in a dashboard beside the game.">
+<meta property="og:type" content="website">
 <meta property="og:title" content="Companion for MapleStory Classic">
-<meta property="og:description" content="Training maps, quest guides, gear, skills, market prices and routes, in a browser dashboard beside the game. Free and open source.">
-<meta property="og:image" content="logo.png">
-<link rel="icon" href="logo.png">
+<meta property="og:description" content="Training maps, quest guides, gear, skills, market prices and routes between maps, in a dashboard beside the game. Free and open source.">
+<meta property="og:url" content="https://tura2.github.io/classic-companion/">
+<meta property="og:image" content="https://tura2.github.io/classic-companion/shots/goto.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="logo.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
 <style>
+/* The page wears the dashboard's own look: Maple's sky, the HUD bar, the inventory's pink tabs,
+   the real screens in a HUD-coloured frame, and the game's pixel lettering for headings. */
 :root{
-  --bg:#fbf8f3; --surface:#ffffff; --text:#1f1a14; --muted:#6b6257; --line:#e8e0d4;
-  --accent:#e0671b; --accent-ink:#ffffff; --msc:#2f6fd6; --cozy:#8a4fd1; --warn-bg:#fff4e5; --warn:#8a4b00;
+  --sky:#C9DEF4; --sky2:#B7D1EE; --win:#FBFAF6; --cell:#ECE8DE;
+  --ink:#1D2433; --muted:#3F4A5E; --pink:#C2306A; --tab-on:#C2306A; --blue:#2C5A9E;
+  --amber:#F2A541; --amber2:#E8922A; --gold-ink:#3A1E00; --tile:#C8620A;
+  --hud:#252E3F; --hud2:#1A2130; --hud-ink:#EEF3FA; --hud-muted:#B4BFD0;
+  --tab:#C3CFDD; --tab2:#AEBCCE; --tab-ink:#2F3A4D;
+  --warn:#5C3A00; --warnbg:#FFEFD0;
+  --msc:#2160C0; --cozy:#6A32C2;
+  --px:"DotGothic16","Nunito",sans-serif;
+  color-scheme:light;
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
-    --bg:#15120f; --surface:#1f1b17; --text:#f2ece4; --muted:#a69c90; --line:#342e27;
-    --accent:#ff8a3d; --accent-ink:#1a0f05; --msc:#6ea2ff; --cozy:#b88cff; --warn-bg:#2b2010; --warn:#ffc27a;
+    --sky:#111A27; --sky2:#18243A; --win:#1C2838; --cell:#243245;
+    --ink:#E7EDF6; --muted:#B3BFD1; --pink:#F07AA6; --blue:#8DB4EE;
+    --hud:#0A0F17; --hud2:#151D2A; --hud-ink:#EEF3FA; --hud-muted:#A7B3C6;
+    --tab:#22303F; --tab2:#2A3A4D; --tab-ink:#C2CDDC;
+    --warn:#FFC14D; --warnbg:#33260C;
+    --msc:#7FB2F0; --cozy:#C79BFF;
+    color-scheme:dark;
   }
 }
+:root[data-theme="dark"]{
+  --sky:#111A27; --sky2:#18243A; --win:#1C2838; --cell:#243245;
+  --ink:#E7EDF6; --muted:#B3BFD1; --pink:#F07AA6; --blue:#8DB4EE;
+  --hud:#0A0F17; --hud2:#151D2A; --hud-ink:#EEF3FA; --hud-muted:#A7B3C6;
+  --tab:#22303F; --tab2:#2A3A4D; --tab-ink:#C2CDDC;
+  --warn:#FFC14D; --warnbg:#33260C;
+  --msc:#7FB2F0; --cozy:#C79BFF;
+  color-scheme:dark;
+}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-a{color:var(--accent)}
-.wrap{max-width:1040px;margin:0 auto;padding:0 16px}
-header{padding:56px 0 40px;text-align:center}
-header img{width:96px;height:96px}
-h1{font-size:clamp(2rem,5vw,3rem);margin:12px 0 8px;line-height:1.15}
-.lead{font-size:1.15rem;color:var(--muted);max-width:640px;margin:0 auto 24px}
-.btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
-.btn{display:inline-block;padding:12px 22px;border-radius:10px;font-weight:600;text-decoration:none;border:1px solid var(--line);color:var(--text);background:var(--surface)}
-.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
-.small{font-size:.9rem;color:var(--muted)}
-section{padding:40px 0;border-top:1px solid var(--line)}
-h2{font-size:1.6rem;margin:0 0 20px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px}
-.card h3{margin:0 0 6px;font-size:1.05rem}
-.card p{margin:0;color:var(--muted);font-size:.95rem}
-.warn{background:var(--warn-bg);color:var(--warn);border-radius:12px;padding:16px 18px;margin-top:16px}
-.msc{color:var(--msc);font-weight:600}.cozy{color:var(--cozy);font-weight:600}
-ol{padding-left:1.2em}
-ul.credits{padding-left:1.2em}
-footer{padding:32px 0 48px;border-top:1px solid var(--line);color:var(--muted);font-size:.9rem;text-align:center}
-code{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:.9em}
+html{scroll-behavior:smooth;scroll-padding-top:80px}
+body{margin:0;background:var(--sky);color:var(--ink);font:600 17px/1.55 "Nunito",ui-rounded,system-ui,"Segoe UI",sans-serif}
+img{display:block;max-width:100%;height:auto}
+a{color:var(--blue);text-underline-offset:3px}
+:focus-visible{outline:3px solid var(--pink);outline-offset:3px}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+h1,h2,h3{font-family:var(--px);font-weight:400;margin:0}
+h2{font-size:clamp(34px,4.4vw,52px);line-height:1.05;letter-spacing:-.02em;margin-bottom:24px}
+h3{font-size:26px;line-height:1.15;margin-bottom:10px}
+p{margin:0 0 14px}
+.big{font-size:21px;line-height:1.5}
+.nb{white-space:nowrap}
+.small{font-size:15px;color:var(--muted)}
+
+/* the bar: the game's HUD */
+.bar{position:sticky;top:0;z-index:10;background:var(--hud);color:var(--hud-ink)}
+.bar .wrap{display:flex;align-items:center;gap:24px;min-height:64px}
+.brand{display:flex;align-items:center;gap:10px;color:var(--hud-ink);text-decoration:none;font:400 21px var(--px);margin-right:auto}
+.brand img{width:38px;height:38px}
+.bar nav{display:flex;gap:22px}
+.bar nav a{color:var(--hud-muted);text-decoration:none;font-weight:800;font-size:15px;transition:color .15s ease}
+.bar nav a:hover{color:var(--hud-ink)}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:50px;padding:10px 24px;border-radius:8px;
+  font:800 17px "Nunito",sans-serif;text-decoration:none;cursor:pointer;border:0;transition:transform .15s ease,background-color .15s ease}
+.btn:hover{transform:translateY(-2px)}
+.btn:active{transform:translateY(1px)}
+.btn.main{background:var(--amber);color:var(--gold-ink)}
+.btn.main:hover{background:var(--amber2)}
+.btn.plain{background:var(--hud);color:var(--hud-ink)}
+.btn.plain:hover{background:var(--hud2)}
+.bar .btn{min-height:40px;padding:6px 18px;font-size:15px}
+
+/* hero: the title across the page, then the words beside the biggest real screen */
+.hero{padding:64px 0 120px}
+.hero h1{font-size:clamp(28px,6vw,84px);line-height:1;letter-spacing:-.03em}
+.hero .row{display:grid;grid-template-columns:minmax(0,4fr) minmax(0,8fr);gap:48px;align-items:start;margin-top:40px}
+.hero .btns{display:flex;flex-wrap:wrap;gap:12px;margin-top:28px}
+.hero .small{margin-top:20px}
+
+/* each real screen sits in the HUD's navy, like the dashboard on a second monitor */
+.window{background:var(--hud);border-radius:12px;padding:8px}
+.window img{border-radius:6px;width:100%;aspect-ratio:1104/800;object-fit:cover;object-position:top left}
+.cap{margin:12px 2px 0}
+
+/* the tour: the dashboard's tabs on their pink rule */
+.tour{background:var(--sky2);padding:120px 0}
+.tour .big{max-width:40em}
+.tabs{display:flex;gap:4px;margin-top:40px;border-bottom:4px solid var(--tab-on);overflow-x:auto;scrollbar-width:none}
+.tabs button{flex:0 0 auto;font:800 17px "Nunito",sans-serif;color:var(--tab-ink);background:var(--tab);border:0;border-radius:8px 8px 0 0;
+  padding:10px 22px 8px;min-height:48px;cursor:pointer;transition:background-color .15s ease,color .15s ease,transform .15s ease}
+.tabs button:hover{background:var(--tab2);color:var(--ink);transform:translateY(-2px)}
+.tabs button[aria-selected="true"]{background:var(--tab-on);color:#fff;transform:none}
+.panel{display:grid;grid-template-columns:minmax(0,8fr) minmax(0,4fr);gap:40px;align-items:start;padding-top:32px}
+.panel + .panel{margin-top:48px}
+.js .panel + .panel{margin-top:0}
+.panel[hidden]{display:none}
+.panel ul{margin:0;padding-left:1.1em}
+.panel li{margin-bottom:8px}
+.js .panel .window,.js .panel .say{animation:rise .4s ease both}
+.js .panel .say{animation-delay:.08s}
+@keyframes rise{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+
+/* while you play */
+.play{padding:120px 0}
+.play .wrap{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:56px}
+.play dl{margin:0;display:grid;grid-template-columns:1fr 1fr;gap:36px 40px}
+.play dt{font:400 21px/1.2 var(--px);margin-bottom:8px;color:var(--pink)}
+.play dd{margin:0}
+.msc{color:var(--msc);font-weight:900}.cozy{color:var(--cozy);font-weight:900}
+
+/* safe by default: the HUD's navy, full width */
+.safe{background:var(--hud);color:var(--hud-ink);padding:120px 0}
+.safe .wrap{display:grid;grid-template-columns:minmax(0,6fr) minmax(0,6fr);gap:56px;align-items:start}
+.safe ul{margin:0;padding:0;list-style:none}
+.safe li{margin-bottom:22px;padding-left:22px;position:relative}
+.safe li::before{content:"";position:absolute;left:0;top:.45em;width:10px;height:10px;border-radius:2px;background:var(--amber)}
+.safe li b{display:block;font:400 21px/1.3 var(--px);color:#fff;margin-bottom:2px}
+.risk{background:var(--warnbg);color:var(--warn);border-radius:10px;padding:22px 24px;margin-top:28px}
+.risk strong{display:block;font:400 21px var(--px);margin-bottom:6px}
+
+/* install */
+.start{padding:120px 0}
+.start .wrap{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:56px;align-items:start}
+.steps{margin:0;padding:0;list-style:none;counter-reset:s}
+.steps li{counter-increment:s;display:grid;grid-template-columns:52px minmax(0,1fr);gap:18px;align-items:center;margin-bottom:22px}
+.steps li::before{content:counter(s);display:grid;place-items:center;width:52px;height:52px;border-radius:8px;
+  background:var(--tile);color:#fff;font:400 26px var(--px)}
+.side{background:var(--win);border-radius:12px;padding:28px}
+pre{margin:14px 0;background:var(--hud);color:var(--hud-ink);border-radius:8px;padding:14px 16px;overflow-x:auto;font:15px/1.6 ui-monospace,Consolas,monospace}
+code{font:15px ui-monospace,Consolas,monospace;background:var(--cell);border-radius:5px;padding:1px 6px}
+pre code{background:none;padding:0;font:inherit}
+
+/* help build it */
+.help{background:var(--sky2);padding:120px 0}
+.help .wrap{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:56px;align-items:start}
+.help dl{margin:0}
+.help dl div{margin-bottom:28px}
+.help dt{font:400 21px/1.2 var(--px);color:var(--pink);margin-bottom:6px}
+.help dd{margin:0}
+
+/* credits */
+.credits{padding:120px 0}
+.credits ul{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:32px 40px}
+.credits .who{display:block;font:400 21px/1.2 var(--px);margin-bottom:6px}
+
+footer{background:var(--hud);color:var(--hud-muted);padding:80px 0 64px}
+footer .name{display:flex;align-items:center;gap:20px;font:400 clamp(48px,8vw,104px)/1 var(--px);letter-spacing:-.03em;color:var(--hud-ink);margin-bottom:32px}
+footer .name img{width:clamp(56px,8vw,104px);height:auto}
+footer a{color:var(--hud-ink)}
+footer p{max-width:52em;font-size:15px}
+
+/* entrances: set by the script only, so without it everything simply shows */
+.pre{opacity:0;transform:translateY(24px)}
+.show{transition:opacity .55s ease,transform .55s cubic-bezier(.2,.7,.2,1)}
+
+@media (max-width:980px){
+  .hero .row,.panel,.play .wrap,.safe .wrap,.start .wrap,.help .wrap{grid-template-columns:minmax(0,1fr);gap:36px}
+  .credits ul{grid-template-columns:1fr 1fr}
+  .hero{padding:48px 0 88px}
+  .tour,.play,.safe,.start,.help,.credits{padding:96px 0}
+  .bar nav{display:none}
+}
+@media (max-width:640px){
+  .wrap{padding:0 20px}
+  .play dl,.credits ul{grid-template-columns:1fr}
+  .big{font-size:19px}
+  .hero .btns .btn{flex:1 1 100%}
+  .tabs button{padding:9px 14px 7px;font-size:15px}
+  .bar .btn{display:none}
+}
+@media (prefers-reduced-motion: reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation:none!important;transition:none!important}
+  .pre{opacity:1;transform:none}
+}
 </style>
 </head>
 <body>
-<div class="wrap">
-<header>
-  <img src="logo.png" alt="Companion logo">
-  <h1>Companion</h1>
-  <p class="lead">A free helper for MapleStory Classic World: where to train, which quests to do, what gear to wear, which skills to level, what to flip, and routes between maps, in a dashboard beside the game.</p>
-  <div class="btns">
-    <a class="btn primary" href="https://github.com/Tura2/classic-companion/releases/latest">Download for Windows</a>
-    <a class="btn" href="https://github.com/Tura2/classic-companion">Source on GitHub</a>
+<header class="bar">
+  <div class="wrap">
+    <a class="brand" href="#top"><img src="logo.png" alt="" width="38" height="38">Companion</a>
+    <nav aria-label="Sections">
+      <a href="#tour">What it does</a>
+      <a href="#safe">Safety</a>
+      <a href="#install">Install</a>
+      <a href="#help">Contribute</a>
+    </nav>
+    <a class="btn main" href="https://github.com/Tura2/classic-companion/releases/latest">Download</a>
   </div>
-  <p class="small">Free and open source (MIT). Unofficial: not affiliated with or endorsed by Nexon.</p>
 </header>
 
-<section>
-  <h2>What it does</h2>
-  <div class="grid">
-    <div class="card"><h3>Now</h3><p>The route you're on, where your next SP and AP go, and the best map for your level, on one narrow screen.</p></div>
-    <div class="card"><h3>Train</h3><p>Maps for your level ranked by EXP per HP and spawns, with the ACC you need.</p></div>
-    <div class="card"><h3>Quests &amp; quest guide</h3><p>What you can take now, where the NPC stands, what to kill and where, step by step, with rewards and their market value.</p></div>
-    <div class="card"><h3>Go to</h3><p>Routes between maps, with the next portal circled on the real map picture.</p></div>
-    <div class="card"><h3>Gear &amp; skills</h3><p>Best equips for your job and level with prices, and an SP order from each job's class guide.</p></div>
-    <div class="card"><h3>Prices</h3><p>Two market sources side by side, <span class="msc">MSC</span> and <span class="cozy">Cozy</span>, with snipe / fair / pricey verdicts only when both agree.</p></div>
+<main id="top">
+<section class="hero" aria-labelledby="title">
+  <div class="wrap">
+    <h1 id="title" class="in">Companion for <span class="nb">MapleStory Classic</span></h1>
+    <div class="row">
+      <div class="in">
+        <p class="big">A free helper that sits beside the game: where to train, which quests to take, what to wear, which skills to level, and the way to any map.</p>
+        <div class="btns">
+          <a class="btn main" id="dl" href="https://github.com/Tura2/classic-companion/releases/latest">Download for Windows</a>
+          <a class="btn plain" href="https://github.com/Tura2/classic-companion">Source on GitHub</a>
+        </div>
+        <p class="small"><span id="ver"></span>Free and open source (MIT). Unofficial: not affiliated with or endorsed by Nexon.</p>
+      </div>
+      <figure style="margin:0" class="in">
+        <div class="window"><img src="shots/goto.webp" width="1104" height="800" fetchpriority="high" alt="Companion's Go to tab: step 1 of 10 from Ant Tunnel I to Line 2 Area 1, the portal to Sleepywood circled in red on the real map picture"></div>
+        <figcaption class="cap small">Go to: Ant Tunnel I to the subway in ten portals, the next one circled.</figcaption>
+      </figure>
+    </div>
   </div>
 </section>
 
-<section>
-  <h2>Safe by default</h2>
-  <p>Out of the box Companion only uses public game data and market prices. It doesn't touch the game, read your screen, install keyboard hooks, or even look for the game window.</p>
-  <p>Screen reading and drawing on the game are two separate switches, both off. When on, it only captures the game window (the same Windows API OBS uses). Never game memory, files, injection or input.</p>
-  <div class="warn"><strong>Risk, stated plainly:</strong> Nexon's terms ban unauthorized third-party software, and no tool like this is authorized. A ban applies to Classic World and Global MapleStory. Screen reading is at your own risk; the app asks you to confirm before it turns on.</div>
-</section>
+<section class="tour" id="tour" aria-labelledby="tour-h">
+  <div class="wrap">
+    <h2 id="tour-h" class="in">One dashboard, the game's own look</h2>
+    <p class="big in">Companion opens in your browser and looks like a window from the game: item pictures, the real maps, Classic's Equipment Inventory. Set your job and level at the top and every tab fits itself to you. These are the real screens, for a level 33 Hunter.</p>
 
-<section>
-  <h2>Get started</h2>
-  <ol>
-    <li>Download <code>Companion.exe</code> from <a href="https://github.com/Tura2/classic-companion/releases/latest">the latest release</a> and put it in its own folder.</li>
-    <li>Run it. Windows may say "Windows protected your PC" (the exe isn't signed): <strong>More info</strong> → <strong>Run anyway</strong>.</li>
-    <li>The dashboard opens at <code>http://localhost:8765</code>. A short setup asks for your job and level.</li>
-  </ol>
-  <p class="small">Prefer source? Install Python 3.10+, then run <code>run.bat</code>.</p>
-</section>
+    <div class="tabs" role="tablist" aria-label="Dashboard tabs" hidden>
+      <button role="tab" id="t-train" aria-controls="p-train" aria-selected="true">Train</button>
+      <button role="tab" id="t-quests" aria-controls="p-quests" aria-selected="false" tabindex="-1">Quests</button>
+      <button role="tab" id="t-gear" aria-controls="p-gear" aria-selected="false" tabindex="-1">Gear</button>
+      <button role="tab" id="t-skills" aria-controls="p-skills" aria-selected="false" tabindex="-1">Skills</button>
+      <button role="tab" id="t-goto" aria-controls="p-goto" aria-selected="false" tabindex="-1">Go to</button>
+    </div>
 
-<section>
-  <h2>Contribute</h2>
-  <div class="grid">
-    <div class="card"><h3>Report a bug</h3><p>Something reads wrong? <a href="https://github.com/Tura2/classic-companion/issues/new/choose">Open an issue</a> with the picture from <code>debug/</code> (crop names first).</p></div>
-    <div class="card"><h3>Suggest a feature</h3><p>Tell us what you're trying to do in game and how Companion could help.</p></div>
-    <div class="card"><h3>Send code</h3><p>Fork, branch, add a test, open a PR. Read <a href="https://github.com/Tura2/classic-companion/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a> first: Companion only ever looks.</p></div>
+    <div class="panel" id="p-train" aria-labelledby="t-train">
+      <div class="window"><img src="shots/train.webp" width="1104" height="800" loading="lazy" alt="Train tab: maps for level 33 ranked, Line 2 Area 1 first with 83 Jr. Wraiths, its map picture and monster table"></div>
+      <div class="say">
+        <h3>Where to train</h3>
+        <p>Maps for your level, best first: the most EXP for the HP you chew through, with more monsters counting extra.</p>
+        <ul>
+          <li>Each map's monsters with level, HP, EXP and spawns.</li>
+          <li>The ACC you need to always hit.</li>
+          <li>Your own EXP an hour on maps you've grinded, once screen reading is on.</li>
+          <li>Take me there: the route, one tap away.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="panel" id="p-quests" aria-labelledby="t-quests">
+      <div class="window"><img src="shots/quests.webp" width="1104" height="800" loading="lazy" alt="Quests tab: 18 quests to take at level 33, The Bowman's Next Journey open with its NPC, what to do and rewards"></div>
+      <div class="say">
+        <h3>Quests you can take now</h3>
+        <p>What's open at your level, who gives it, where they stand, and what it pays.</p>
+        <ul>
+          <li>Guide me in game: each monster to hunt and where, each item to collect and what drops it.</li>
+          <li>Items you can buy instead of farming, and rewards with their market value.</li>
+          <li>Who to bring it back to, then the next quest in the chain.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="panel" id="p-gear" aria-labelledby="t-gear">
+      <div class="window"><img src="shots/gear.webp" width="1104" height="800" loading="lazy" alt="Gear tab: Classic's Equipment Inventory filled with the best Hunter gear for level 33, and the whole set at 53,995 mesos"></div>
+      <div class="say">
+        <h3>What to wear</h3>
+        <p>Classic's Equipment Inventory with the best item for your job and level in each slot.</p>
+        <ul>
+          <li>Hover one for the game's tooltip, with requirements in red when you're short.</li>
+          <li>Snipe and usual prices for each piece.</li>
+          <li>The whole set's cost beside your mesos.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="panel" id="p-skills" aria-labelledby="t-skills">
+      <div class="window"><img src="shots/skills.webp" width="1104" height="800" loading="lazy" alt="Skills tab: a skill window with Beginner, Archer and Hunter tabs, Arrow Bomb open with its level 1 and max effects"></div>
+      <div class="say">
+        <h3>Where your SP and AP go</h3>
+        <p>A skill window with a tab for each job you've had, and your next three skill points.</p>
+        <ul>
+          <li>The SP order comes from each job's class guide.</li>
+          <li>What every skill does at level 1 and at max.</li>
+          <li>AP into the stat a weapon you'll want soon needs, else your main stat.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="panel" id="p-goto" aria-labelledby="t-goto">
+      <div class="window"><img src="shots/goto.webp" width="1104" height="800" loading="lazy" alt="Go to tab: a 10-step route with the next portal circled on the map picture"></div>
+      <div class="say">
+        <h3>The way to any map</h3>
+        <p>Routes on the real map picture, with the game's own portals drawn and labelled and the one to take in a red ring.</p>
+        <ul>
+          <li>The quickest way, not the fewest portals: it counts the walk across each map.</li>
+          <li>Takes the Regular Cab between towns when that's shorter.</li>
+          <li>With screen reading on, it moves along as you change maps.</li>
+        </ul>
+      </div>
+    </div>
   </div>
 </section>
 
-<section>
-  <h2>Credits</h2>
-  <ul class="credits">
-    <li>Game data: <a href="https://github.com/ohmi69/osms_datamine_dashboard">OSMS Data Explorer</a> by ohmi69 (MIT)</li>
-    <li>Prices: <a href="https://maplestory-classic.com">maplestory-classic.com</a> and <a href="https://cozy.markets">Cozy Market</a></li>
-    <li>ACC values and class guides: <a href="https://meowdb.com/msclassic">NiaDB</a></li>
-    <li>Quest steps and drops: <a href="https://classicmaple.wiki">Classic Maple Wiki</a> contributors and <a href="https://mapleclassic.wiki">MapleClassic Wiki</a> (CC BY-NC-SA 4.0)</li>
-    <li>Everyone in <a href="https://github.com/Tura2/classic-companion/graphs/contributors">the contributors list</a>. Full list in <a href="https://github.com/Tura2/classic-companion/blob/main/CREDITS.md">CREDITS.md</a>.</li>
-  </ul>
+<section class="play" aria-labelledby="play-h">
+  <div class="wrap">
+    <div>
+      <h2 id="play-h" class="in">While you play</h2>
+      <p class="big in">Two more switches in Settings, both off until you turn them on. With them, Companion reads the game window the way you do, and says what it sees.</p>
+      <p class="in">Play in windowed or borderless mode, at 1920×1080 or larger.</p>
+    </div>
+    <dl>
+      <div class="in"><dt>Now</dt><dd>EXP an hour, time to the next level, kills, deaths, an EXP chart of the session, and your best maps by what you really earned. In a party it works out your share of each kill.</dd></div>
+      <div class="in"><dt>Your windows</dt><dd>Level, job and map from the HUD; quest counts from the Quest Helper; stats, skills, mesos and quests when you open those windows. Routes and quest guides move along by themselves.</dd></div>
+      <div class="in"><dt>Shop prices</dt><dd>Every row of a player shop judged against what the item really sold for on <span class="msc">MSC</span> and <span class="cozy">Cozy</span>: snipe, fair, pricey or overpriced, only when both agree.</dd></div>
+      <div class="in"><dt>Drawn on the game</dt><dd>Prices under item tooltips, a label on each shop row, and an arrow under the mini map toward the next portal. Click-through windows; nothing goes into the game.</dd></div>
+    </dl>
+  </div>
 </section>
-</div>
+
+<section class="safe" id="safe" aria-labelledby="safe-h">
+  <div class="wrap">
+    <div>
+      <h2 id="safe-h" class="in">Safe by default</h2>
+      <p class="big in">Out of the box Companion uses only public game data and market prices. It doesn't touch the game, read your screen, or even look for the game window.</p>
+      <div class="risk in"><strong>The risk, plainly</strong>Nexon's terms ban unauthorized third-party software, and no tool like this is authorized. A ban applies to Classic World and Global MapleStory. Screen reading is at your own risk; the app asks you to confirm before it turns on.</div>
+    </div>
+    <ul>
+      <li class="in"><b>Only looks</b>No game memory, files, injection, hooks or input. The game process is never opened.</li>
+      <li class="in"><b>Only the game window</b>Captured through Windows Graphics Capture, the API OBS uses, and only while screen reading is on.</li>
+      <li class="in"><b>No hotkeys</b>No keyboard hooks; everything is controlled from the dashboard.</li>
+      <li class="in"><b>Never in your way</b>On-game windows are click-through, never take focus, and hide when the game isn't in front.</li>
+      <li class="in"><b>Stays on your PC</b>Your data never leaves it, unless you connect Discord for shop sale alerts.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="start" id="install" aria-labelledby="install-h">
+  <div class="wrap">
+    <div>
+      <h2 id="install-h" class="in">Install</h2>
+      <ol class="steps">
+        <li class="in"><span>Download <code>Companion.exe</code> from <a href="https://github.com/Tura2/classic-companion/releases/latest">the latest release</a> and put it in its own folder.</span></li>
+        <li class="in"><span>Run it. The exe isn't signed, so Windows may say "Windows protected your PC": click <b>More info</b>, then <b>Run anyway</b>.</span></li>
+        <li class="in"><span>The dashboard opens at <code>localhost:8765</code>, on this PC only. A short setup asks for your job and level.</span></li>
+        <li class="in"><span>Keep Companion's small window open while you play; closing it closes Companion.</span></li>
+      </ol>
+    </div>
+    <div class="side in">
+      <h3>From source</h3>
+      <p>Windows with Python 3.10 or newer:</p>
+<pre><code>git clone https://github.com/Tura2/classic-companion
+cd classic-companion
+pip install -r requirements.txt
+python companion.py</code></pre>
+      <p>Or double-click <code>run.bat</code>. <code>build.bat</code> builds the exe.</p>
+    </div>
+  </div>
+</section>
+
+<section class="help" id="help" aria-labelledby="help-h">
+  <div class="wrap">
+    <div>
+      <h2 id="help-h" class="in">Help build it</h2>
+      <p class="big in">One rule above all: Companion only ever looks. A change that reads game memory, sends input, hooks the keyboard or plays for you won't be merged, however useful.</p>
+    </div>
+    <dl>
+      <div class="in"><dt>Report a bug</dt><dd>Something reads wrong? <a href="https://github.com/Tura2/classic-companion/issues/new/choose">Open an issue</a> with the picture and text from Companion's <code>debug</code> folder. Crop out other players' names first.</dd></div>
+      <div class="in"><dt>Suggest a feature</dt><dd>Say what you're trying to do in game and how Companion could help. The <a href="https://github.com/Tura2/classic-companion/issues/new/choose">feature form</a> asks just that.</dd></div>
+      <div class="in"><dt>Send code</dt><dd>Fork, branch, add a test, open a pull request. <a href="https://github.com/Tura2/classic-companion/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a> has the setup and the map of the code.</dd></div>
+    </dl>
+  </div>
+</section>
+
+<section class="credits" aria-labelledby="credits-h">
+  <div class="wrap">
+    <h2 id="credits-h" class="in">Credits</h2>
+    <ul>
+      <li class="in"><span class="who">Game data</span><a href="https://github.com/ohmi69/osms_datamine_dashboard">OSMS Data Explorer</a> by ohmi69 (MIT): maps, monsters, items, quests, NPCs, portals.</li>
+      <li class="in"><span class="who">Prices</span><a href="https://maplestory-classic.com">maplestory-classic.com</a> and <a href="https://cozy.markets">Cozy Market</a>.</li>
+      <li class="in"><span class="who">Quests and drops</span><a href="https://classicmaple.wiki">Classic Maple Wiki</a> contributors and <a href="https://mapleclassic.wiki">MapleClassic Wiki</a>, the latter via <a href="https://github.com/maplefm/maplefm.github.io">Club FM</a>'s public data (CC BY-NC-SA 4.0).</li>
+      <li class="in"><span class="who">ACC and class guides</span><a href="https://meowdb.com/msclassic">NiaDB</a>.</li>
+      <li class="in"><span class="who">Portal picture</span><a href="https://maplestory.io">maplestory.io</a>.</li>
+      <li class="in"><span class="who">Everyone who helped</span><a href="https://github.com/Tura2/classic-companion/graphs/contributors">The contributors</a>; the full list is in <a href="https://github.com/Tura2/classic-companion/blob/main/CREDITS.md">CREDITS.md</a>.</li>
+    </ul>
+  </div>
+</section>
+</main>
+
 <footer>
-  <div class="wrap">Made by <a href="https://github.com/Tura2">@Tura2</a> and contributors · <a href="https://github.com/Tura2/classic-companion/blob/main/LICENSE">MIT license</a><br>MapleStory and its game images belong to Nexon. Companion is an unofficial fan tool.</div>
+  <div class="wrap">
+    <div class="name"><img src="logo.png" alt="" width="104" height="104">Companion</div>
+    <p>Made by <a href="https://github.com/Tura2">@Tura2</a> and contributors. Code under the <a href="https://github.com/Tura2/classic-companion/blob/main/LICENSE">MIT license</a>.</p>
+    <p>MapleStory and its game images belong to Nexon. Companion is an unofficial fan tool, not affiliated with or endorsed by Nexon.</p>
+  </div>
 </footer>
+
+<script>
+document.documentElement.classList.add("js");
+// The tour: without the script every screen shows in a column; with it, the dashboard's tabs.
+(function(){
+  const list=document.querySelector(".tabs"), tabs=[...list.querySelectorAll('[role="tab"]')];
+  list.hidden=false;
+  tabs.forEach(t=>{const p=document.getElementById(t.getAttribute("aria-controls"));p.setAttribute("role","tabpanel");p.tabIndex=0;});
+  function pick(t,focus){
+    tabs.forEach(b=>{const on=b===t;b.setAttribute("aria-selected",on);b.tabIndex=on?0:-1;
+      document.getElementById(b.getAttribute("aria-controls")).hidden=!on;});
+    if(focus)t.focus();
+  }
+  pick(tabs[0]);
+  tabs.forEach((t,i)=>{
+    t.addEventListener("click",()=>pick(t));
+    t.addEventListener("keydown",e=>{
+      const k={ArrowRight:1,ArrowLeft:-1}[e.key];
+      if(k){e.preventDefault();pick(tabs[(i+k+tabs.length)%tabs.length],true);}
+      if(e.key==="Home"){e.preventDefault();pick(tabs[0],true);}
+      if(e.key==="End"){e.preventDefault();pick(tabs[tabs.length-1],true);}
+    });
+  });
+})();
+// Each section's parts rise in once, a beat apart, as the section comes into view.
+(function(){
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches||!("IntersectionObserver" in window))return;
+  const els=[...document.querySelectorAll(".in")];
+  const seen=new Map();
+  els.forEach(el=>{
+    const s=el.closest("section")||document.body, n=seen.get(s)||0;
+    seen.set(s,n+1);
+    el.style.transitionDelay=(n*75)+"ms";
+    el.classList.add("pre");
+  });
+  const io=new IntersectionObserver(es=>es.forEach(e=>{
+    if(!e.isIntersecting)return;
+    e.target.classList.add("show");e.target.classList.remove("pre");io.unobserve(e.target);
+  }),{rootMargin:"0px 0px -8% 0px"});
+  requestAnimationFrame(()=>els.forEach(el=>io.observe(el)));
+})();
+// The latest release's version and date; the plain link works without it.
+fetch("https://api.github.com/repos/Tura2/classic-companion/releases/latest")
+  .then(r=>r.ok?r.json():null).then(r=>{
+    if(!r||!r.tag_name)return;
+    const d=new Date(r.published_at).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
+    document.getElementById("dl").textContent="Download "+r.tag_name+" for Windows";
+    document.getElementById("ver").textContent=r.tag_name+", released "+d+". ";
+  }).catch(()=>{});
+</script>
 </body>
 </html>
