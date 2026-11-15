@@ -5,6 +5,7 @@ The frames are samples/cases/notices_*.png, the bottom-right quarter of a 1920 x
 the speed skill's own number went 2 -> 1, which isn't a count.
 
 Run from the app folder:  python -I tools/check_slots.py [--names]
+--names also names each slot's item and runs the drink counter over the frames (cache/icons/ needed).
 """
 import sys
 import time
@@ -53,6 +54,10 @@ def main():
             ms = 1000 * (time.perf_counter() - t)
             want = [NAMES.get(s) for s in range(12)]
             print(n, "right" if got == want else "WRONG", {s: x for s, x in enumerate(got) if x}, f"{ms:.0f} ms")
+        qs, events = quickslots.QuickSlots(icons), []
+        for i, (n, f) in enumerate(frames()):
+            events += qs.step(f, i * 0.4)
+        print("potions counted as drunk:", events or "none", "(right: none; counts only went up)")
 
 
 def cached_icon(iid):

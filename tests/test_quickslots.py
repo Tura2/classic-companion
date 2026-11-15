@@ -199,3 +199,85 @@ def test_a_slot_looking_the_same_is_not_matched_again(tmp_path):
     done = icons.work
     again = names(icons, stretch(pic + rng.integers(-3, 4, pic.shape)))     # a little noise, as frame to frame
     assert again[5] == "Orange Potion" and icons.work == done
+
+
+# ---- counting potions drunk
+
+ORANGE, BLUE = ICONS[2000001][1], ICONS[2000003][1]
+
+
+def tracker(tmp_path, ready=True):
+    icons = icon_files(tmp_path)
+    if ready:
+        icons.load()
+    return quickslots.QuickSlots(icons)
+
+
+def run(qs, looks):
+    """Feed looks, each {slot: (icon, count)} (count None: covered), 0.4 s apart: the events per look."""
+    out = []
+    for i, look in enumerate(looks):
+        f = slot_frame({s: ic for s, (ic, _) in look.items()},
+                       counts={s: n for s, (_, n) in look.items() if n is not None})
+        out.append(qs.step(f, 100 + 0.4 * i))
+    return out
+
+
+def test_first_look_is_a_baseline(tmp_path):
+    assert run(tracker(tmp_path), [{4: (BLUE, 93)}]) == [[]]
+
+
+def test_a_drop_counts_once_two_looks_agree(tmp_path):
+    got = run(tracker(tmp_path), [{4: (BLUE, n)} for n in (93, 90, 90, 90)])
+    assert got == [[], [], [("used", "Blue Potion", 3)], []]
+
+
+def test_a_one_look_blip_is_not_counted(tmp_path):
+    got = run(tracker(tmp_path), [{4: (BLUE, n)} for n in (93, 80, 93, 93)])
+    assert got == [[]] * 4
+
+
+def test_the_last_potion_counts(tmp_path):
+    got = run(tracker(tmp_path), [{9: (ORANGE, n)} for n in (1, 0, 0)])
+    assert got[-1] == [("used", "Orange Potion", 1)]
+
+
+def test_pickups_are_not_counted(tmp_path):
+    got = run(tracker(tmp_path), [{4: (BLUE, n)} for n in (93, 94, 94, 92, 92)])
+    assert sum(got, []) == [("used", "Blue Potion", 2)]
+
+
+def test_a_slot_changing_item_rebaselines(tmp_path):
+    looks = [{4: (BLUE, 93)}, {4: (ORANGE, 65)}, {4: (ORANGE, 65)}, {4: (ORANGE, 60)}, {4: (ORANGE, 60)}]
+    assert sum(run(tracker(tmp_path), looks), []) == [("used", "Orange Potion", 5)]
+
+
+def test_a_big_drop_is_not_counted(tmp_path):
+    got = run(tracker(tmp_path), [{5: (ORANGE, n)} for n in (145, 45, 45, 45)])      # a "1" covered, say
+    assert sum(got, []) == []
+
+
+def test_a_skill_slot_is_ignored(tmp_path):
+    skill = shape_icon("box", (200, 200, 200), 30, 30)
+    skill[10:20, 5:25, :3] = (90, 60, 160)
+    got = run(tracker(tmp_path), [{11: (skill, n)} for n in (2, 1, 1, 1)])
+    assert sum(got, []) == []
+
+
+def test_an_unreadable_look_rebaselines(tmp_path):
+    got = run(tracker(tmp_path), [{4: (BLUE, n)} for n in (93, None, 90, 90)])
+    assert sum(got, []) == []
+
+
+def test_nothing_until_the_icons_are_ready(tmp_path):
+    qs = tracker(tmp_path, ready=False)
+    got = run(qs, [{4: (BLUE, n)} for n in (93, 90, 90)])
+    assert sum(got, []) == []
+    qs.icons.load()
+    got = run(qs, [{4: (BLUE, n)} for n in (90, 88, 88)])
+    assert sum(got, []) == [("used", "Blue Potion", 2)]
+
+
+def test_two_slots_at_once(tmp_path):
+    looks = [{4: (BLUE, 93), 9: (ORANGE, 65)}, {4: (BLUE, 92), 9: (ORANGE, 63)}, {4: (BLUE, 92), 9: (ORANGE, 63)}]
+    assert sorted(sum(run(tracker(tmp_path), looks), [])) == [("used", "Blue Potion", 1), ("used", "Orange Potion", 2)]

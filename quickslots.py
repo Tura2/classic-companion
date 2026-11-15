@@ -186,3 +186,43 @@ def slot_names(icons, frame):
     xs, ys = [p[0] for p in spots], [p[1] for p in spots]
     R, (ox, oy) = native.rgb(frame, native.frame_box(frame.size, (min(xs) - 2, min(ys) - 4, max(xs) + CW + 3, max(ys) + 34)))
     return [icons.name(R[y - 3 - oy:y + 33 - oy, x - 1 - ox:x + CW + 1 - ox], s) for s, (x, y) in enumerate(spots)]
+
+
+MAX_DROP = 20       # a count falling more than this between two looks isn't counted (something covers a digit)
+
+
+class QuickSlots:
+    """Potions drunk from the quick slots: step(frame, now) -> [("used", name, n)], each counted once.
+
+    Per slot: the first look sets a baseline (item, count). A new count counts once the next look
+    reads it too; falling by 1..MAX_DROP is that many drunk, rising (a pickup) isn't counted. The
+    item changing, or a look that can't read the slot, sets the baseline again: nothing is counted
+    then, since a wrong count is worse than a missed one."""
+
+    def __init__(self, icons, digits=None):
+        self.icons, self.digits = icons, digits or Digits()
+        self.base = {}          # slot -> (name, count)
+        self.pending = {}       # slot -> a new count seen once
+
+    def step(self, frame, now):
+        if not self.icons.ready:
+            self.base, self.pending = {}, {}
+            return []
+        counts, names = self.digits.read_all(frame), slot_names(self.icons, frame)
+        out = []
+        for slot, (name, n) in enumerate(zip(names, counts)):
+            base = self.base.get(slot)
+            if name is None or n is None or base is None or base[0] != name:
+                self.base[slot] = (name, n) if name is not None and n is not None else None
+                self.pending.pop(slot, None)
+                continue
+            if n == base[1]:
+                self.pending.pop(slot, None)
+            elif self.pending.get(slot) != n:
+                self.pending[slot] = n
+            else:
+                del self.pending[slot]
+                if 1 <= base[1] - n <= MAX_DROP:
+                    out.append(("used", name, base[1] - n))
+                self.base[slot] = (name, n)
+        return out
