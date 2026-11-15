@@ -1,5 +1,5 @@
 """The save gate: what a read may change in the profile, checked against the game's rules.
-Numbers are Tura1's, measured live on 2026-11-06 (Hunter, level 32)."""
+Numbers are Hero1's, measured live on 2026-11-06 (Hunter, level 32)."""
 import pytest
 
 import reader
@@ -16,11 +16,11 @@ def gate():
 
 
 def profile(**kw):
-    return {"name": "Tura1", "level": 32, "mesos": 385973, "skills_now": dict(FIRST), **kw}
+    return {"name": "Hero1", "level": 32, "mesos": 385973, "skills_now": dict(FIRST), **kw}
 
 
 def stat(**kw):
-    return {"stat": {"name": "Tura1", "level": 32, "str_base": 30, "dex_base": 142, "int_base": 4, "luk_base": 4,
+    return {"stat": {"name": "Hero1", "level": 32, "str_base": 30, "dex_base": 142, "int_base": 4, "luk_base": 4,
                      "ap": 0, **kw}}
 
 
@@ -53,14 +53,14 @@ def test_a_big_mesos_change_needs_two_reads():
 def test_another_name_is_not_written_and_blocks_the_rest():
     g, prof = gate(), profile()
     for _ in range(2):
-        g.check(prof, stat(name="Offir"))
-    got = g.check(prof, stat(name="Offir"))
-    assert got.get("other_name") == "Offir"
+        g.check(prof, stat(name="Alt2"))
+    got = g.check(prof, stat(name="Alt2"))
+    assert got.get("other_name") == "Alt2"
     assert "name" not in got and "stats" not in got and "level" not in got
 
 
 def test_a_right_name_is_never_put_wrong():
-    got = gate().check(profile(), stat(name="Tural"))      # "Tura1" saved, a 1 read as l
+    got = gate().check(profile(), stat(name="Herol"))      # "Hero1" saved, a 1 read as l
     assert "name" not in got and "blocked" not in got
 
 
@@ -110,15 +110,15 @@ def test_a_shape_a_pixel_off_reads_as_the_learned_digit(tmp_path, monkeypatch):
 
 
 def test_nothing_is_saved_while_another_name_shows():
-    got = gate().check(profile(), {**stat(name="Offir", level=10), "inventory": {"mesos": 500}})
+    got = gate().check(profile(), {**stat(name="Alt2", level=10), "inventory": {"mesos": 500}})
     assert not ({"level", "stats", "mesos", "acc", "skills_now"} & set(got))
 
 
 def test_a_name_saved_misread_by_the_old_reader_is_put_right():
-    # profiles saved before this fix hold "Tural": the new read "Tura1" is the same character
-    g, prof = gate(), profile(name="Tural")
+    # profiles saved before this fix hold "Herol": the new read "Hero1" is the same character
+    g, prof = gate(), profile(name="Herol")
     got = g.check(prof, stat())
-    assert got.get("name") == "Tura1" and "blocked" not in got and "stats" in got
+    assert got.get("name") == "Hero1" and "blocked" not in got and "stats" in got
 
 
 def test_learn_level_ignores_digits_from_an_older_read(tmp_path, monkeypatch):

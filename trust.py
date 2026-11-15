@@ -1,6 +1,6 @@
 """
 The gate between what a read of the game saw and what goes into your profile. Most misreads repeat
-on every read of the same screen (OCR reads "Tura1" as "Tural" every time), so reads agreeing isn't
+on every read of the same screen (OCR reads "Hero1" as "Herol" every time), so reads agreeing isn't
 enough: each value also has to fit the game's own rules.
 
   level    up by one at once; any other change only after 3 reads in a row agree
@@ -19,7 +19,7 @@ ONE_OR_L = str.maketrans("lI|", "111")
 
 
 def same_name(a, b):
-    """The same name but for a 1 read as an l, I or |: how OCR read "Tura1" before names were
+    """The same name but for a 1 read as an l, I or |: how OCR read "Hero1" before names were
     checked letter by letter, and profiles saved then still hold it."""
     return a.translate(ONE_OR_L) == b.translate(ONE_OR_L)
 
@@ -50,7 +50,7 @@ class Gate:
                     out["name"] = name
             elif same_name(name, prof["name"]):
                 self.other = None
-                # a name the old reader saved misread ("Tural") is put right; never the other way
+                # a name the old reader saved misread ("Herol") is put right; never the other way
                 if all(r == s or (r == "1" and s in "lI|") for r, s in zip(name, prof["name"])):
                     if name != prof["name"]:
                         out["name"] = name
