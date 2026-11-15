@@ -47,8 +47,9 @@ class Window:
             pass
         self.root.after(0, self.sharp_icons)
         self.root.configure(bg=BG)
-        self.root.geometry("620x360")
-        self.root.minsize(420, 240)
+        k = max(1.0, self.root.winfo_fpixels("1i") / 96)     # the screen's scaling: 1.5 at 150 %
+        self.root.geometry(f"{round(640 * k)}x{round(380 * k)}")
+        self.root.minsize(round(460 * k), round(260 * k))
 
         top = tk.Frame(self.root, bg=BG)
         top.pack(fill="x", padx=14, pady=(12, 6))
@@ -76,11 +77,10 @@ class Window:
                             spacing1=2, spacing3=2)
         self.text.tag_configure("time", foreground=MUTED, font=("Segoe UI", 9))
         self.text.tag_configure("problem", foreground=WARN)
-        self.text.pack(fill="both", expand=True, padx=14)
         self.text.configure(state="disabled")
 
         foot = tk.Frame(self.root, bg=BG)
-        foot.pack(fill="x", padx=14, pady=(6, 10))
+        foot.pack(side="bottom", fill="x", padx=14, pady=(6, 10))   # packed first: never squeezed out
         tk.Label(foot, text="Keep this window open while you play: closing it closes Companion.",
                  bg=BG, fg=MUTED, font=("Segoe UI", 9), anchor="w").pack(side="left", fill="x", expand=True)
         self.report_btn = tk.Button(foot, text="Report a problem", command=self.report,
@@ -88,6 +88,7 @@ class Window:
                                     bg="#26324D", fg=INK, activebackground="#33416A", activeforeground=INK,
                                     cursor="hand2")
         self.report_btn.pack(side="right")
+        self.text.pack(fill="both", expand=True, padx=14)
 
         applog.set_sink(lambda kind, text: self.q.put((kind, text)))
         self.root.after(100, self.pump)
@@ -143,7 +144,7 @@ class Window:
                     self.add(value, kind == "problem")
                 elif kind == "ready":
                     self.url = value
-                    self.status.configure(text=f"Running. The dashboard is at {value}", fg=GOOD)
+                    self.status.configure(text="Running", fg=GOOD)
                     self.open_btn.configure(state="normal")
                 elif kind == "failed":
                     self.status.configure(text=value, fg="#FF7A7A")
