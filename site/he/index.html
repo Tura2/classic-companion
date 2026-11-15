@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Companion ל-MapleStory Classic</title>
+<meta name="description" content="עוזר חינמי בקוד פתוח ל-MapleStory Classic World: איפה לעשות גריינד, אילו קווסטים לקחת, מה ללבוש, אילו סקילים להעלות ואיך מגיעים לכל מפה, בדשבורד ליד המשחק.">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="he_IL">
+<meta property="og:title" content="Companion ל-MapleStory Classic">
+<meta property="og:description" content="מפות לגריינד, מדריכי קווסטים, ציוד, סקילים, מחירי שוק ומסלולים בין מפות, בדשבורד ליד המשחק. חינמי ובקוד פתוח.">
+<meta property="og:url" content="https://tura2.github.io/classic-companion/he/">
+<meta property="og:image" content="https://tura2.github.io/classic-companion/shots/goto.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="alternate" hreflang="en" href="https://tura2.github.io/classic-companion/">
+<link rel="alternate" hreflang="he" href="https://tura2.github.io/classic-companion/he/">
+<link rel="icon" href="../logo.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Nunito:wght@600;700;800;900&family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header class="bar">
+  <div class="wrap">
+    <a class="brand" href="#top" dir="ltr"><img src="../logo.png" alt="" width="38" height="38">Companion</a>
+    <nav aria-label="חלקי הדף">
+      <a href="#tour">מה הוא עושה</a>
+      <a href="#safe">בטיחות</a>
+      <a href="#install">התקנה</a>
+      <a href="#help">תרומה</a>
+    </nav>
+    <a class="lang" href="../" hreflang="en" lang="en">English</a>
+    <a class="btn main" href="https://github.com/Tura2/classic-companion/releases/latest">הורדה</a>
+  </div>
+</header>
+
+<main id="top">
+<section class="hero" aria-labelledby="title">
+  <div class="wrap">
+    <h1 id="title" class="in"><span class="px" lang="en">Companion</span> ל-<span class="nb px" lang="en" dir="ltr">MapleStory Classic</span></h1>
+    <div class="row">
+      <div class="in">
+        <p class="big">עוזר חינמי שיושב ליד המשחק: איפה לעשות גריינד, אילו קווסטים לקחת, מה ללבוש, אילו סקילים להעלות, ואיך מגיעים לכל מפה.</p>
+        <div class="btns">
+          <a class="btn main" id="dl" data-label="הורדת {v} ל-Windows" href="https://github.com/Tura2/classic-companion/releases/latest">הורדה ל-Windows</a>
+          <a class="btn plain" href="https://github.com/Tura2/classic-companion">הקוד ב-GitHub</a>
+        </div>
+        <p class="small"><span id="ver" data-label="{v}, יצאה ב-{d}. "></span>חינמי ובקוד פתוח (MIT). לא רשמי: לא קשור ל-Nexon ולא מאושר על ידה.</p>
+      </div>
+      <figure style="margin:0" class="in">
+        <div class="window"><img src="../shots/goto.webp" width="1104" height="800" fetchpriority="high" alt="הלשונית Go to של Companion: שלב 1 מתוך 10 מ-Ant Tunnel I אל Line 2 Area 1, הפורטל ל-Sleepywood מסומן בעיגול אדום על תמונת המפה האמיתית"></div>
+        <figcaption class="cap small">Go to: מ-Ant Tunnel I לרכבת התחתית בעשרה פורטלים, הבא בתור מסומן בעיגול.</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section class="tour" id="tour" aria-labelledby="tour-h">
+  <div class="wrap">
+    <h2 id="tour-h" class="in">דשבורד אחד, במראה של המשחק</h2>
+    <p class="big in">Companion נפתח בדפדפן ונראה כמו חלון מהמשחק: תמונות האייטמים, המפות האמיתיות, ה-Equipment Inventory של Classic. בחרו ג'וב ורמה למעלה, וכל לשונית מתאימה את עצמה אליכם. אלה המסכים האמיתיים, של Hunter ברמה 33.</p>
+
+    <div class="tabs" role="tablist" aria-label="הלשוניות של הדשבורד" hidden>
+      <button role="tab" id="t-train" aria-controls="p-train" aria-selected="true" lang="en">Train</button>
+      <button role="tab" id="t-quests" aria-controls="p-quests" aria-selected="false" tabindex="-1" lang="en">Quests</button>
+      <button role="tab" id="t-gear" aria-controls="p-gear" aria-selected="false" tabindex="-1" lang="en">Gear</button>
+      <button role="tab" id="t-skills" aria-controls="p-skills" aria-selected="false" tabindex="-1" lang="en">Skills</button>
+      <button role="tab" id="t-goto" aria-controls="p-goto" aria-selected="false" tabindex="-1" lang="en">Go to</button>
+    </div>
+
+    <div class="panel" id="p-train" aria-labelledby="t-train">
+      <div class="window"><img src="../shots/train.webp" width="1104" height="800" loading="lazy" alt="הלשונית Train: המפות לרמה 33 מדורגות, Line 2 Area 1 ראשונה עם 83 Jr. Wraith, תמונת המפה וטבלת המונסטרים"></div>
+      <div class="say">
+        <h3>איפה לעשות גריינד</h3>
+        <p>המפות לרמה שלכם, הטובה ראשונה: הכי הרבה EXP על ה-HP שאתם מורידים, ומפה עם יותר מונסטרים שווה יותר.</p>
+        <ul>
+          <li>המונסטרים בכל מפה: רמה, HP, EXP וכמה מהם יש.</li>
+          <li>כמה ACC צריך כדי לא לפספס אף פעם.</li>
+          <li>ה-EXP לשעה שלכם בפועל במפות שכבר עשיתם בהן גריינד, כשקריאת המסך פועלת.</li>
+          <li><span lang="en">Take me there</span>: המסלול, בלחיצה אחת.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="panel" id="p-quests" aria-labelledby="t-quests">
+      <div class="window"><img src="../shots/quests.webp" width="1104" height="800" loading="lazy" alt="הלשונית Quests: 18 קווסטים שאפשר לקחת ברמה 33, The Bowman's Next Journey פתוח עם ה-NPC, מה לעשות והפרסים"></div>
+      <div class="say">
+        <h3>קווסטים שאפשר לקחת עכשיו</h3>
+        <p>מה פתוח ברמה שלכם, מי נותן אותו, איפה הוא עומד, וכמה הוא משלם.</p>
+        <ul>
+          <li><span lang="en">Guide me in game</span>: כל מונסטר לצוד ואיפה, כל אייטם לאסוף ומי מדרופ אותו.</li>
+          <li>אייטמים שאפשר לקנות במקום לפארם, ופרסים עם השווי שלהם בשוק.</li>
+          <li>למי מחזירים אותו, ואז הקווסט הבא בשרשרת.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="panel" id="p-gear" aria-labelledby="t-gear">
+      <div class="window"><img src="../shots/gear.webp" width="1104" height="800" loading="lazy" alt="הלשונית Gear: ה-Equipment Inventory של Classic מלא בציוד ה-Hunter הכי טוב לרמה 33, והסט כולו ב-53,995 mesos"></div>
+      <div class="say">
+        <h3>מה ללבוש</h3>
+        <p>ה-Equipment Inventory של Classic, עם האייטם הכי טוב לג'וב ולרמה שלכם בכל סלוט.</p>
+        <ul>
+          <li>עברו עם העכבר על אייטם וקבלו את הטולטיפ של המשחק, עם הדרישות באדום כשחסר לכם.</li>
+          <li>מחיר סנייפ ומחיר רגיל לכל חלק.</li>
+          <li>כמה עולה הסט כולו, ליד ה-mesos שלכם.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="panel" id="p-skills" aria-labelledby="t-skills">
+      <div class="window"><img src="../shots/skills.webp" width="1104" height="800" loading="lazy" alt="הלשונית Skills: חלון סקילים עם לשוניות Beginner, Archer ו-Hunter, ו-Arrow Bomb פתוח עם מה שהוא עושה ברמה 1 ובמקסימום"></div>
+      <div class="say">
+        <h3>לאן הולכים ה-SP וה-AP</h3>
+        <p>חלון סקילים עם לשונית לכל ג'וב שהיה לכם, ושלוש נקודות ה-SP הבאות שלכם.</p>
+        <ul>
+          <li>סדר ה-SP מגיע ממדריך הקלאס של כל ג'וב.</li>
+          <li>מה כל סקיל עושה ברמה 1 וברמה המקסימלית.</li>
+          <li>AP לסטט שהנשק הבא שלכם צריך, ואם אין כזה, לסטט הראשי.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="panel" id="p-goto" aria-labelledby="t-goto">
+      <div class="window"><img src="../shots/goto.webp" width="1104" height="800" loading="lazy" alt="הלשונית Go to: מסלול של 10 שלבים, והפורטל הבא מסומן בעיגול על תמונת המפה"></div>
+      <div class="say">
+        <h3>הדרך לכל מפה</h3>
+        <p>מסלולים על תמונת המפה האמיתית, עם הפורטלים של המשחק מסומנים, וזה שצריך לקחת בעיגול אדום.</p>
+        <ul>
+          <li>הדרך הכי מהירה, לא זו עם הכי מעט פורטלים: הוא סופר גם את ההליכה בכל מפה.</li>
+          <li>לוקח את ה-Regular Cab בין העיירות כשזה יותר קצר.</li>
+          <li>כשקריאת המסך פועלת, המסלול מתקדם לבד כשאתם עוברים מפה.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="play" aria-labelledby="play-h">
+  <div class="wrap">
+    <div>
+      <h2 id="play-h" class="in">בזמן שאתם משחקים</h2>
+      <p class="big in">עוד שני מתגים ב-Settings, שניהם כבויים עד שתדליקו אותם. איתם Companion קורא את חלון המשחק כמו שאתם קוראים אותו, ואומר מה הוא רואה.</p>
+      <p class="in">שחקו בחלון או ב-borderless, ב-1920×1080 ומעלה.</p>
+    </div>
+    <dl>
+      <div class="in"><dt lang="en">Now</dt><dd>EXP לשעה, זמן עד הרמה הבאה, קילים, מוות, גרף EXP של הסשן, והמפות הכי טובות שלכם לפי מה שבאמת הרווחתם. בפארטי הוא מחשב את החלק שלכם בכל קיל.</dd></div>
+      <div class="in"><dt>החלונות שלכם</dt><dd>רמה, ג'וב ומפה מה-HUD; ספירות הקווסטים מה-Quest Helper; סטטים, סקילים, mesos וקווסטים כשאתם פותחים את החלונות האלה. מסלולים ומדריכי קווסטים מתקדמים לבד.</dd></div>
+      <div class="in"><dt>מחירים בחנויות</dt><dd>כל שורה בחנות של שחקן נבדקת מול המחיר שהאייטם באמת נמכר בו ב-<span class="msc">MSC</span> וב-<span class="cozy">Cozy</span>: snipe, fair, pricey או overpriced, רק כששניהם מסכימים.</dd></div>
+      <div class="in"><dt>מצויר על המשחק</dt><dd>מחירים מתחת לטולטיפים של אייטמים, תווית על כל שורה בחנות, וחץ מתחת למיני-מפה לכיוון הפורטל הבא. הקליקים עוברים דרך החלונות האלה; שום דבר לא נכנס למשחק.</dd></div>
+    </dl>
+  </div>
+</section>
+
+<section class="safe" id="safe" aria-labelledby="safe-h">
+  <div class="wrap">
+    <div>
+      <h2 id="safe-h" class="in">בטוח כברירת מחדל</h2>
+      <p class="big in">מהרגע הראשון Companion משתמש רק בנתוני משחק ציבוריים ובמחירי שוק. הוא לא נוגע במשחק, לא קורא את המסך, ואפילו לא מחפש את חלון המשחק.</p>
+      <div class="risk in"><strong>הסיכון, בלי לייפות</strong>תנאי השימוש של Nexon אוסרים תוכנות צד שלישי לא מורשות, ואף כלי כזה לא מורשה. באן חל גם על Classic World וגם על Global MapleStory. קריאת המסך על אחריותכם; האפליקציה מבקשת אישור לפני שהיא נדלקת.</div>
+    </div>
+    <ul>
+      <li class="in"><b>רק מסתכל</b>בלי זיכרון המשחק, קבצים, הזרקה, hooks או קלט. התהליך של המשחק אף פעם לא נפתח.</li>
+      <li class="in"><b>רק חלון המשחק</b>נלכד דרך Windows Graphics Capture, אותו API ש-OBS משתמש בו, ורק כשקריאת המסך פועלת.</li>
+      <li class="in"><b>בלי מקשי קיצור</b>בלי האזנה למקלדת; הכל נשלט מהדשבורד.</li>
+      <li class="in"><b>אף פעם לא מפריע</b>החלונות שעל המשחק שקופים לקליקים, לא לוקחים פוקוס, ונעלמים כשהמשחק לא בחזית.</li>
+      <li class="in"><b>נשאר אצלכם במחשב</b>המידע שלכם לא יוצא ממנו, אלא אם מחברים Discord להתראות על מכירות בחנות.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="start" id="install" aria-labelledby="install-h">
+  <div class="wrap">
+    <div>
+      <h2 id="install-h" class="in">התקנה</h2>
+      <ol class="steps">
+        <li class="in"><span>הורידו את <code>Companion.exe</code> מ<a href="https://github.com/Tura2/classic-companion/releases/latest">הגרסה האחרונה</a> ושימו אותו בתיקייה משלו.</span></li>
+        <li class="in"><span>הריצו אותו. ה-exe לא חתום, אז Windows עלול להגיד <bdi>"Windows protected your PC"</bdi>: לחצו <b lang="en">More info</b> ואז <b lang="en">Run anyway</b>.</span></li>
+        <li class="in"><span>הדשבורד נפתח ב-<code>localhost:8765</code>, רק במחשב הזה. הגדרה קצרה בעברית שואלת על הג'וב והרמה.</span></li>
+        <li class="in"><span>השאירו את החלון הקטן של Companion פתוח בזמן המשחק; סגירה שלו סוגרת את Companion.</span></li>
+      </ol>
+    </div>
+    <div class="side in">
+      <h3>מהקוד</h3>
+      <p>Windows עם Python 3.10 ומעלה:</p>
+<pre dir="ltr"><code>git clone https://github.com/Tura2/classic-companion
+cd classic-companion
+pip install -r requirements.txt
+python companion.py</code></pre>
+      <p>או לחיצה כפולה על <code>run.bat</code>. הקובץ <code>build.bat</code> בונה את ה-exe.</p>
+    </div>
+  </div>
+</section>
+
+<section class="help" id="help" aria-labelledby="help-h">
+  <div class="wrap">
+    <div>
+      <h2 id="help-h" class="in">עזרו לבנות אותו</h2>
+      <p class="big in">כלל אחד מעל הכל: Companion רק מסתכל. שינוי שקורא את זיכרון המשחק, שולח קלט, מאזין למקלדת או משחק בשבילכם לא ייכנס, כמה שלא יהיה שימושי.</p>
+    </div>
+    <dl>
+      <div class="in"><dt>דווחו על באג</dt><dd>משהו נקרא לא נכון? <a href="https://github.com/Tura2/classic-companion/issues/new/choose">פתחו issue</a> עם התמונה והטקסט מתיקיית <code>debug</code> של Companion. חתכו קודם שמות של שחקנים אחרים.</dd></div>
+      <div class="in"><dt>הציעו פיצ'ר</dt><dd>ספרו מה אתם מנסים לעשות במשחק ואיך Companion יכול לעזור. <a href="https://github.com/Tura2/classic-companion/issues/new/choose">טופס הפיצ'רים</a> שואל בדיוק את זה.</dd></div>
+      <div class="in"><dt>שלחו קוד</dt><dd>עשו Fork, פתחו branch, הוסיפו טסט ושלחו pull request. את ההתקנה ומפת הקוד תמצאו ב-<a href="https://github.com/Tura2/classic-companion/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a>.</dd></div>
+    </dl>
+  </div>
+</section>
+
+<section class="credits" aria-labelledby="credits-h">
+  <div class="wrap">
+    <h2 id="credits-h" class="in">קרדיטים</h2>
+    <ul>
+      <li class="in"><span class="who">נתוני המשחק</span><a href="https://github.com/ohmi69/osms_datamine_dashboard">OSMS Data Explorer</a> של ohmi69 (MIT): מפות, מונסטרים, אייטמים, קווסטים, NPCs ופורטלים.</li>
+      <li class="in"><span class="who">מחירים</span><a href="https://maplestory-classic.com">maplestory-classic.com</a> ו-<a href="https://cozy.markets">Cozy Market</a>.</li>
+      <li class="in"><span class="who">קווסטים ודרופים</span>התורמים של <a href="https://classicmaple.wiki">Classic Maple Wiki</a> ו-<a href="https://mapleclassic.wiki">MapleClassic Wiki</a>, השני דרך הנתונים הציבוריים של <a href="https://github.com/maplefm/maplefm.github.io">Club FM</a> (CC BY-NC-SA 4.0).</li>
+      <li class="in"><span class="who">ACC ומדריכי קלאסים</span><a href="https://meowdb.com/msclassic">NiaDB</a>.</li>
+      <li class="in"><span class="who">תמונת הפורטל</span><a href="https://maplestory.io">maplestory.io</a>.</li>
+      <li class="in"><span class="who">כל מי שעזר</span><a href="https://github.com/Tura2/classic-companion/graphs/contributors">התורמים</a>; הרשימה המלאה ב-<a href="https://github.com/Tura2/classic-companion/blob/main/CREDITS.md">CREDITS.md</a>.</li>
+    </ul>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="name"><img src="../logo.png" alt="" width="104" height="104">Companion</div>
+    <p>נבנה על ידי <a href="https://github.com/Tura2" dir="ltr">@Tura2</a> והתורמים. הקוד ברישיון <a href="https://github.com/Tura2/classic-companion/blob/main/LICENSE">MIT</a>.</p>
+    <p>MapleStory ותמונות המשחק שייכים ל-Nexon. Companion הוא כלי מעריצים לא רשמי, לא קשור ל-Nexon ולא מאושר על ידה.</p>
+  </div>
+</footer>
+
+<script src="../site.js"></script>
+</body>
+</html>
