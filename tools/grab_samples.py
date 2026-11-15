@@ -32,7 +32,7 @@ if sys.platform == "win32":
             pass
 
 from capture import GameCapture          # noqa: E402
-from paths import APP_DIR, load_json     # noqa: E402
+from paths import APP_DIR, DATA_DIR, load_json     # noqa: E402
 
 OUT = APP_DIR / "samples" / "raw"
 
@@ -43,7 +43,7 @@ def main():
     ap.add_argument("-n", type=int, default=1, help="how many pictures")
     ap.add_argument("--label", default="", help="a word for the file names, such as minimap")
     a = ap.parse_args()
-    title = (load_json(APP_DIR / "config.json", {}) or {}).get("game_title") or "MapleStory"
+    title = (load_json(DATA_DIR / "config.json", {}) or {}).get("game_title") or "MapleStory"
     cap = GameCapture(lambda: title)
     OUT.mkdir(parents=True, exist_ok=True)
     try:

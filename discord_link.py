@@ -15,9 +15,9 @@ import threading
 import time
 from urllib.parse import quote
 
-from paths import APP_DIR, RES_DIR, load_json, save_json
+from paths import APP_DIR, DATA_DIR, RES_DIR, load_json, save_json
 
-OUTBOX = APP_DIR / "discord_outbox.json"
+OUTBOX = DATA_DIR / "discord_outbox.json"
 API = "https://discord.com/api"
 BATCH_SECONDS = 60       # after a message, more sales wait this long and go together
 TIMEOUT = 10

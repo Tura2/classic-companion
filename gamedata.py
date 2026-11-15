@@ -17,12 +17,12 @@ from datetime import datetime
 
 import requests
 
-from paths import APP_DIR, RES_DIR
+from paths import APP_DIR, CACHE_DIR, RES_DIR
 
 HERE = APP_DIR
 # SP order per job, from the class guides (meowdb.com/msclassic/guides); see make_builds.py
 BUILDS_FILE = RES_DIR / "builds.json"
-CACHE = HERE / "cache"
+CACHE = CACHE_DIR
 CACHE.mkdir(exist_ok=True)
 MAP_CACHE = CACHE / "maps"   # map pictures, shrunk to MAP_MAX and kept, so a route's maps show at once
 MAP_MAX = 4096               # longest side: the originals run to 7000 px and 1.7 MB each

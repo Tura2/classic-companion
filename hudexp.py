@@ -14,9 +14,9 @@ import json
 
 from PIL import Image
 
-from paths import APP_DIR, RES_DIR
+from paths import CACHE_DIR, RES_DIR
 
-LEARNED = APP_DIR / "cache" / "exp_digits.json"
+LEARNED = CACHE_DIR / "exp_digits.json"
 SEEDS = RES_DIR / "assets" / "exp_digits.json"
 MIN_GAP = 0.04         # ...and at least this much closer than to any other digit
 MIN_SAME = 0.92          # a shape this close to a known one, of the same size, is that digit

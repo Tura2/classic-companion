@@ -14,11 +14,12 @@ from pathlib import Path
 APP_DIR = Path(__file__).resolve().parent.parent   # companion/, when run from tools/
 sys.path.insert(0, str(APP_DIR))
 import cozy  # noqa: E402
+from paths import CACHE_DIR  # noqa: E402
 
 
 def main():
     ap = argparse.ArgumentParser(description="Build or refresh cache/cozy_items.json from Cozy Market's item pages.")
-    ap.add_argument("out", nargs="?", type=Path, default=APP_DIR / "cache" / "cozy_items.json")
+    ap.add_argument("out", nargs="?", type=Path, default=CACHE_DIR / "cozy_items.json")
     ap.add_argument("--refresh", nargs="?", type=float, const=20.0, metavar="HOURS",
                     help="fetch again every price older than HOURS (default 20)")
     args = ap.parse_args()

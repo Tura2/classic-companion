@@ -20,12 +20,12 @@ import re
 
 from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont, ImageOps, ImageStat
 
-from paths import APP_DIR, RES_DIR
+from paths import APP_DIR, CACHE_DIR, RES_DIR
 from anchors import Titles
 from hudexp import ExpDigits, exp_glyphs
 from gamedata import fix_numeral, match_place
 
-DIGITS_FILE = APP_DIR / "cache" / "hud_digits.json"   # level digit shapes learned from CHARACTER STAT
+DIGITS_FILE = CACHE_DIR / "hud_digits.json"   # level digit shapes learned from CHARACTER STAT
 JOB_ALIASES = {"Bowman": "Archer", "Thief": "Rogue"}   # Nexon's 1st-job names -> the game data's
 REF_HEIGHT = 1200                                      # game area height the offsets were measured at
 # The smallest game area the reader can be trusted at: its text is read at the size the game draws

@@ -27,10 +27,10 @@ import discord_link
 from reader import CORNER_READ, MIN_HEIGHT
 from gamedata import JOBS, GameData, portal_meta
 
-from paths import APP_DIR, RES_DIR, load_json, save_json
+from paths import APP_DIR, DATA_DIR, RES_DIR, load_json, save_json
 
 HERE = APP_DIR
-PROFILE = HERE / "profile.json"
+PROFILE = DATA_DIR / "profile.json"
 PORT = 8765
 
 DEFAULT_PROFILE = {"job": "Beginner", "level": 10, "mesos": 80000, "acc": None, "skill_plan": {},

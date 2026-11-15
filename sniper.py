@@ -47,12 +47,12 @@ if sys.platform == "win32":  # make Tk and window capture use the same physical 
         except Exception:
             pass
 
-from paths import APP_DIR, load_json, save_json
+from paths import APP_DIR, DATA_DIR, DEBUG_DIR, load_json, save_json
 
 HERE = APP_DIR
-CONFIG = HERE / "config.json"
-DB = HERE / "scans.sqlite"
-DEBUG = HERE / "debug"
+CONFIG = DATA_DIR / "config.json"
+DB = DATA_DIR / "scans.sqlite"
+DEBUG = DEBUG_DIR
 
 DEFAULTS = {
     "region": None,            # [left, top, width, height] of a player shop list
@@ -784,7 +784,7 @@ class App:
         self.announced = set()      # deals already announced this session
         self.shop_anchor = None     # where the open shop's LEAVE STORE button was, for the quick re-read
         self.shopwatch = ShopWatch()  # sales in your own store
-        self.grind = Grind(APP_DIR / "grind.sqlite") if GRIND_ON else None   # EXP/hr per session and per map
+        self.grind = Grind(DATA_DIR / "grind.sqlite") if GRIND_ON else None   # EXP/hr per session and per map
         self.notices = notice_lines.Tracker()   # the corner's EXP / mesos / item lines, each counted once
         self.party = party_split.Fitter()        # learns how a party splits kills' EXP, from the gains
         state["grind"] = self.grind
