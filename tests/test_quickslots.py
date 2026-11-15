@@ -281,3 +281,58 @@ def test_nothing_until_the_icons_are_ready(tmp_path):
 def test_two_slots_at_once(tmp_path):
     looks = [{4: (BLUE, 93), 9: (ORANGE, 65)}, {4: (BLUE, 92), 9: (ORANGE, 63)}, {4: (BLUE, 92), 9: (ORANGE, 63)}]
     assert sorted(sum(run(tracker(tmp_path), looks), [])) == [("used", "Blue Potion", 1), ("used", "Orange Potion", 2)]
+
+
+def test_one_potion_on_two_keys_counts_once(tmp_path):
+    """A quick slot shows the item's total in the bag, so two slots holding it fall together."""
+    looks = [{4: (BLUE, n), 9: (BLUE, n)} for n in (93, 90, 90)]
+    assert sum(run(tracker(tmp_path), looks), []) == [("used", "Blue Potion", 3)]
+
+
+def test_a_potion_moved_to_another_slot_is_not_counted(tmp_path):
+    looks = [{4: (BLUE, 93)}, {9: (BLUE, 93)}, {9: (BLUE, 93)}, {9: (BLUE, 91)}, {9: (BLUE, 91)}]
+    assert sum(run(tracker(tmp_path), looks), []) == [("used", "Blue Potion", 2)]
+
+
+def test_a_covered_last_digit_is_not_counted(tmp_path):
+    def cover_last(pic):
+        _, x, y = quickslots.count_spots((NW, NH))[4]
+        pic[y - 1:y + 12, x + 8:x + 17] = 128            # the "5" of 15 under something flat and grey
+    qs = tracker(tmp_path)
+    out = [qs.step(slot_frame({4: BLUE}, counts={4: 15}), 100)]
+    for i in range(3):
+        out.append(qs.step(slot_frame({4: BLUE}, counts={4: 15}, extra=cover_last), 100.4 + 0.4 * i))
+    out.append(qs.step(slot_frame({4: BLUE}, counts={4: 15}), 102))
+    assert sum(out, []) == []
+
+
+def cursor():
+    """The mouse pointer, roughly: a white arrow with a dark outline, 12 x 19."""
+    arrow = np.zeros((19, 12), bool)
+    for r in range(19):
+        arrow[r, :min(r + 1, 12) if r < 13 else max(0, 6 - (r - 13))] = True
+    inner = np.zeros_like(arrow)
+    inner[1:-1, 1:-1] = arrow[2:, 2:] & arrow[:-2, :-2] & arrow[1:-1, 2:] & arrow[1:-1, :-2]
+    return arrow, inner
+
+
+def test_the_cursor_over_a_count_never_reads_as_a_few_drunk():
+    """Measured 2026-11-15 over 10..99 at 225 places: reads come back right, none, cut short (guarded
+    by the tracker) or 8x as 3x (a drop over MAX_DROP): never a smaller count within MAX_DROP."""
+    d, bg, (arrow, inner) = quickslots.Digits(), background(), cursor()
+    x0, y0 = 600, 400
+    for n in (18, 38, 82, 88, 59):
+        pic = bg.copy()
+        x = x0
+        for ch in str(n):
+            paste(pic, sprite(int(ch)), x, y0)
+            x += quickslots.ADV[int(ch)]
+        for dy in range(-18, 11, 4):
+            for dx in range(-12, 17, 4):
+                p = pic.copy()
+                region = p[y0 + dy:y0 + dy + 19, x0 + dx:x0 + dx + 12]
+                region[arrow] = (10, 10, 10)
+                region[inner] = (250, 250, 250)
+                got = d.read(p @ native.LUM, x0, y0)
+                cut = got is not None and len(str(got)) < len(str(n)) and str(n).startswith(str(got))
+                assert got is None or got == n or cut or not 1 <= n - got <= quickslots.MAX_DROP, (n, got, dx, dy)

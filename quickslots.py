@@ -197,35 +197,50 @@ MAX_DROP = 20       # a count falling more than this between two looks isn't cou
 class QuickSlots:
     """Potions drunk from the quick slots: step(frame, now) -> [("used", name, n)], each counted once.
 
-    Per slot: the first look sets a baseline (item, count). A new count counts once the next look
-    reads it too; falling by 1..MAX_DROP is that many drunk, rising (a pickup) isn't counted. The
-    item changing, or a look that can't read the slot, sets the baseline again: nothing is counted
-    then, since a wrong count is worse than a missed one."""
+    Counted per item, not per slot: a slot shows the item's total in the bag, so one potion on two
+    keys falls in both, and a potion moved to another key keeps its count. Each look gives every
+    item in the slots its count (an item whose slots disagree, or that isn't seen, has none).
+
+    Per item: the first count sets a baseline. A new count counts once the next look reads it too;
+    falling by 1..MAX_DROP is that many drunk, rising (a pickup) isn't counted. A look without the
+    item's count sets the baseline again, and so does a count that is the last one with its end
+    cut off (15 read as 1: something covers the last digit): nothing is counted then, since a
+    wrong count is worse than a missed one."""
 
     def __init__(self, icons, digits=None):
         self.icons, self.digits = icons, digits or Digits()
-        self.base = {}          # slot -> (name, count)
-        self.pending = {}       # slot -> a new count seen once
+        self.base = {}          # item -> its count
+        self.pending = {}       # item -> a new count seen once
+
+    def counts(self, frame):
+        """{item: its count} for the Use items in the quick slots this look."""
+        seen = {}
+        for name, n in zip(slot_names(self.icons, frame), self.digits.read_all(frame)):
+            if name is not None:
+                seen.setdefault(name, set()).add(n)
+        return {name: ns.pop() for name, ns in seen.items() if len(ns) == 1 and None not in ns}
 
     def step(self, frame, now):
         if not self.icons.ready:
             self.base, self.pending = {}, {}
             return []
-        counts, names = self.digits.read_all(frame), slot_names(self.icons, frame)
-        out = []
-        for slot, (name, n) in enumerate(zip(names, counts)):
-            base = self.base.get(slot)
-            if name is None or n is None or base is None or base[0] != name:
-                self.base[slot] = (name, n) if name is not None and n is not None else None
-                self.pending.pop(slot, None)
-                continue
-            if n == base[1]:
-                self.pending.pop(slot, None)
-            elif self.pending.get(slot) != n:
-                self.pending[slot] = n
+        now_counts, out = self.counts(frame), []
+        for name in list(self.base):
+            if name not in now_counts:          # not seen this look: start again when it is
+                del self.base[name]
+                self.pending.pop(name, None)
+        for name, n in now_counts.items():
+            base = self.base.get(name)
+            if base is None:
+                self.base[name] = n
+            elif n == base:
+                self.pending.pop(name, None)
+            elif self.pending.get(name) != n:
+                self.pending[name] = n
             else:
-                del self.pending[slot]
-                if 1 <= base[1] - n <= MAX_DROP:
-                    out.append(("used", name, base[1] - n))
-                self.base[slot] = (name, n)
+                del self.pending[name]
+                cut = len(str(n)) < len(str(base)) and str(base).startswith(str(n))
+                if not cut and 1 <= base - n <= MAX_DROP:
+                    out.append(("used", name, base - n))
+                self.base[name] = n
         return out
