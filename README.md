@@ -13,8 +13,14 @@ Not affiliated with or endorsed by Nexon. Free and open source under the [MIT li
 [Releases](https://github.com/Tura2/classic-companion/releases)) and open it. It installs for you
 only, with no admin password, into `%LOCALAPPDATA%\Programs\Companion`, adds Companion to the Start
 menu (and the desktop, if you leave that ticked) and starts it. The setup isn't signed, so Windows may
-say "Windows protected your PC": click **More info**, then **Run anyway**. A newer setup updates
-Companion in place and keeps your data.
+say "Windows protected your PC": click **More info**, then **Run anyway**.
+
+**Updates install themselves.** Each time Companion starts, it asks GitHub for the latest release
+(a few seconds at most; without internet it just starts). When there's a newer one, its window says
+"Updating to …", downloads `CompanionSetup.exe` into `cache\updates\`, checks it against the size and
+SHA-256 the release publishes, installs it over this version (your data stays) and starts again. If
+the download fails, this version starts as usual and tries again next time. Only the installed
+Companion updates itself, not one run from source.
 
 The dashboard opens in your browser at http://localhost:8765. It only listens on this PC.
 Companion's own small window says what's running, has an Open the dashboard button, shows what you
@@ -281,6 +287,8 @@ to the group's #shop-sales channel.
 
 ## Data sources
 - Game data: OSMS Data Explorer (MIT), github.com/ohmi69/osms_datamine_dashboard. Refreshed every 12h.
+- Updates: Companion's own latest release on GitHub (api.github.com/repos/Tura2/classic-companion),
+  asked once each time the installed Companion starts.
 - Prices: maplestory-classic.com/market.json. Refreshed every 30 min. The file is rebuilt once a day
   (~07:00 UTC), so intraday moves aren't in it.
 - Second prices: Cozy Market (cozy.markets) item pages, read into `cache/cozy_items.json` by the
