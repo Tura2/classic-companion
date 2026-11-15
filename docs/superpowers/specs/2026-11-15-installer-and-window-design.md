@@ -68,6 +68,13 @@ logs and `info.txt` (Companion version, Windows version, screen size and scaling
 Discord fields removed), shows it selected in Explorer, and opens the GitHub issue form. No pictures
 (they show other players' names) and no `profile.json`.
 
+## 4. Updates (added 2026-11-15 at the user's request)
+An installed Companion asks GitHub for the latest release when it starts (3 s timeout). A newer one
+with `CompanionSetup.exe` is downloaded into `cache\updates\`, checked against the asset's size and
+SHA-256, started with `/SILENT /SUPPRESSMSGBOXES /NORESTART /UPDATE`, and Companion closes. The setup
+waits up to 30 s for the `Tura2.Companion` mutex to clear, installs, and starts the new version
+(`[Run]` with `Check: IsUpdate`). Any failure: this version starts and says so once. Not from source.
+
 ## Not in scope
 Importing data from an old portable copy elsewhere on the PC (no users besides the maintainer yet;
 copy `data` files by hand). Code signing.
