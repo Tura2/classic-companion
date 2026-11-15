@@ -37,3 +37,16 @@ def test_native_box_for_a_native_area():
     lum, (x0, y0) = native.lum(stretched(np.zeros((768, 1228, 3)), (1920, 1200)), box)
     assert x0 <= 980 and y0 <= 500
     assert x0 + lum.shape[1] >= 1228 - 1 and y0 + lum.shape[0] >= 620
+
+
+def test_rgb_gives_the_colours_back_and_matches_lum():
+    rng = np.random.default_rng(4)
+    nat = rng.integers(0, 256, (768, 1228, 3))
+    frame = stretched(nat, (1920, 1200))
+    box = (1300, 900, 1700, 1100)
+    rgb, (x0, y0) = native.rgb(frame, box)
+    lum, at = native.lum(frame, box)
+    assert at == (x0, y0) and rgb.shape == lum.shape + (3,)
+    assert np.abs(rgb @ native.LUM - lum).max() < 0.01
+    got = nat[y0:y0 + rgb.shape[0], x0:x0 + rgb.shape[1]]
+    assert np.abs(rgb - got)[1:-1, 1:-1].max() < 3     # one channel: its rounding isn't averaged like lum's
