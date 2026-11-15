@@ -94,3 +94,108 @@ def test_reading_twelve_slots_is_quick():
     for _ in range(5):
         d.read_all(f)
     assert (time.perf_counter() - t) / 5 < 0.010
+
+
+# ---- naming a slot's item by its icon
+
+def shape_icon(kind, colour, h=30, w=27):
+    """A made-up icon: a filled potion-ish blob (kind "round") or a box with a stripe ("box")."""
+    a = np.zeros((h, w, 4))
+    yy, xx = np.mgrid[:h, :w]
+    if kind == "round":
+        inside = (yy - h * 0.6) ** 2 / (h * 0.4) ** 2 + (xx - w / 2) ** 2 / (w * 0.45) ** 2 <= 1
+        inside |= (np.abs(xx - w / 2) < 3) & (yy < h * 0.3)
+    else:
+        inside = (yy > 3) & (yy < h - 2) & (xx > 2) & (xx < w - 3)
+    a[inside, :3] = colour
+    edge = inside & ~np.roll(inside, 1, 0) | inside & ~np.roll(inside, 1, 1)
+    a[edge, :3] = (20, 20, 20)
+    a[inside, 3] = 255
+    a[(yy % 7 == 3) & inside, :3] = (240, 240, 240)       # a shine stripe, so it isn't flat
+    return a
+
+
+ICONS = {2000001: ("Orange Potion", shape_icon("round", (240, 140, 30))),
+         2000000: ("Red Potion", shape_icon("round", (220, 30, 30))),
+         2000003: ("Blue Potion", shape_icon("round", (30, 50, 220))),
+         2010000: ("Apple", shape_icon("box", (120, 200, 60), 26, 26))}
+
+
+def icon_files(tmp_path, icons=ICONS):
+    for iid, (_, a) in icons.items():
+        Image.fromarray(a.astype(np.uint8), "RGBA").save(tmp_path / f"{iid}.png")
+    return quickslots.Icons([(iid, name) for iid, (name, _) in icons.items()],
+                            lambda iid: (tmp_path / f"{iid}.png") if (tmp_path / f"{iid}.png").exists() else None)
+
+
+def draw_icon(pic, slot, a):
+    x, y = quickslots.icon_spot((NW, NH), slot, a.shape[:2])
+    paste(pic, (a[..., :3], a[..., 3:] / 255), x, y)
+
+
+def slot_frame(icons_by_slot, counts=None, extra=None):
+    pic = background()
+    for slot, a in icons_by_slot.items():
+        draw_icon(pic, slot, a)
+    for slot, n in (counts or {}).items():
+        draw_count(pic, slot, n)
+    if extra:
+        extra(pic)
+    return stretch(pic)
+
+
+def names(icons, f):
+    return quickslots.slot_names(icons, f)
+
+
+def test_names_the_icon_in_a_slot(tmp_path):
+    icons = icon_files(tmp_path)
+    icons.load()
+    assert icons.ready
+    for iid, (name, a) in ICONS.items():
+        assert names(icons, slot_frame({5: a}))[5] == name
+
+
+def test_same_shape_other_colour_is_told_apart(tmp_path):
+    icons = icon_files(tmp_path)
+    icons.load()
+    got = names(icons, slot_frame({4: ICONS[2000001][1], 5: ICONS[2000000][1], 9: ICONS[2000003][1]}))
+    assert (got[4], got[5], got[9]) == ("Orange Potion", "Red Potion", "Blue Potion")
+
+
+def test_a_skill_or_empty_slot_is_none(tmp_path):
+    icons = icon_files(tmp_path)
+    icons.load()
+    skill = shape_icon("box", (200, 200, 200), 30, 30)
+    skill[10:20, 5:25, :3] = (90, 60, 160)
+    got = names(icons, slot_frame({3: skill}))
+    assert got[3] is None and got[0] is None
+
+
+def test_label_and_count_over_the_icon_still_name_it(tmp_path):
+    icons = icon_files(tmp_path)
+    icons.load()
+
+    def label(pic):
+        x, y = quickslots.slot_origin((NW, NH), 9)
+        pic[y + 1:y + 9, x + 2:x + 22] = (235, 235, 245)           # a key's name, "Shift", over the top left
+    got = names(icons, slot_frame({9: ICONS[2000001][1]}, counts={9: 145}, extra=label))
+    assert got[9] == "Orange Potion"
+
+
+def test_nothing_is_named_before_the_icons_load(tmp_path):
+    icons = icon_files(tmp_path)
+    assert not icons.ready
+    assert names(icons, slot_frame({5: ICONS[2000001][1]})) == [None] * 12
+
+
+def test_a_slot_looking_the_same_is_not_matched_again(tmp_path):
+    icons = icon_files(tmp_path)
+    icons.load()
+    pic = background()
+    draw_icon(pic, 5, ICONS[2000001][1])
+    rng = np.random.default_rng(1)
+    names(icons, stretch(pic))
+    done = icons.work
+    again = names(icons, stretch(pic + rng.integers(-3, 4, pic.shape)))     # a little noise, as frame to frame
+    assert again[5] == "Orange Potion" and icons.work == done
