@@ -14,6 +14,8 @@ Potion), so each Use item's icon is tried there, a pixel either way. The key's n
 and the count over the bottom left cover part of it: the real item still fits 0.64-0.68 of its
 pixels, any other at most 0.33.
 """
+from concurrent.futures import ThreadPoolExecutor
+
 import numpy as np
 from PIL import Image
 
@@ -122,8 +124,9 @@ class Icons:
 
     def load(self):
         names, pics, masks = [], [], []
-        for iid, name in self.items:
-            path = self.icon_path(iid)
+        with ThreadPoolExecutor(16) as ex:                  # the first time, they're downloaded
+            paths = list(ex.map(lambda it: self.icon_path(it[0]), self.items))
+        for (iid, name), path in zip(self.items, paths):
             if path is None:
                 continue
             try:
