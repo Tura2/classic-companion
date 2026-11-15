@@ -526,7 +526,7 @@ def stat_number(text):
 
 
 def fix_one_vs_l(text, crop):
-    """A name with the 1s OCR read as l put right ("Tural" is "Tura1"): the game's 1 has a flag
+    """A name with the 1s OCR read as l put right ("Herol" is "Hero1"): the game's 1 has a flag
     reaching left from the top of its stem, its l is a plain stem. Only when the crop's letters
     can be told apart one by one (names have no spaces); an I without a flag stays as read."""
     import numpy as np
@@ -571,7 +571,7 @@ def read_stat(frame, t, s, job_names):
             break
     name = v.get("name")
     line = next((ln for ln in vals if ln[0] == name), None) if name else None
-    if line:      # OCR reads Tura1 as Tural: the 1's own shape says which it is
+    if line:      # OCR reads Hero1 as Herol: the 1's own shape says which it is
         _, lx, ly, lw, lh = line
         name = fix_one_vs_l(name, frame.crop((int(lx - 3 * s), int(ly - 2 * s), int(lx + lw + 4 * s), int(ly + lh + 2 * s))))
     out = {"name": name, "job": job}
