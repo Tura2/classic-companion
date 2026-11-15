@@ -28,7 +28,7 @@ from gamedata import JOBS, GameData, portal_meta
 
 import applog
 import paths
-from paths import APP_DIR, DATA_DIR, LOGS_DIR, RES_DIR, load_json, save_json
+from paths import APP_DIR, CACHE_DIR, DATA_DIR, LOGS_DIR, RES_DIR, load_json, save_json
 from version import VERSION
 
 HERE = APP_DIR
@@ -614,8 +614,8 @@ def main():
         serve(None, {})
         return
     started = {}
-    threading.Thread(target=serve, args=(win, started), daemon=True).start()
-    win.run()                  # until the window is closed
+    threading.Thread(target=update_then_serve, args=(win, started), daemon=True).start()
+    win.run()                  # until the window is closed (or an update closes it)
     if started.get("server"):
         started["server"].shutdown()
 
@@ -631,6 +631,31 @@ def hold_single_instance():
         _MUTEX = ctypes.windll.kernel32.CreateMutexW(None, False, "Tura2.Companion")
     except Exception as e:
         applog.log(f"No single-instance mutex: {e}")
+
+
+def update_then_serve(win, started):
+    """An installed Companion first looks for a newer release (a few seconds at most). If there is
+    one, it downloads and checks the setup, starts it and closes: the setup installs over it and
+    starts the new version. Otherwise, or if anything goes wrong, this version starts as usual."""
+    if getattr(sys, "frozen", False) and "--no-update" not in sys.argv:
+        import updater
+        folder = CACHE_DIR / "updates"
+        updater.clean(folder, VERSION)
+        found = updater.find(updater.latest_release, VERSION)
+        if found:
+            win.note(f"Updating to {found.version}…")
+            applog.say(f"Companion {found.version} is out. Downloading the update…")
+            try:
+                setup = updater.download(found, folder)
+                applog.log(f"Starting {setup.name} to update {VERSION} -> {found.version}")
+                updater.run_setup(setup)
+                applog.say("Installing the update. Companion starts again by itself in a moment.")
+                win.call(lambda: win.root.after(1500, win.root.destroy))
+                return
+            except Exception as e:
+                applog.problem("update", f"Couldn't update to {found.version}. Starting this version; "
+                                         "it tries again next time.", exc=e)
+    serve(win, started)
 
 
 def serve(win, started):

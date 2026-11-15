@@ -105,6 +105,10 @@ class Window:
     def failed(self, why):
         self.q.put(("failed", why))
 
+    def note(self, text):
+        """A passing status, like an update being installed."""
+        self.q.put(("note", text))
+
     # ------------------------------------------------------------ on the window's thread
     def sharp_icons(self):
         """Tk gives Windows a 32 px icon, which the taskbar stretches at 125 % and up (blurry).
@@ -148,6 +152,8 @@ class Window:
                     self.open_btn.configure(state="normal")
                 elif kind == "failed":
                     self.status.configure(text=value, fg="#FF7A7A")
+                elif kind == "note":
+                    self.status.configure(text=value, fg=WARN)
                 elif kind == "call":
                     try:
                         value()

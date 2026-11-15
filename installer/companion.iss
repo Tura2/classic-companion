@@ -32,8 +32,8 @@ SolidCompression=yes
 WizardStyle=modern
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
-; Companion holds this mutex while it runs: setup and uninstall ask to close it first
-AppMutex=Tura2.Companion
+; Companion holds the mutex Tura2.Companion while it runs. Setup and uninstall check it in [Code]
+; (not AppMutex): an update started by Companion itself waits for it to close instead of failing.
 CloseApplications=yes
 ShowLanguageDialog=auto
 LanguageDetectionMethod=uilanguage
@@ -47,6 +47,8 @@ en.LaunchCompanion=Start Companion
 he.LaunchCompanion=הפעלת Companion
 en.DeleteData=Also delete your Companion data?%n%nThat's your character, settings, grind history and the shop prices you've seen. Choose No to keep it, so a reinstall picks up where you left off.
 he.DeleteData=למחוק גם את המידע שלכם ב-Companion?%n%nזה הדמות, ההגדרות, היסטוריית הגריינד ומחירי החנויות שראיתם. בחרו "לא" כדי לשמור אותו, וכך התקנה חוזרת תמשיך מאיפה שהפסקתם.
+en.CloseCompanion=Companion is open. Close its window, then click Retry.
+he.CloseCompanion=Companion פתוח. סגרו את החלון שלו ולחצו "נסה שוב".
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
@@ -64,6 +66,8 @@ Name: "{autodesktop}\Companion"; Filename: "{app}\Companion.exe"; Tasks: desktop
 
 [Run]
 Filename: "{app}\Companion.exe"; Description: "{cm:LaunchCompanion}"; Flags: nowait postinstall skipifsilent
+; an update Companion started (/UPDATE) starts the new version by itself
+Filename: "{app}\Companion.exe"; Flags: nowait; Check: IsUpdate
 
 [UninstallDelete]
 ; made by Companion as it runs, safe to remove: downloaded data, logs, pictures, report zips
@@ -74,18 +78,67 @@ Type: filesandordirs; Name: "{app}\reports"
 Type: filesandordirs; Name: "{app}\_internal"
 
 [Code]
-function WantsDataDeleted(): Boolean;
+function HasParam(Name: String): Boolean;
 var
   i: Integer;
 begin
-  { a silent uninstall keeps the data unless /DELETEDATA is given }
+  Result := False;
   for i := 1 to ParamCount do
-    if CompareText(ParamStr(i), '/DELETEDATA') = 0 then
+    if CompareText(ParamStr(i), Name) = 0 then
     begin
       Result := True;
       exit;
     end;
-  if UninstallSilent then
+end;
+
+function IsUpdate(): Boolean;
+begin
+  Result := HasParam('/UPDATE');
+end;
+
+function CompanionRunning(): Boolean;
+begin
+  Result := CheckForMutexes('Tura2.Companion');
+end;
+
+{ Companion must be closed before its files are replaced or removed. An update Companion started
+  itself gets up to 30 s for Companion to close; otherwise the player is asked to close it. }
+function CompanionClosed(Silent: Boolean): Boolean;
+var
+  i: Integer;
+begin
+  Result := True;
+  if IsUpdate() then
+    for i := 1 to 60 do
+    begin
+      if not CompanionRunning() then
+        exit;
+      Sleep(500);
+    end;
+  while CompanionRunning() do
+    if Silent or (MsgBox(CustomMessage('CloseCompanion'), mbError, MB_RETRYCANCEL) = IDCANCEL) then
+    begin
+      Result := False;
+      exit;
+    end;
+end;
+
+function InitializeSetup(): Boolean;
+begin
+  Result := CompanionClosed(WizardSilent);
+end;
+
+function InitializeUninstall(): Boolean;
+begin
+  Result := CompanionClosed(UninstallSilent);
+end;
+
+function WantsDataDeleted(): Boolean;
+begin
+  { a silent uninstall keeps the data unless /DELETEDATA is given }
+  if HasParam('/DELETEDATA') then
+    Result := True
+  else if UninstallSilent then
     Result := False
   else
     Result := MsgBox(CustomMessage('DeleteData'), mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES;
