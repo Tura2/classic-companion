@@ -6,11 +6,11 @@ browser dashboard on your PC (a second monitor works well).
 
 Not affiliated with or endorsed by Nexon. Free and open source under the [MIT license](LICENSE).
 
-[Website](https://tura2.github.io/classic-companion/) · [Download](https://github.com/Tura2/classic-companion/releases/latest) · [Contributing](CONTRIBUTING.md) · [Credits](CREDITS.md)
+[Website](https://tura2.github.io/classic-companion/) · [Download Companion.exe](https://github.com/Tura2/classic-companion/releases/latest/download/Companion.exe) · [Contributing](CONTRIBUTING.md) · [Credits](CREDITS.md)
 
 ## Quick start
-**Windows app:** download `Companion.exe` from
-[the latest release](https://github.com/Tura2/classic-companion/releases/latest), put it in its own folder and run it. The dashboard opens in
+**Windows app:** [download `Companion.exe`](https://github.com/Tura2/classic-companion/releases/latest/download/Companion.exe) (the latest release; older ones are on
+[Releases](https://github.com/Tura2/classic-companion/releases)), put it in its own folder and run it. The dashboard opens in
 your browser at http://localhost:8765. It only listens on this PC. Companion's own small window,
 with its logo, says what's running, has an Open the dashboard button and shows its messages; keep
 it open while you play: closing it closes Companion. The exe isn't signed, so Windows may say "Windows protected
@@ -235,7 +235,8 @@ The webhook and the Discord app's client ID come with the build (`discord.json` 
    (players see it on the authorize page) → OAuth2: copy the Client ID; Redirects → Add
    `http://localhost:8765/discord` → Save. No bot, no client secret.
 4. Next to `build.bat`: `discord.json` = `{"webhook": "https://discord.com/api/webhooks/...",
-   "client_id": "123456789012345678"}`. Run `build.bat`, upload `dist\Companion.exe` to Releases.
+   "client_id": "123456789012345678"}`. Run `build.bat`, upload `dist\Companion.exe` to Releases. Keep the file name `Companion.exe`:
+   the website's and README's Download links point at that name in the latest release.
 5. Test: Settings → Connect Discord → Authorize; a message tagging you arrives in #shop-sales.
 6. If the webhook URL leaks (it's inside a public exe, so someone determined can post to the
    channel, though never read it): delete the webhook, make a new one, update `discord.json`,
