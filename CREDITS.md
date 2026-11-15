@@ -34,6 +34,15 @@ MapleCompass and Maple Classic Exp Overlay.
 [windows-capture](https://github.com/NiiightmareXD/windows-capture), [NumPy](https://numpy.org),
 [PyInstaller](https://pyinstaller.org), [pytest](https://pytest.org).
 
+## What the MIT license doesn't cover
+The [MIT license](LICENSE) covers Companion's own source code and documentation. It does not cover:
+
+- Game images and names (item pictures, the window title pictures in `assets/titles/`, the Maple Leaf
+  and Steely Throwing Knives pictures in the logo). These belong to Nexon. Fine for personal use;
+  don't sell them.
+- Data the app downloads at run time from third parties (see Data sources above). Each keeps its own
+  license; for example, Classic Maple Wiki content is CC BY-NC-SA 4.0 and must not be used commercially.
+
 ## Game
 MapleStory and all game images belong to Nexon. Companion is an unofficial fan tool, not
 affiliated with or endorsed by Nexon.

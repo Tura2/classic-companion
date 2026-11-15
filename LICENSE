@@ -19,16 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----------------------------------------------------------------------------
-Not covered by this license
-
-The MIT license above covers Companion's own source code and documentation.
-It does not cover:
-
-- Game images and names (item pictures, window title pictures in
-  assets/titles/, the Maple Leaf and Steely Throwing Knives pictures in the
-  logo). These belong to Nexon. Fine for personal use; don't sell them.
-- Data the app downloads at run time from third parties (see CREDITS.md).
-  Each keeps its own license, e.g. Classic Maple Wiki content is
-  CC BY-NC-SA 4.0 and must not be used commercially.
