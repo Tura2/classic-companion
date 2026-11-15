@@ -67,6 +67,23 @@ def test_session_view_has_monsters_and_tooltip_fields(tmp_path, game_reader):
     assert cloth["desc"].startswith("A tablecloth") and cloth["img"] and "msc" in cloth and "npc" in cloth
 
 
+def test_session_view_nets_loot_and_used(tmp_path, game_reader):
+    d = game_reader.data
+    g = grind.Grind(tmp_path / "grind.sqlite")
+    g.add_loot("Orange Potion", 1, 0)
+    g.add_used("Orange Potion", 12, 0)
+    g.add_loot("Tablecloth", 3, 0)
+    g.add_used("Blue Potion", 9, 0)
+    g.add_used("White Potion", 2, 0)
+    g.add_loot("White Potion", 2, 0)
+    loot = companion.session_view(g, d, None, 100)["loot"]
+    assert [x["name"] for x in loot] == ["Tablecloth", "Orange Potion", "Blue Potion", "White Potion"]
+    assert [x["count"] for x in loot] == [3, -11, -9, 0]
+    orange, blue = loot[1], loot[2]
+    assert (orange["picked"], orange["used"]) == (1, 12) and (loot[0]["picked"], loot[0]["used"]) == (3, 0)
+    assert blue["img"] and blue["kind"] == "Use" and "msc" in blue and "npc" in blue
+
+
 def test_town_with_keep_counting_shows_this_session(tmp_path, game_reader):
     d = game_reader.data
     g = grind.Grind(tmp_path / "grind.sqlite")
