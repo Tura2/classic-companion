@@ -22,7 +22,7 @@ we will.
 | [NiaDB](https://meowdb.com/msclassic) | ACC values, SP order per job (class guides) | Single facts, credited as their reuse page asks |
 | [Classic Maple Wiki](https://classicmaple.wiki) contributors, much from [MapleClassic Wiki](https://mapleclassic.wiki) | Quest steps, turn-in NPCs, monster drops | CC BY-NC-SA 4.0 (non-commercial) |
 | [MapleClassic Wiki](https://mapleclassic.wiki), via [Club FM](https://github.com/maplefm/maplefm.github.io)'s public `data/itemguide.json` | Every monster's drop list ("Worth picking up" on Now) | CC BY-NC-SA 4.0 (non-commercial) |
-| [maplestory.io](https://maplestory.io) | The game's portal picture, drawn on route maps | Game image (Nexon) |
+| [maplestory.io](https://maplestory.io) | The game's portal picture, drawn on route maps; the item-count digits (`assets/itemno/`, UI/Basic.img/ItemNo) that the quick slots are read by | Game images (Nexon) |
 
 ## Inspiration
 Community tools whose issues taught us the rules the app follows:
@@ -37,7 +37,8 @@ MapleCompass and Maple Classic Exp Overlay.
 ## What the MIT license doesn't cover
 The [MIT license](LICENSE) covers Companion's own source code and documentation. It does not cover:
 
-- Game images and names (item pictures, the window title pictures in `assets/titles/`, the Maple Leaf
+- Game images and names (item pictures, the window title pictures in `assets/titles/`, the item-count
+  digits in `assets/itemno/`, the Maple Leaf
   and Steely Throwing Knives pictures in the logo). These belong to Nexon. Fine for personal use;
   don't sell them.
 - Data the app downloads at run time from third parties (see Data sources above). Each keeps its own
