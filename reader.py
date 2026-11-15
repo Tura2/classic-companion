@@ -595,19 +595,10 @@ def read_stat(frame, t, s, job_names):
     return out
 
 
-NOTICE_ROW = 16      # the corner lines' height at a 1200 px tall game (samples 2026-11-13)
-# Whether the corner's pickup lines are read. Tried 2026-11-13 on 70 live frames at 1920x1200: the
-# lines are light grey with a dark outline, right-aligned above the quick slots, over the map's own
-# picture; OCR read lines over plain sky but mangled most over rocks and fog ("Red Srigi! spell 1
-# eprned"), and counting each line once needs every line read every time. Off until the lines are
-# read by the game's own glyph shapes (like hudexp's digits); Now says so, and kills come from the EXP.
-CORNER_READ = False
-
-
-def read_notices(frame, s):
-    """The game's bottom-right corner lines (EXP, mesos, items picked up), (text, y) top to bottom.
-    Empty while CORNER_READ is off."""
-    return []
+# Whether the corner's pickup lines are read (Now's loot and mesos picked up). OCR mangled them over
+# busy maps (2026-11-13); since 2026-11-14 notices.py reads them off the game's own pixels by their
+# font, on its own quick look (sniper.corner_loop), not in this full read.
+CORNER_READ = True
 
 
 def read_inventory(frame, t, s):
@@ -1465,7 +1456,6 @@ class Reader:
                     seen["hud"].update(exp=got["exp"], exp_pct=got["pct"])
         if "inventory" in wins:
             seen["inventory"] = read_inventory(frame, wins["inventory"], s)
-        seen["notices"], seen["notice_row"] = read_notices(frame, s), NOTICE_ROW * s
         if "skills" in wins:
             seen["skills"] = read_skills(frame, wins["skills"], s, self.skill_names)
         if "quest" in wins:

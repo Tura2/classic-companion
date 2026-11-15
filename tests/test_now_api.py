@@ -5,26 +5,27 @@ from types import SimpleNamespace
 
 import companion
 import grind
-import notices
 import sniper
 
 
 def app(tmp_path, data):
-    return SimpleNamespace(grind=grind.Grind(tmp_path / "grind.sqlite"), data=data, notices=notices.Tracker())
+    return SimpleNamespace(grind=grind.Grind(tmp_path / "grind.sqlite"), data=data)
 
 
-def reads(a, prof, exp, lines, n=3):
-    seen = {"hud": {"exp": exp, "exp_pct": round(exp / 1227.55, 2)}, "notices": lines, "notice_row": 13}
+def reads(a, prof, exp, lines=(), n=3):
+    """A few full reads showing HUD EXP `exp`, then the corner's new lines (notices.Corner's events)."""
+    seen = {"hud": {"exp": exp, "exp_pct": round(exp / 1227.55, 2)}}
     for _ in range(n):
         sniper.handle_grind(a, seen, prof)
+    sniper.handle_corner(a, list(lines))
 
 
 def test_exp_lines_become_named_kills(tmp_path, game_reader):
     d = game_reader.data
     a, prof = app(tmp_path, d), {"current_map": d.match_map_name("Line 2 <Area 1>"), "level": 32}
     reads(a, prof, 50000, [])
-    reads(a, prof, 50066, [("You received EXP (+66)", 500)])
-    reads(a, prof, 50137, [("You received EXP (+66)", 487), ("You received EXP (+71)", 500)])
+    reads(a, prof, 50066, [("exp", 66)])
+    reads(a, prof, 50137, [("exp", 71)])
     s = a.grind.summary(1e10)
     assert s["kills"] == [{"name": "Jr. Wraith", "count": 1}, {"name": None, "count": 1}]
 
@@ -32,9 +33,23 @@ def test_exp_lines_become_named_kills(tmp_path, game_reader):
 def test_items_and_mesos_from_lines(tmp_path, game_reader):
     d = game_reader.data
     a, prof = app(tmp_path, d), {"current_map": d.match_map_name("Line 2 <Area 1>"), "level": 32}
-    reads(a, prof, 50000, [("Tablecloth x1 earned. (Etc)", 487), ("You have gained mesos (+15)", 500)])
+    reads(a, prof, 50000, [("item", "Tablecloth", 1), ("mesos", 15), ("item", "Tablecloth", 2), ("party", 3)])
     s = a.grind.summary(1e10)
-    assert s["loot"] == [{"name": "Tablecloth", "count": 1}] and s["mesos_picked"] == 15
+    assert s["loot"] == [{"name": "Tablecloth", "count": 3}] and s["mesos_picked"] == 15
+
+
+def test_an_item_line_naming_no_item_is_not_loot(tmp_path, game_reader):
+    d = game_reader.data
+    a, prof = app(tmp_path, d), {"current_map": d.match_map_name("Line 2 <Area 1>"), "level": 32}
+    reads(a, prof, 50000, [("item", None, 1)])
+    assert a.grind.summary(1e10)["loot"] == []
+
+
+def test_a_maps_drops_by_name(game_reader):
+    d = game_reader.data
+    drops = d.map_drop_names(d.match_map_name("West Rocky Mountain IV"))
+    assert "Wild Boar Tooth" in drops
+    assert d.map_drop_names(None) == set()
 
 
 def test_session_view_has_monsters_and_tooltip_fields(tmp_path, game_reader):
@@ -97,7 +112,7 @@ def test_corner_exp_lines_are_not_counted_twice(tmp_path, game_reader):
     d = game_reader.data
     a, prof = app(tmp_path, d), {"current_map": d.match_map_name("Line 2 <Area 1>"), "level": 32}
     reads(a, prof, 50000, [])
-    reads(a, prof, 50066, [("You received EXP (+66)", 500)])
+    reads(a, prof, 50066, [("exp", 66)])
     assert a.grind.summary(1e10)["kills"] == [{"name": "Jr. Wraith", "count": 1}]
 
 
