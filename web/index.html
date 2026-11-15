@@ -728,6 +728,9 @@ input.sw:disabled{cursor:not-allowed}
 .lt img{width:32px;height:32px;image-rendering:pixelated;object-fit:contain}
 .lt i{position:absolute;right:6px;bottom:2px;font:900 1rem "Nunito",sans-serif;font-style:normal;color:#fff;text-shadow:0 0 2px #000,0 0 2px #000,0 0 3px #000}
 .lt.meso i{color:#FFE27A}
+.lt.used{border-color:#6B3340;background:linear-gradient(#2A1B26,#1D1420)}
+.lt.used i{color:#FF8F8F}
+.lt.zero i{color:#8A97B2}
 .lempty{position:relative;flex:1;min-height:80px;overflow:hidden}
 .ghosts{display:grid;grid-template-columns:repeat(auto-fill,minmax(58px,1fr));gap:7px;opacity:.35}
 .lt.ghost{background:transparent;border:1px dashed #8A97B2;box-shadow:none}
@@ -1198,16 +1201,17 @@ function lootItems(sv){
   if (sv.mesos_picked) out.unshift({meso: true, name: "Mesos", count: sv.mesos_picked, per: sv.mesos_per_min, img: `${OSMS_IMG}items/02028000.png`});
   return out;
 }
-const lootTile = (x, i) => `<div class="lt${x.meso ? " meso" : ""}" data-lk="${i}"><img src="${esc(x.img)}" alt="${esc(x.name)}" width="32" height="32"><i>${x.meso ? shortN(x.count) : fmt(x.count)}</i></div>`;
+// an item: picked up less drunk from the quick slots; below zero it's red, "−11"
+const lootTile = (x, i) => `<div class="lt${x.meso ? " meso" : x.count < 0 ? " used" : x.count === 0 && x.used ? " zero" : ""}" data-lk="${i}"><img src="${esc(x.img)}" alt="${esc(x.name)}" width="32" height="32"><i>${x.meso ? shortN(x.count) : x.count < 0 ? `−${fmt(-x.count)}` : fmt(x.count)}</i></div>`;
 function lootTip(x){
   if (x.meso) return `<div class="tname"><i></i>Mesos</div><p class="tdesc">${fmt(x.count)} picked up this session${x.per != null ? `, ${fmt(x.per)} a minute` : ""}.</p>`;
   const have = x.count != null;
   const worth = x.msc || x.npc ? `<div class="tprice"><div><span>MSC usual</span><b class="msc">${x.msc ? fmt(x.msc) : "—"}</b></div>
       <div><span>NPC pays</span><b>${x.npc ? fmt(x.npc) : "—"}</b></div>
-      ${have ? `<div><span>Yours worth</span><b class="msc">${fmt((x.msc || x.npc) * x.count)}</b></div>` : ""}</div>`
+      ${have && x.count > 0 ? `<div><span>Yours worth</span><b class="msc">${fmt((x.msc || x.npc) * x.count)}</b></div>` : ""}</div>`
     : `<div class="tprice none">Not traded on the market yet</div>`;
   return `<div class="tname"><i></i>${pretty(x.name)}</div>
-    <div class="ttop"><div class="timg"><img src="${esc(x.img)}" alt=""></div><div><div class="tkind">${esc(x.kind || "")}</div>${have ? `<div class="thave">You picked up <b>${fmt(x.count)}</b></div>` : ""}</div></div>
+    <div class="ttop"><div class="timg"><img src="${esc(x.img)}" alt=""></div><div><div class="tkind">${esc(x.kind || "")}</div>${x.used ? `<div class="thave">Picked up <b>${fmt(x.picked || 0)}</b> · used <b>${fmt(x.used)}</b></div>` : have ? `<div class="thave">You picked up <b>${fmt(x.count)}</b></div>` : ""}</div></div>
     ${x.desc ? `<p class="tdesc">${esc(x.desc)}</p>` : ""}${worth}`;
 }
 function sessionCard(gr){
@@ -1320,7 +1324,7 @@ function lastSessionCard(gr){
   const n = gr.now, sv = gr.session || {};
   const live = gr.keep && sv.since;
   const L = live ? {map: n.map, active_s: n.active_s, gain_pct: sv.gain_pct, level: sv.level, kills_total: sv.kills_total,
-                    items: (sv.loot || []).reduce((a, x) => a + x.count, 0), mesos_picked: sv.mesos_picked, deaths: (sv.deaths || []).length,
+                    items: (sv.loot || []).reduce((a, x) => a + (x.picked ?? x.count), 0), mesos_picked: sv.mesos_picked, deaths: (sv.deaths || []).length,
                     start: sv.since, end: null} : gr.last;
   if (!L) return "";
   const aside = live ? `still counting · since ${clock(L.start)}` : L.start ? `${clock(L.start)} – ${clock(L.end)}` : "";

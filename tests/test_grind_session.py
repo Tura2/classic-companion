@@ -18,6 +18,16 @@ def test_kills_loot_and_mesos_add_up(tmp_path):
     assert s["loot"] == [{"name": "Tablecloth", "count": 3}] and s["mesos_picked"] == 15
 
 
+def test_used_adds_up_and_resets(tmp_path):
+    g = tracker(tmp_path)
+    t = feed(g, [50000 + 100 * i for i in range(10)])
+    g.add_used("Orange Potion", 3, t)
+    g.add_used("Orange Potion", 3, t)
+    assert g.summary(t)["used"] == [{"name": "Orange Potion", "count": 6}]
+    g.reset(t)
+    assert g.summary(t)["used"] == []
+
+
 def test_kills_fall_back_to_the_hud(tmp_path):
     g = tracker(tmp_path)
     t = feed(g, [50000 + 100 * i for i in range(20)])

@@ -74,17 +74,30 @@ def frame_box(size, nbox, margin=2):
             min(w, int(np.ceil(x1 * sx)) + margin), min(h, int(np.ceil(y1 * sy)) + margin))
 
 
-def lum(frame, box):
-    """The brightness of the game's own pixels under the frame area box (x0, y0, x1, y1): (2-D array,
-    (game x, game y) of its top-left pixel). Its outermost pixel all round is less sure."""
-    w, h = frame.size
+def _native(a, size, box):
+    """Frame pixels a (rows, columns[, channels]) under box, back to the game's own: (array, (x, y))."""
+    w, h = size
     nw, nh = native_size(w, h)
     x0, y0, x1, y1 = box
-    a = np.asarray(frame.crop(box).convert("RGB"), np.float32) @ LUM
     if (nw, nh) == (w, h):
         return a, (x0, y0)
     ix, wx, fx = _undo(x0, x1, w, nw)
     iy, wy, fy = _undo(y0, y1, h, nh)
-    a = (a[:, ix] * wx).sum(-1)                  # columns back to the game's
-    a = (a[iy, :] * wy[:, :, None]).sum(1)       # then rows
+    if a.ndim == 3:
+        wx, wy = wx[:, :, None], wy[:, :, None, None]
+        a = (a[:, ix] * wx).sum(2)               # columns back to the game's
+        return (a[iy, :] * wy).sum(1), (fx, fy)  # then rows
+    a = (a[:, ix] * wx).sum(-1)
+    a = (a[iy, :] * wy[:, :, None]).sum(1)
     return a, (fx, fy)
+
+
+def lum(frame, box):
+    """The brightness of the game's own pixels under the frame area box (x0, y0, x1, y1): (2-D array,
+    (game x, game y) of its top-left pixel). Its outermost pixel all round is less sure."""
+    return _native(np.asarray(frame.crop(box).convert("RGB"), np.float32) @ LUM, frame.size, box)
+
+
+def rgb(frame, box):
+    """The game's own colours under the frame area box, like lum: ((rows, columns, 3) array, (x, y))."""
+    return _native(np.asarray(frame.crop(box).convert("RGB"), np.float32), frame.size, box)

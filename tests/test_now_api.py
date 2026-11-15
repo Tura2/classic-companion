@@ -38,6 +38,13 @@ def test_items_and_mesos_from_lines(tmp_path, game_reader):
     assert s["loot"] == [{"name": "Tablecloth", "count": 3}] and s["mesos_picked"] == 15
 
 
+def test_used_events_reach_the_session(tmp_path, game_reader):
+    d = game_reader.data
+    a, prof = app(tmp_path, d), {"current_map": d.match_map_name("Line 2 <Area 1>"), "level": 32}
+    reads(a, prof, 50000, [("used", "Orange Potion", 2), ("used", None, 1)])
+    assert a.grind.summary(1e10)["used"] == [{"name": "Orange Potion", "count": 2}]
+
+
 def test_an_item_line_naming_no_item_is_not_loot(tmp_path, game_reader):
     d = game_reader.data
     a, prof = app(tmp_path, d), {"current_map": d.match_map_name("Line 2 <Area 1>"), "level": 32}
@@ -65,6 +72,23 @@ def test_session_view_has_monsters_and_tooltip_fields(tmp_path, game_reader):
     cloth = v["loot"][0]
     assert (cloth["name"], cloth["count"], cloth["kind"]) == ("Tablecloth", 3, "Etc")
     assert cloth["desc"].startswith("A tablecloth") and cloth["img"] and "msc" in cloth and "npc" in cloth
+
+
+def test_session_view_nets_loot_and_used(tmp_path, game_reader):
+    d = game_reader.data
+    g = grind.Grind(tmp_path / "grind.sqlite")
+    g.add_loot("Orange Potion", 1, 0)
+    g.add_used("Orange Potion", 12, 0)
+    g.add_loot("Tablecloth", 3, 0)
+    g.add_used("Blue Potion", 9, 0)
+    g.add_used("White Potion", 2, 0)
+    g.add_loot("White Potion", 2, 0)
+    loot = companion.session_view(g, d, None, 100)["loot"]
+    assert [x["name"] for x in loot] == ["Tablecloth", "Orange Potion", "Blue Potion", "White Potion"]
+    assert [x["count"] for x in loot] == [3, -11, -9, 0]
+    orange, blue = loot[1], loot[2]
+    assert (orange["picked"], orange["used"]) == (1, 12) and (loot[0]["picked"], loot[0]["used"]) == (3, 0)
+    assert blue["img"] and blue["kind"] == "Use" and "msc" in blue and "npc" in blue
 
 
 def test_town_with_keep_counting_shows_this_session(tmp_path, game_reader):

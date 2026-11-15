@@ -119,6 +119,7 @@ class Grind:
         self.kills = {}              # monster name (None: not named) -> your kills, from the EXP gains
         self.party_kills = {}        # monster name -> kills your party made (their share of the EXP came to you)
         self.loot = {}               # item name -> how many picked up, from the corner's lines
+        self.used = {}               # item name -> how many drunk from the quick slots (quickslots.py)
         self.picked = 0              # mesos picked up, from the corner's lines
         self.s_first = None          # {"level", "pct"} where the session's EXP bar started
         self.s_map = None            # the map the session's EXP came on
@@ -338,6 +339,10 @@ class Grind:
         """An item picked up ("Tree Branch x1 earned")."""
         self.loot[name] = self.loot.get(name, 0) + int(count)
 
+    def add_used(self, name, n, now):
+        """Potions drunk: a quick slot's count went down by n."""
+        self.used[name] = self.used.get(name, 0) + int(n)
+
     def add_mesos(self, n, now):
         """Mesos picked up ("You have gained mesos (+15)")."""
         self.picked += int(n)
@@ -450,6 +455,7 @@ class Grind:
                 "kills_total": self._kills_total(),
                 "party_kills": [{"name": n, "count": c} for n, c in sorted(self.party_kills.items(), key=lambda kv: -kv[1])],
                 "loot": [{"name": n, "count": c} for n, c in self.loot.items()],
+                "used": [{"name": n, "count": c} for n, c in self.used.items()],
                 "mesos_picked": self._mesos_picked(), "start": self.s_first, "gain_pct": self._gain_pct(),
                 "chart": self._chart(now),
                 "exp_lost": sum(d["lost"] for d in self.deaths),

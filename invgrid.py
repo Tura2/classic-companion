@@ -128,8 +128,9 @@ class Bag:
             try:
                 r = requests.get(self.icon_url(iid), timeout=15)
                 if r.ok:
+                    self.dir.mkdir(parents=True, exist_ok=True)      # the quick slots may ask before any tab
                     path.write_bytes(r.content)
-            except requests.RequestException:
+            except (requests.RequestException, OSError):
                 return None
         return path if path.exists() else None
 
