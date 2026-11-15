@@ -82,6 +82,7 @@ def test_shrink_averages_blocks():
     assert np.allclose(anchors._shrink(a, 3), [[7, 10], [25, 28]])
 
 
+@pytest.mark.skipif(not CASES.exists(), reason="no cases on this PC")
 @pytest.mark.parametrize("case", ["fm_quest_window", "skills_1st", "hunt_moved_a"])
 def test_rough_first_finds_what_the_exact_search_does(case, tmp_path, monkeypatch):
     f = frame(case)
