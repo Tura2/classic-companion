@@ -24,6 +24,7 @@ DisableReadyPage=yes
 OutputDir=..\dist
 OutputBaseFilename=CompanionSetup
 SetupIconFile=..\web\logo.ico
+WizardSmallImageFile=..\web\logo.png
 UninstallDisplayIcon={app}\Companion.exe
 UninstallDisplayName=Companion
 Compression=lzma2/max
