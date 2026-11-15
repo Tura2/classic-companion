@@ -39,10 +39,13 @@ it Discord just says "Not set up in this build".
 | `gamedata.py` | Downloads and indexes game data |
 | `advisor.py`, `trust.py` | Training/gear advice, price verdicts |
 | `capture.py`, `window.py` | Finding and capturing the game window |
-| `reader.py`, `anchors.py`, `hudexp.py` | Reading the game's windows from the picture |
+| `reader.py`, `anchors.py`, `hudexp.py` | Reading the game's windows from the picture, and the HUD's EXP |
+| `invgrid.py`, `notices.py` | Inventory items told by their picture; the corner's pickup lines |
 | `overlay_art.py` | Drawing labels over the game |
-| `shopwatch.py`, `grind.py`, `cozy.py`, `discord_link.py` | Shop sales, EXP tracking, Cozy prices, Discord |
-| `tools/` | One-off scripts (building `builds.json`, scraping, reader test cases) |
+| `grind.py`, `party.py` | EXP an hour, sessions and deaths (`grind.sqlite`); a kill's EXP split in a party |
+| `shopwatch.py`, `cozy.py`, `discord_link.py` | Your shop's sales, Cozy prices, Discord |
+| `paths.py` | Where files live, from source and in the exe |
+| `tools/` | One-off scripts (building `builds.json`, scraping Cozy, the icon, reader test cases) |
 | `tests/` | pytest suite |
 
 ## Reporting a bug

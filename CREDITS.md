@@ -21,6 +21,8 @@ we will.
 | [Cozy Market](https://cozy.markets) | Second market price per item | Public pages, robots allows all |
 | [NiaDB](https://meowdb.com/msclassic) | ACC values, SP order per job (class guides) | Single facts, credited as their reuse page asks |
 | [Classic Maple Wiki](https://classicmaple.wiki) contributors, much from [MapleClassic Wiki](https://mapleclassic.wiki) | Quest steps, turn-in NPCs, monster drops | CC BY-NC-SA 4.0 (non-commercial) |
+| [MapleClassic Wiki](https://mapleclassic.wiki), via [Club FM](https://github.com/maplefm/maplefm.github.io)'s public `data/itemguide.json` | Every monster's drop list ("Worth picking up" on Now) | CC BY-NC-SA 4.0 (non-commercial) |
+| [maplestory.io](https://maplestory.io) | The game's portal picture, drawn on route maps | Game image (Nexon) |
 
 ## Inspiration
 Community tools whose issues taught us the rules the app follows:
