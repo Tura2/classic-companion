@@ -107,3 +107,15 @@ def test_icons_that_did_not_download_are_tried_again_later(tmp_path, monkeypatch
     monkeypatch.setattr(bag, "_get", lambda iid: asked.append(iid))
     bag.book("Etc")
     assert asked == [4000000, 4000001]                                      # after the wait: asked again
+
+
+def test_an_icon_downloads_into_a_folder_not_made_yet(tmp_path, monkeypatch):
+    """The quick slots fetch icons with _get before any inventory tab is read (book makes the folder)."""
+    import io
+    import requests
+    png = io.BytesIO()
+    Image.new("RGBA", (8, 8), (255, 0, 0, 255)).save(png, "PNG")
+    monkeypatch.setattr(requests, "get", lambda url, timeout: type("R", (), {"ok": True, "content": png.getvalue()})())
+    bag = invgrid.Bag({}, lambda i: f"https://icons/{i}.png", tmp_path / "cache" / "icons")
+    path = bag._get(2000001)
+    assert path is not None and path.exists()

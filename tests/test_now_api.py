@@ -5,26 +5,27 @@ from types import SimpleNamespace
 
 import companion
 import grind
-import notices
 import sniper
 
 
 def app(tmp_path, data):
-    return SimpleNamespace(grind=grind.Grind(tmp_path / "grind.sqlite"), data=data, notices=notices.Tracker())
+    return SimpleNamespace(grind=grind.Grind(tmp_path / "grind.sqlite"), data=data)
 
 
-def reads(a, prof, exp, lines, n=3):
-    seen = {"hud": {"exp": exp, "exp_pct": round(exp / 1227.55, 2)}, "notices": lines, "notice_row": 13}
+def reads(a, prof, exp, lines=(), n=3):
+    """A few full reads showing HUD EXP `exp`, then the corner's new lines (notices.Corner's events)."""
+    seen = {"hud": {"exp": exp, "exp_pct": round(exp / 1227.55, 2)}}
     for _ in range(n):
         sniper.handle_grind(a, seen, prof)
+    sniper.handle_corner(a, list(lines))
 
 
 def test_exp_lines_become_named_kills(tmp_path, game_reader):
     d = game_reader.data
     a, prof = app(tmp_path, d), {"current_map": d.match_map_name("Line 2 <Area 1>"), "level": 32}
     reads(a, prof, 50000, [])
-    reads(a, prof, 50066, [("You received EXP (+66)", 500)])
-    reads(a, prof, 50137, [("You received EXP (+66)", 487), ("You received EXP (+71)", 500)])
+    reads(a, prof, 50066, [("exp", 66)])
+    reads(a, prof, 50137, [("exp", 71)])
     s = a.grind.summary(1e10)
     assert s["kills"] == [{"name": "Jr. Wraith", "count": 1}, {"name": None, "count": 1}]
 
@@ -32,9 +33,30 @@ def test_exp_lines_become_named_kills(tmp_path, game_reader):
 def test_items_and_mesos_from_lines(tmp_path, game_reader):
     d = game_reader.data
     a, prof = app(tmp_path, d), {"current_map": d.match_map_name("Line 2 <Area 1>"), "level": 32}
-    reads(a, prof, 50000, [("Tablecloth x1 earned. (Etc)", 487), ("You have gained mesos (+15)", 500)])
+    reads(a, prof, 50000, [("item", "Tablecloth", 1), ("mesos", 15), ("item", "Tablecloth", 2), ("party", 3)])
     s = a.grind.summary(1e10)
-    assert s["loot"] == [{"name": "Tablecloth", "count": 1}] and s["mesos_picked"] == 15
+    assert s["loot"] == [{"name": "Tablecloth", "count": 3}] and s["mesos_picked"] == 15
+
+
+def test_used_events_reach_the_session(tmp_path, game_reader):
+    d = game_reader.data
+    a, prof = app(tmp_path, d), {"current_map": d.match_map_name("Line 2 <Area 1>"), "level": 32}
+    reads(a, prof, 50000, [("used", "Orange Potion", 2), ("used", None, 1)])
+    assert a.grind.summary(1e10)["used"] == [{"name": "Orange Potion", "count": 2}]
+
+
+def test_an_item_line_naming_no_item_is_not_loot(tmp_path, game_reader):
+    d = game_reader.data
+    a, prof = app(tmp_path, d), {"current_map": d.match_map_name("Line 2 <Area 1>"), "level": 32}
+    reads(a, prof, 50000, [("item", None, 1)])
+    assert a.grind.summary(1e10)["loot"] == []
+
+
+def test_a_maps_drops_by_name(game_reader):
+    d = game_reader.data
+    drops = d.map_drop_names(d.match_map_name("West Rocky Mountain IV"))
+    assert "Wild Boar Tooth" in drops
+    assert d.map_drop_names(None) == set()
 
 
 def test_session_view_has_monsters_and_tooltip_fields(tmp_path, game_reader):
@@ -50,6 +72,23 @@ def test_session_view_has_monsters_and_tooltip_fields(tmp_path, game_reader):
     cloth = v["loot"][0]
     assert (cloth["name"], cloth["count"], cloth["kind"]) == ("Tablecloth", 3, "Etc")
     assert cloth["desc"].startswith("A tablecloth") and cloth["img"] and "msc" in cloth and "npc" in cloth
+
+
+def test_session_view_nets_loot_and_used(tmp_path, game_reader):
+    d = game_reader.data
+    g = grind.Grind(tmp_path / "grind.sqlite")
+    g.add_loot("Orange Potion", 1, 0)
+    g.add_used("Orange Potion", 12, 0)
+    g.add_loot("Tablecloth", 3, 0)
+    g.add_used("Blue Potion", 9, 0)
+    g.add_used("White Potion", 2, 0)
+    g.add_loot("White Potion", 2, 0)
+    loot = companion.session_view(g, d, None, 100)["loot"]
+    assert [x["name"] for x in loot] == ["Tablecloth", "Orange Potion", "Blue Potion", "White Potion"]
+    assert [x["count"] for x in loot] == [3, -11, -9, 0]
+    orange, blue = loot[1], loot[2]
+    assert (orange["picked"], orange["used"]) == (1, 12) and (loot[0]["picked"], loot[0]["used"]) == (3, 0)
+    assert blue["img"] and blue["kind"] == "Use" and "msc" in blue and "npc" in blue
 
 
 def test_town_with_keep_counting_shows_this_session(tmp_path, game_reader):
@@ -97,7 +136,7 @@ def test_corner_exp_lines_are_not_counted_twice(tmp_path, game_reader):
     d = game_reader.data
     a, prof = app(tmp_path, d), {"current_map": d.match_map_name("Line 2 <Area 1>"), "level": 32}
     reads(a, prof, 50000, [])
-    reads(a, prof, 50066, [("You received EXP (+66)", 500)])
+    reads(a, prof, 50066, [("exp", 66)])
     assert a.grind.summary(1e10)["kills"] == [{"name": "Jr. Wraith", "count": 1}]
 
 

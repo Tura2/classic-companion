@@ -35,6 +35,7 @@ from shopwatch import ShopWatch
 from grind import PQS, Grind, pq_of, pq_of_read
 import notices as notice_lines
 import party as party_split
+import quickslots
 from capture import GameCapture, client_box, find_window, foreground_window, window_bounds
 from gamedata import JOBS, NPC_PRICES, MapMove
 
@@ -87,6 +88,7 @@ SHOP_LABEL_SECONDS = 8    # labels disappear this long after the last scan that 
 PAD_W = 300               # room for labels beside the shop, at 100% display scale
 WATCH_EVERY = 1.5         # seconds between looks at the game while screen reading is on
 MAP_EVERY = 0.5           # seconds between quick looks at just the mini map, between those
+CORNER_EVERY = 0.4        # seconds between looks at the corner's lines (mesos and items picked up)
 SHOP_EVERY = 0.3          # seconds between quick re-reads of an open shop's item list
 PREVIEW_W = 960           # width of the live picture of the game in the dashboard
 SAMPLE_EVERY = 60         # seconds between saved pictures of a shop window (to tune the shop reader)
@@ -214,20 +216,23 @@ def handle_grind(app, seen, prof):
                     g.add_kill(None, now)
     if (seen.get("inventory") or {}).get("mesos") is not None:
         g.mesos(seen["inventory"]["mesos"], now)
-    tracker = getattr(app, "notices", None)
-    if tracker is not None and "notices" in seen:
-        data = app.data
-        names = getattr(data, "_item_names", None)
-        if names is None:
-            names = data._item_names = list(getattr(data, "item_ids", {}) or {})
-        mid = prof.get("current_map")
-        for ev in tracker.update(seen["notices"], seen.get("notice_row") or 13, names):
-            if ev[0] == "exp":
-                continue                  # kills come from the HUD's EXP gains, named the same way
-            if ev[0] == "mesos":
-                g.add_mesos(ev[1], now)
-            elif ev[0] == "item" and ev[1]:
-                g.add_loot(ev[1], ev[2], now)
+
+
+def handle_corner(app, events):
+    """Feed the grind session the corner's new lines (notices.Corner): the mesos and items picked up;
+    and the potions drunk from the quick slots (quickslots.QuickSlots, ("used", name, n)).
+    Its EXP lines aren't kills here: those come from the HUD's EXP gains, named the same way."""
+    g = getattr(app, "grind", None)
+    if g is None:
+        return
+    now = time.time()
+    for ev in events:
+        if ev[0] == "mesos":
+            g.add_mesos(ev[1], now)
+        elif ev[0] == "item" and ev[1]:
+            g.add_loot(ev[1], ev[2], now)
+        elif ev[0] == "used" and ev[1]:
+            g.add_used(ev[1], ev[2], now)
 
 
 HOVER_KEEP = 120    # items Sell or keep remembers (hovered, or read off an inventory tab)
@@ -786,7 +791,12 @@ class App:
         self.shop_anchor = None     # where the open shop's LEAVE STORE button was, for the quick re-read
         self.shopwatch = ShopWatch()  # sales in your own store
         self.grind = Grind(DATA_DIR / "grind.sqlite") if GRIND_ON else None   # EXP/hr per session and per map
-        self.notices = notice_lines.Tracker()   # the corner's EXP / mesos / item lines, each counted once
+        self.corner = notice_lines.Corner()       # the corner's EXP / mesos / item lines, each counted once
+        self.corner_busy = False    # a look at the corner's lines is in progress
+        self.corner_names = False   # the corner reader knows the game's item names
+        # potions drunk from the quick slots: their icons load on their own thread (start), never in a look
+        self.slots = quickslots.QuickSlots(quickslots.Icons(data.bag_items.get("Consumable", []),
+                                                            lambda iid: self.icon_bag()._get(iid)))
         self.party = party_split.Fitter()        # learns how a party splits kills' EXP, from the gains
         state["grind"] = self.grind
         self.myshop_anchor = None   # your own store's fee notice, for the slow store-only look
@@ -808,7 +818,23 @@ class App:
         self.root.after(1000, self.watch_loop)
         self.root.after(1200, self.tip_loop)
         self.root.after(1700, self.map_loop)
+        self.root.after(1900, self.corner_loop)
         self.root.after(500, self.focus_loop)
+        threading.Thread(target=self._load_slot_icons, daemon=True).start()
+
+    def _load_slot_icons(self):
+        try:
+            self.slots.icons.load()
+        except Exception as e:
+            applog.log(f"Loading the quick slots' icons failed: {e}")
+
+    def icon_bag(self):
+        """The item icons' store (invgrid.Bag): downloads an icon once into cache/icons/."""
+        if getattr(self, "bag", None) is None:
+            import invgrid
+            from gamedata import CACHE, OSMS
+            self.bag = invgrid.Bag(self.data.bag_items, lambda i: f"{OSMS}current/images/items/{i:08d}.png", CACHE / "icons")
+        return self.bag
 
     def run(self):
         self.start()
@@ -878,6 +904,8 @@ class App:
                 self.redraw()
         elif kind == "seen":
             self.apply_seen(msg[1], msg[2])
+        elif kind == "corner":
+            handle_corner(self, msg[1])
         elif kind == "tips_up":
             self.tips_ts = time.time()      # the same tooltip is still up: its prices stay
         elif kind == "bag":
@@ -959,6 +987,37 @@ class App:
             # open, but its frame wasn't found: beside its title, so it still stays by the mini map
             _, tt, tr, _ = mini["title"]
             mini["strip_at"] = [cl + tr + round(8 * s), ct + tt, None]
+
+    def corner_loop(self):
+        """A few times a second while reading the game: the corner's new lines (mesos and items picked
+        up) for the grind session. They fade within 2-3 s, so they're looked at more often than the
+        full read; a look is a small area (about 10 ms)."""
+        self.root.after(int(CORNER_EVERY * 1000), self.corner_loop)
+        if self.cfg["screen_reading"] and self.grind is not None and not self.corner_busy:
+            self.corner_busy = True
+            threading.Thread(target=self._corner_look, daemon=True).start()
+
+    def _corner_look(self):
+        try:
+            frame = self.capture.grab_game()
+            if frame is None or frame.height < reader.MIN_HEIGHT:
+                return
+            if not self.corner_names:
+                self.corner.set_names(list(getattr(self.data, "item_ids", {}) or {}))
+                self.corner_names = True
+            mid = self.state["profile"].get("current_map")
+            now = time.time()
+            events = self.corner.step(frame, now, prefer=self.data.map_drop_names(mid))
+            try:
+                events = events + self.slots.step(frame, now)
+            except Exception as e:      # the quick slots failing never loses the corner's lines
+                applog.problem("read", "Reading the game hit an error. Companion keeps trying.", exc=e)
+            if events:
+                self.q.put(("corner", events))
+        except Exception as e:
+            applog.problem("read", "Reading the game hit an error. Companion keeps trying.", exc=e)
+        finally:
+            self.corner_busy = False
 
     def tip_loop(self):
         """Seven times a second while the game is in front and drawing on it is on: has an item
@@ -1302,9 +1361,7 @@ class App:
         import invgrid
         if inv.get("tab") not in invgrid.KINDS:
             return
-        if getattr(self, "bag", None) is None:
-            from gamedata import CACHE, OSMS
-            self.bag = invgrid.Bag(self.data.bag_items, lambda i: f"{OSMS}current/images/items/{i:08d}.png", CACHE / "icons")
+        self.icon_bag()
         self.bag_busy = True
 
         def run():

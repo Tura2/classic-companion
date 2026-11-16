@@ -559,10 +559,16 @@ def session_view(g, data, map_id, now):
     kills += [{"name": n, "count": c, "party": party.get(n, 0), "img": None, "level": None, "hp": None, "exp": None}
               for n, c in counts.items()]          # killed elsewhere this session, or not named (None)
     info = getattr(data, "item_info", {})
-    loot = [{"name": x["name"], "count": x["count"], "img": data.item_img(x["name"]),
-             "kind": (info.get(x["name"]) or {}).get("kind", ""), "desc": (info.get(x["name"]) or {}).get("desc", ""),
-             "msc": (data.market.items.get(x["name"]) or {}).get("p"), "npc": data.npc_price(x["name"])}
-            for x in s["loot"]]
+    # one tile per item: picked up less drunk (potions drunk from the quick slots), most first,
+    # then the ones down to zero or below, most drunk first
+    picked, used = {x["name"]: x["count"] for x in s["loot"]}, {x["name"]: x["count"] for x in s.get("used", [])}
+    names = list(picked) + [n for n in used if n not in picked]
+    net = {n: picked.get(n, 0) - used.get(n, 0) for n in names}
+    names = [n for n in names if net[n] > 0] + sorted((n for n in names if net[n] <= 0), key=lambda n: net[n])
+    loot = [{"name": n, "count": net[n], "picked": picked.get(n, 0), "used": used.get(n, 0), "img": data.item_img(n),
+             "kind": (info.get(n) or {}).get("kind", ""), "desc": (info.get(n) or {}).get("desc", ""),
+             "msc": (data.market.items.get(n) or {}).get("p"), "npc": data.npc_price(n)}
+            for n in names]
     minutes = (now - s["since"]) / 60 if s.get("since") else 0
     return {"kills": kills, "kills_total": s["kills_total"], "loot": loot, "mesos_picked": s["mesos_picked"],
             "mesos_per_min": round(s["mesos_picked"] / minutes) if minutes >= 1 else None,
