@@ -1,17 +1,21 @@
 """
-Companion's own window: what's running, a link to the dashboard, and the messages Companion writes
-as it goes. It has the Companion logo in its title bar and on the taskbar, which a console window
-can't: Windows Terminal shows its own icon for every program it hosts. Closing it closes Companion.
+Companion's own window: what's running, a link to the dashboard, and the lines a player needs
+(applog.say and applog.problem; details go to the log file), with Report a problem. It has the
+Companion logo in its title bar and on the taskbar, which a console window can't: Windows Terminal
+shows its own icon for every program it hosts. Closing it closes Companion.
 
 It opens first, before the game data loads, so there's something to see from the start.
 """
 import ctypes
 import queue
 import sys
+import threading
+import time
 import tkinter as tk
 import webbrowser
 
-from paths import RES_DIR
+from paths import APP_DIR, DATA_DIR, RES_DIR, load_json
+import applog
 
 if sys.platform == "win32":
     # the same physical pixels as the on-game windows, which share this window's Tk (see sniper.py)
@@ -27,33 +31,8 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-KEEP_LINES = 400          # the newest messages stay; older ones scroll away
-INK, BG, MUTED, GOOD = "#E8EEF8", "#16213A", "#9AA8C2", "#2EE59D"
-
-
-class Messages:
-    """Stands in for stdout and stderr: everything printed shows in the window (and still in a
-    console, when there is one), from any thread."""
-
-    def __init__(self, q, also):
-        self.q, self.also = q, also
-
-    def write(self, text):
-        if self.also is not None:
-            try:
-                self.also.write(text)
-            except Exception:
-                pass
-        if text:
-            self.q.put(("text", text))
-        return len(text)
-
-    def flush(self):
-        if self.also is not None:
-            try:
-                self.also.flush()
-            except Exception:
-                pass
+KEEP_LINES = 200          # the newest lines stay; older ones scroll away (all of them are in the log)
+INK, BG, MUTED, GOOD, WARN = "#E8EEF8", "#16213A", "#9AA8C2", "#2EE59D", "#FFC14D"
 
 
 class Window:
@@ -68,8 +47,9 @@ class Window:
             pass
         self.root.after(0, self.sharp_icons)
         self.root.configure(bg=BG)
-        self.root.geometry("620x360")
-        self.root.minsize(420, 240)
+        k = max(1.0, self.root.winfo_fpixels("1i") / 96)     # the screen's scaling: 1.5 at 150 %
+        self.root.geometry(f"{round(640 * k)}x{round(380 * k)}")
+        self.root.minsize(round(460 * k), round(260 * k))
 
         top = tk.Frame(self.root, bg=BG)
         top.pack(fill="x", padx=14, pady=(12, 6))
@@ -93,14 +73,24 @@ class Window:
         self.open_btn.pack(side="right")
 
         self.text = tk.Text(self.root, bg="#0E1628", fg=INK, insertbackground=INK, relief="flat",
-                            font=("Consolas", 9), wrap="word", padx=10, pady=8, height=10)
-        self.text.pack(fill="both", expand=True, padx=14)
+                            font=("Segoe UI", 10), wrap="word", padx=10, pady=8, height=10,
+                            spacing1=2, spacing3=2)
+        self.text.tag_configure("time", foreground=MUTED, font=("Segoe UI", 9))
+        self.text.tag_configure("problem", foreground=WARN)
         self.text.configure(state="disabled")
-        tk.Label(self.root, text="Keep this window open while you play: closing it closes Companion.",
-                 bg=BG, fg=MUTED, font=("Segoe UI", 9), anchor="w").pack(fill="x", padx=14, pady=(6, 10))
 
-        sys.stdout = Messages(self.q, sys.stdout)
-        sys.stderr = Messages(self.q, sys.stderr)
+        foot = tk.Frame(self.root, bg=BG)
+        foot.pack(side="bottom", fill="x", padx=14, pady=(6, 10))   # packed first: never squeezed out
+        tk.Label(foot, text="Keep this window open while you play: closing it closes Companion.",
+                 bg=BG, fg=MUTED, font=("Segoe UI", 9), anchor="w").pack(side="left", fill="x", expand=True)
+        self.report_btn = tk.Button(foot, text="Report a problem", command=self.report,
+                                    font=("Segoe UI", 9), relief="flat", padx=10, pady=2,
+                                    bg="#26324D", fg=INK, activebackground="#33416A", activeforeground=INK,
+                                    cursor="hand2")
+        self.report_btn.pack(side="right")
+        self.text.pack(fill="both", expand=True, padx=14)
+
+        applog.set_sink(lambda kind, text: self.q.put((kind, text)))
         self.root.after(100, self.pump)
 
     # ------------------------------------------------------------ from any thread
@@ -114,6 +104,10 @@ class Window:
 
     def failed(self, why):
         self.q.put(("failed", why))
+
+    def note(self, text):
+        """A passing status, like an update being installed."""
+        self.q.put(("note", text))
 
     # ------------------------------------------------------------ on the window's thread
     def sharp_icons(self):
@@ -150,29 +144,48 @@ class Window:
         try:
             while True:
                 kind, value = self.q.get_nowait()
-                if kind == "text":
-                    self.add(value)
+                if kind in ("say", "problem"):
+                    self.add(value, kind == "problem")
                 elif kind == "ready":
                     self.url = value
-                    self.status.configure(text=f"Running. The dashboard is at {value}", fg=GOOD)
+                    self.status.configure(text="Running", fg=GOOD)
                     self.open_btn.configure(state="normal")
                 elif kind == "failed":
                     self.status.configure(text=value, fg="#FF7A7A")
+                elif kind == "note":
+                    self.status.configure(text=value, fg=WARN)
                 elif kind == "call":
                     try:
                         value()
                     except Exception:
                         import traceback
-                        traceback.print_exc()
+                        applog.log(traceback.format_exc())
         except queue.Empty:
             pass
         except tk.TclError:
             return           # the window is closing
         self.root.after(100, self.pump)
 
-    def add(self, text):
+    def report(self):
+        """Report a problem: the zip is made on the side, then shown in Explorer with the form."""
+        self.report_btn.configure(state="disabled", text="Making the report…")
+
+        def work():
+            try:
+                import report
+                path = report.send(APP_DIR, load_json(DATA_DIR / "config.json", {}))
+                applog.say(f"Report saved: {path}. Attach it to the bug report that just opened.")
+            except Exception as e:
+                applog.problem("report", "The report couldn't be made.", exc=e)
+            self.q.put(("call", lambda: self.report_btn.configure(state="normal", text="Report a problem")))
+        threading.Thread(target=work, daemon=True).start()
+
+    def add(self, text, problem=False):
         self.text.configure(state="normal")
-        self.text.insert("end", text)
+        if self.text.index("end-1c") != "1.0":
+            self.text.insert("end", "\n")
+        self.text.insert("end", time.strftime("%H:%M  "), "time")
+        self.text.insert("end", ("⚠ " + text) if problem else text, "problem" if problem else ())
         extra = int(self.text.index("end-1c").split(".")[0]) - KEEP_LINES
         if extra > 0:
             self.text.delete("1.0", f"{extra + 1}.0")

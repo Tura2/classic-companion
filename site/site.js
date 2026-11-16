@@ -48,8 +48,8 @@ fetch("https://api.github.com/repos/Tura2/classic-companion/releases/latest")
     if(!r||!r.tag_name)return;
     const lang=document.documentElement.lang==="he"?"he-IL":"en-GB";
     const d=new Date(r.published_at).toLocaleDateString(lang,{day:"numeric",month:"short",year:"numeric"});
-    const exe=(r.assets||[]).find(a=>a.name==="Companion.exe");
-    // the buttons point straight at Companion.exe; if a release ever lacks it, send them to the release page
+    const exe=(r.assets||[]).find(a=>a.name==="CompanionSetup.exe");
+    // the buttons point straight at CompanionSetup.exe; if a release ever lacks it, send them to the release page
     if(!exe)document.querySelectorAll("a.dl").forEach(a=>a.href=r.html_url);
     const s=exe?Math.round(exe.size/1048576)+" MB":"";
     for(const id of ["dl","ver"]){

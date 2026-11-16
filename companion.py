@@ -17,7 +17,6 @@ import queue
 import sys
 import threading
 import time
-import traceback
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
@@ -27,10 +26,13 @@ import discord_link
 from reader import CORNER_READ, MIN_HEIGHT
 from gamedata import JOBS, GameData, portal_meta
 
-from paths import APP_DIR, RES_DIR, load_json, save_json
+import applog
+import paths
+from paths import APP_DIR, CACHE_DIR, DATA_DIR, LOGS_DIR, RES_DIR, load_json, save_json
+from version import VERSION
 
 HERE = APP_DIR
-PROFILE = HERE / "profile.json"
+PROFILE = DATA_DIR / "profile.json"
 PORT = 8765
 
 DEFAULT_PROFILE = {"job": "Beginner", "level": 10, "mesos": 80000, "acc": None, "skill_plan": {},
@@ -604,18 +606,62 @@ def main():
         from sniper import report
         report()
         return
+    moved = paths.migrate()               # data files older versions left loose go into data/
+    applog.setup(LOGS_DIR)
+    applog.log(f"Companion {VERSION} starting in {APP_DIR}")
+    if moved:
+        applog.log("Moved into data/: " + ", ".join(moved))
+    hold_single_instance()
     try:   # Companion's own window, with its logo, open from the first second
         from window import Window
         win = Window()
     except Exception as e:     # no Tk at all: the console is all there is, as before
-        print("Companion's window is unavailable:", e)
+        applog.log(f"Companion's window is unavailable: {e}")
         serve(None, {})
         return
     started = {}
-    threading.Thread(target=serve, args=(win, started), daemon=True).start()
-    win.run()                  # until the window is closed
+    threading.Thread(target=update_then_serve, args=(win, started), daemon=True).start()
+    win.run()                  # until the window is closed (or an update closes it)
     if started.get("server"):
         started["server"].shutdown()
+
+
+def hold_single_instance():
+    """A named mutex for as long as Companion runs: the installer waits on it (AppMutex) to close
+    Companion before an update or an uninstall."""
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+        global _MUTEX
+        _MUTEX = ctypes.windll.kernel32.CreateMutexW(None, False, "Tura2.Companion")
+    except Exception as e:
+        applog.log(f"No single-instance mutex: {e}")
+
+
+def update_then_serve(win, started):
+    """An installed Companion first looks for a newer release (a few seconds at most). If there is
+    one, it downloads and checks the setup, starts it and closes: the setup installs over it and
+    starts the new version. Otherwise, or if anything goes wrong, this version starts as usual."""
+    if getattr(sys, "frozen", False) and "--no-update" not in sys.argv:
+        import updater
+        folder = CACHE_DIR / "updates"
+        updater.clean(folder, VERSION)
+        found = updater.find(updater.latest_release, VERSION)
+        if found:
+            win.note(f"Updating to {found.version}…")
+            applog.say(f"Companion {found.version} is out. Downloading the update…")
+            try:
+                setup = updater.download(found, folder)
+                applog.log(f"Starting {setup.name} to update {VERSION} -> {found.version}")
+                updater.run_setup(setup)
+                applog.say("Installing the update. Companion starts again by itself in a moment.")
+                win.call(lambda: win.root.after(1500, win.root.destroy))
+                return
+            except Exception as e:
+                applog.problem("update", f"Couldn't update to {found.version}. Starting this version; "
+                                         "it tries again next time.", exc=e)
+    serve(win, started)
 
 
 def serve(win, started):
@@ -624,17 +670,17 @@ def serve(win, started):
     try:
         start(win, started)
     except SystemExit as e:    # no game data and no internet, or every port busy: said in words
-        print(e)
+        applog.problem("start", str(e))
         if win:
             win.failed(str(e))
     except Exception as e:
-        traceback.print_exc()
+        applog.problem("start", f"Companion couldn't start: {e}", exc=e)
         if win:
             win.failed(f"Companion couldn't start: {e}")
 
 
 def start(win, started):
-    print("Companion: loading game data and prices...")
+    applog.log("Loading game data and prices")
     data = GameData(force="--refresh" in sys.argv)
     # Cozy Market's prices: brought up to date now and kept that way, in the background
     threading.Thread(target=cozy.keep_fresh, args=(data,), daemon=True).start()
@@ -644,7 +690,7 @@ def start(win, started):
         cfg = sniper.load_config()
         screen_ok = sys.platform == "win32"
     except Exception as e:
-        print("Screen features unavailable:", e)
+        applog.problem("screen", "Screen reading and on-game labels aren't available on this PC. The dashboard still works.", exc=e)
         sniper, cfg, screen_ok = None, dict(DEFAULT_SETTINGS), False
 
     state = {"profile": load_profile(), "queue": queue.Queue(), "auto": False,
@@ -661,7 +707,7 @@ def start(win, started):
     started["server"] = server
     threading.Thread(target=server.serve_forever, daemon=True).start()
     local = f"http://localhost:{port}"
-    print(f"\nDashboard: {local}\nClose this window to quit.\n")
+    applog.say(f"Ready. The dashboard is at {local}")
     if win:
         win.ready(local)
     if "--no-browser" not in sys.argv:
@@ -673,7 +719,7 @@ def start(win, started):
                 try:
                     sniper.App(data, state, cfg, root=win.root).start()
                 except Exception as e:      # no on-game windows: the dashboard still works
-                    print("Screen features unavailable:", e)
+                    applog.problem("screen", "Screen reading and on-game labels aren't available on this PC. The dashboard still works.", exc=e)
                     state["overlay"] = False
             win.call(begin)
         return
@@ -686,7 +732,7 @@ def start(win, started):
     try:
         app = sniper.App(data, state, cfg)
     except Exception as e:      # no on-game windows (Tk failed): the dashboard still works
-        print("Screen features unavailable:", e)
+        applog.problem("screen", "Screen reading and on-game labels aren't available on this PC. The dashboard still works.", exc=e)
         state["overlay"] = False
         try:
             threading.Event().wait()

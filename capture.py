@@ -20,6 +20,7 @@ import threading
 import time
 
 from PIL import Image
+import applog
 
 FRAME_INTERVAL_MS = 143   # at most 7 frames a second: tooltip prices still keep up with the mouse
 STALE_AFTER = 3.0         # seconds without a new frame before we restart the session
@@ -250,5 +251,5 @@ class GameCapture:
 
     def _log(self):
         if self.error and self.error != getattr(self, "_last_logged", None):
-            print("Capture:", self.error)
+            applog.problem("capture", self.error)
             self._last_logged = self.error

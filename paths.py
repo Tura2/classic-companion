@@ -11,6 +11,32 @@ if getattr(sys, "frozen", False):                 # PyInstaller build
 else:
     APP_DIR = RES_DIR = Path(__file__).resolve().parent
 
+# Everything Companion writes stays in its own folder, each kind in its own subfolder.
+DATA_DIR = APP_DIR / "data"          # your profile, settings, histories: kept on uninstall if you say so
+CACHE_DIR = APP_DIR / "cache"        # downloaded game data and pictures: safe to delete
+LOGS_DIR = APP_DIR / "logs"          # a log file a day, kept 7 days
+DEBUG_DIR = APP_DIR / "debug"        # pictures of windows that didn't read
+REPORTS_DIR = APP_DIR / "reports"    # zips made by Report a problem
+
+# Data files that older versions kept loose next to the exe.
+DATA_FILES = ("profile.json", "profile.json.bak", "config.json", "scans.sqlite", "grind.sqlite",
+              "discord_outbox.json")
+
+
+def migrate(app_dir=None):
+    """Move data files an older version left loose in the app folder into data\. A file already in
+    data\ wins, and the loose one is left where it is (never lost). Returns the names moved."""
+    app_dir = Path(app_dir or APP_DIR)
+    data = app_dir / "data"
+    data.mkdir(exist_ok=True)
+    moved = []
+    for name in DATA_FILES:
+        old, new = app_dir / name, data / name
+        if old.is_file() and not new.exists():
+            os.replace(old, new)
+            moved.append(name)
+    return moved
+
 _write_lock = threading.Lock()
 
 
@@ -34,5 +60,6 @@ def load_json(path, default):
             os.replace(path, bad)
         except OSError:
             pass
-        print(f"{path.name} was unreadable ({e}). Kept it as {bad.name} and started fresh.")
+        import applog
+        applog.problem("file", f"{path.name} was damaged, so Companion started it fresh. The old one is kept as {bad.name}.", exc=e)
         return default

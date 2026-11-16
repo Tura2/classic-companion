@@ -27,7 +27,7 @@ python companion.py          rem dashboard at http://localhost:8765
 python -m pytest -q          rem the tests
 ```
 
-`build.bat` builds `dist\Companion.exe`. You don't need `discord.json` to build or test; without
+`build.bat` builds the installer, `dist\CompanionSetup.exe` (needs [Inno Setup 6](https://jrsoftware.org/isinfo.php): `winget install JRSoftware.InnoSetup`). You don't need `discord.json` to build or test; without
 it Discord just says "Not set up in this build".
 
 ## Where things live
@@ -44,12 +44,14 @@ it Discord just says "Not set up in this build".
 | `overlay_art.py` | Drawing labels over the game |
 | `grind.py`, `party.py` | EXP an hour, sessions and deaths (`grind.sqlite`); a kill's EXP split in a party |
 | `shopwatch.py`, `cozy.py`, `discord_link.py` | Your shop's sales, Cozy prices, Discord |
-| `paths.py` | Where files live, from source and in the exe |
+| `paths.py` | Companion's folder and its subfolders (data, cache, logs, debug, reports) |
+| `applog.py`, `window.py`, `report.py` | What the small window says, the daily log files, Report a problem |
+| `version.py`, `installer/companion.iss`, `build.bat` | The version, the Inno Setup installer and the build |
 | `tools/` | One-off scripts (building `builds.json`, scraping Cozy, the icon, reader test cases) |
 | `tests/` | pytest suite |
 
 ## Reporting a bug
-Open an issue with the **Bug report** form. For a misread, attach `debug/last_capture.png` and
+Open an issue with the **Bug report** form and attach the zip from **Report a problem** in Companion's window. For a misread, also attach `debug/last_capture.png` and
 `debug/last_ocr.txt` (crop out other players' names and chat first).
 
 ## Sending a change
@@ -68,7 +70,7 @@ git-ignored on purpose: they show other players' names and chat. If a case is ne
 crop it to the one window and blank out names first.
 
 ## Never commit
-`discord.json`, `config.json`, `profile.json`, `*.sqlite`, `cache/`, `debug/`, or anything with a
+`discord.json`, `data/`, `cache/`, `debug/`, `logs/`, `reports/`, or anything with a
 token or webhook URL. If you leak one by mistake, tell the maintainer right away (see SECURITY.md).
 
 ## Code of conduct

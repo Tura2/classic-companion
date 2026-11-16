@@ -28,3 +28,8 @@ samples/cases/
 
 # visual companion mockups
 .superpowers/
+
+# Companion keeps your data, logs and bug-report zips in their own folders
+data/
+logs/
+reports/

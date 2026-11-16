@@ -6,21 +6,42 @@ browser dashboard on your PC (a second monitor works well).
 
 Not affiliated with or endorsed by Nexon. Free and open source under the [MIT license](LICENSE).
 
-[Website](https://tura2.github.io/classic-companion/) · [Download Companion.exe](https://github.com/Tura2/classic-companion/releases/latest/download/Companion.exe) · [Contributing](CONTRIBUTING.md) · [Credits](CREDITS.md)
+[Website](https://tura2.github.io/classic-companion/) · [Download CompanionSetup.exe](https://github.com/Tura2/classic-companion/releases/latest/download/CompanionSetup.exe) · [Contributing](CONTRIBUTING.md) · [Credits](CREDITS.md)
 
 ## Quick start
-**Windows app:** [download `Companion.exe`](https://github.com/Tura2/classic-companion/releases/latest/download/Companion.exe) (the latest release; older ones are on
-[Releases](https://github.com/Tura2/classic-companion/releases)), put it in its own folder and run it. The dashboard opens in
-your browser at http://localhost:8765. It only listens on this PC. Companion's own small window,
-with its logo, says what's running, has an Open the dashboard button and shows its messages; keep
-it open while you play: closing it closes Companion. The exe isn't signed, so Windows may say "Windows protected
-your PC": click **More info**, then **Run anyway**. Play the game in windowed or borderless mode; a
-game in exclusive full screen can't be captured.
+**Windows:** [download `CompanionSetup.exe`](https://github.com/Tura2/classic-companion/releases/latest/download/CompanionSetup.exe) (the latest release; older ones are on
+[Releases](https://github.com/Tura2/classic-companion/releases)) and open it. It installs for you
+only, with no admin password, into `%LOCALAPPDATA%\Programs\Companion`, adds Companion to the Start
+menu (and the desktop, if you leave that ticked) and starts it. The setup isn't signed, so Windows may
+say "Windows protected your PC": click **More info**, then **Run anyway**.
+
+**Updates install themselves.** Each time Companion starts, it asks GitHub for the latest release
+(a few seconds at most; without internet it just starts). When there's a newer one, its window says
+"Updating to …", downloads `CompanionSetup.exe` into `cache\updates\`, checks it against the size and
+SHA-256 the release publishes, installs it over this version (your data stays) and starts again. If
+the download fails, this version starts as usual and tries again next time. Only the installed
+Companion updates itself, not one run from source.
+
+The dashboard opens in your browser at http://localhost:8765. It only listens on this PC.
+Companion's own small window says what's running, has an Open the dashboard button, shows what you
+need to know (your character, quests done, shop sales and deals, and problems in plain words) and a
+**Report a problem** button; keep it open while you play: closing it closes Companion. Play the game
+in windowed or borderless mode; a game in exclusive full screen can't be captured.
+
+**Uninstall:** Windows Settings → Apps → Companion → Uninstall. It closes Companion, removes it, and
+asks whether to delete your data too (No keeps it for a reinstall).
+
+**Report a problem:** the button in Companion's window makes a zip in `reports\` with the last 3
+days of logs and your setup (Companion's version, Windows, the screen, your settings without your
+Discord ID), shows it in Explorer and opens the bug report form. No pictures and no character data
+go in it.
 
 **From source:** install Python 3.10+ from python.org, then double-click `run.bat`
 (or `pip install -r requirements.txt` and `python companion.py`).
 
-**Build the exe yourself:** double-click `build.bat`. Output: `dist\Companion.exe`.
+**Build the installer yourself:** install [Inno Setup 6](https://jrsoftware.org/isinfo.php) once
+(`winget install JRSoftware.InnoSetup`), then double-click `build.bat`. Output:
+`dist\CompanionSetup.exe`.
 
 The first time the dashboard opens, a short setup in Hebrew asks for your job and level, checks
 that prices loaded, offers screen reading (off unless you tick it, with the risk spelled out), checks
@@ -209,7 +230,7 @@ If you want certainty, ask Nexon Support in writing.
 If labels never show, set "Game window title contains" in Settings to match your game window.
 
 **Tuning the shop reader:** if shop rows read wrong, compare `debug/last_capture.png` and
-`debug/last_ocr.txt` (next to the app) with the game and adjust "Fine-tuning" in Settings.
+`debug/last_ocr.txt` (in Companion's folder) with the game and adjust "Fine-tuning" in Settings.
 
 ## Discord (optional, off by default)
 Settings → Discord → **Connect Discord** opens Discord's own page ("Companion wants to know who you
@@ -235,8 +256,8 @@ The webhook and the Discord app's client ID come with the build (`discord.json` 
    (players see it on the authorize page) → OAuth2: copy the Client ID; Redirects → Add
    `http://localhost:8765/discord` → Save. No bot, no client secret.
 4. Next to `build.bat`: `discord.json` = `{"webhook": "https://discord.com/api/webhooks/...",
-   "client_id": "123456789012345678"}`. Run `build.bat`, upload `dist\Companion.exe` to Releases. Keep the file name `Companion.exe`:
-   the website's and README's Download links point at that name in the latest release.
+   "client_id": "123456789012345678"}`. Run `build.bat`, upload `dist\CompanionSetup.exe` to Releases. Keep the file name
+   `CompanionSetup.exe`: the website's and README's Download links point at that name in the latest release.
 5. Test: Settings → Connect Discord → Authorize; a message tagging you arrives in #shop-sales.
 6. If the webhook URL leaks (it's inside a public exe, so someone determined can post to the
    channel, though never read it): delete the webhook, make a new one, update `discord.json`,
@@ -246,17 +267,28 @@ Connect needs the dashboard on port 8765 (the only redirect registered): with an
 Companion holding that port, close it first.
 
 ## Your data
-Everything stays on your PC: `profile.json` (job, level, quests done, skill plan, what the game
-showed), `config.json` (settings), `scans.sqlite` (shop prices you've seen, behind Shops;
-`--report` lists them), `cache/` (downloaded game data, learned level digits), `debug/samples/`
-(pictures of shop windows). The Now tab's picture of the game is only served to this PC.
-`grind.sqlite` (your EXP per map and session, behind the Grind card and "your real EXP/hr" on
-Train), `discord_outbox.json` (sales waiting to be posted, and the keys of ones already posted, so none
-goes twice). Nothing is uploaded anywhere unless you connect Discord; then only your shop's sales
-(item, quantity, price, character name, shop total) go to the group's #shop-sales channel.
+Everything stays on your PC, in Companion's own folder (`%LOCALAPPDATA%\Programs\Companion` when
+installed, the repo folder when run from source), each kind in its own subfolder:
+
+- `data\`: `profile.json` (job, level, quests done, skill plan, what the game showed), `config.json`
+  (settings), `scans.sqlite` (shop prices you've seen, behind Shops; `--report` lists them),
+  `grind.sqlite` (your EXP per map and session, behind the Grind card and "your real EXP/hr" on
+  Train), `discord_outbox.json` (sales waiting to be posted, and the keys of ones already posted, so
+  none goes twice). Files an older version left loose next to the exe move in here on start.
+- `cache\`: downloaded game data, map pictures, item icons, learned digits. Safe to delete.
+- `logs\`: `companion-YYYY-MM-DD.log`, one a day, kept 7 days: what the window said, plus the details
+  (failed downloads, errors with their tracebacks).
+- `debug\`: pictures of shop windows that couldn't be read, and the last capture.
+- `reports\`: zips made by Report a problem.
+
+The Now tab's picture of the game is only served to this PC. Nothing is uploaded anywhere unless you
+connect Discord; then only your shop's sales (item, quantity, price, character name, shop total) go
+to the group's #shop-sales channel.
 
 ## Data sources
 - Game data: OSMS Data Explorer (MIT), github.com/ohmi69/osms_datamine_dashboard. Refreshed every 12h.
+- Updates: Companion's own latest release on GitHub (api.github.com/repos/Tura2/classic-companion),
+  asked once each time the installed Companion starts.
 - Prices: maplestory-classic.com/market.json. Refreshed every 30 min. The file is rebuilt once a day
   (~07:00 UTC), so intraday moves aren't in it.
 - Second prices: Cozy Market (cozy.markets) item pages, read into `cache/cozy_items.json` by the

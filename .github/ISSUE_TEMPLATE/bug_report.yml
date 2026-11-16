@@ -37,4 +37,4 @@ body:
     id: files
     attributes:
       label: Pictures / logs
-      description: For a misread, attach debug/last_capture.png and debug/last_ocr.txt. Crop out other players' names and chat first.
+      description: Attach the zip from Report a problem in Companion's window. For a misread, also attach debug/last_capture.png and debug/last_ocr.txt from Companion's folder; crop out other players' names and chat first.

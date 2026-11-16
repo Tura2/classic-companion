@@ -22,6 +22,7 @@ import time
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
+import applog
 
 SITEMAP = "https://cozy.markets/sitemap.xml"
 PAGE = "https://cozy.markets/items/"
@@ -230,5 +231,5 @@ def keep_fresh(data, hours=EVERY_HOURS):
             if refresh(COZY_FILE, older_than=hours, workers=1, delay=1.0, on_save=reload):
                 reload()
         except Exception as e:
-            print("Cozy Market prices not refreshed:", e)
+            applog.problem("cozy", "Cozy Market prices couldn't refresh. Companion tries again later.", exc=e)
         time.sleep(CHECK_EVERY)
