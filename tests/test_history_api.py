@@ -26,3 +26,22 @@ def test_card_view_resolves_pictures_and_keeps_unknown_names(tmp_path, game_read
     assert loot["Tablecloth"]["img"] and loot["Tablecloth"]["count"] == 2
     assert loot["Gone Item"]["img"] is None and loot["Gone Item"]["count"] == 1
     assert v["best_minute"] == max(card["minutes"]["vals"])
+
+
+def test_card_view_opens_an_old_session_card(tmp_path, game_reader):
+    g = grind.Grind(tmp_path / "grind.sqlite")
+    g.db.execute("INSERT INTO sessions (start, end, map_id, map, level_start, level_end, exp_gained, active_s, kills,"
+                 " mesos_picked, mesos_gained, deaths, exp_lost) VALUES (1,2,1,'Old Map',30,30,900,600,40,1234,999,2,50)")
+    g.db.commit()
+    v = companion.card_view(g.history_card("s1"), game_reader.data)
+    assert (v["kills_total"], v["deaths_count"], v["exp_lost"], v["mesos_change"]) == (40, 2, 50, 999)
+    assert v["kills"] == [] and v["loot"] == [] and v["best_minute"] is None and v["kills_per_min"] == 4.0
+
+
+def test_a_saved_card_counts_its_deaths(tmp_path):
+    g = grind.Grind(tmp_path / "grind.sqlite")
+    g.db.execute("INSERT INTO history (start, end, exp_gained, active_s, open, data) VALUES (1,2,5,200,0,?)",
+                 ('{"deaths": [{"ts": 1, "lost": 30}, {"ts": 2, "lost": 20}]}',))
+    g.db.commit()
+    c = g.history_card("h1")
+    assert (c["deaths_count"], c["exp_lost"]) == (2, 50)

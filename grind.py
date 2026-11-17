@@ -630,17 +630,23 @@ class Grind:
                 return None
             card = dict(zip([c[0] for c in cur.description], r))
             card.update(json.loads(card.pop("data") or "{}"))
-            card.update(id=key, old=False)
+            deaths = card.get("deaths") or []
+            card.update(id=key, old=False, deaths_count=len(deaths), exp_lost=sum(d["lost"] for d in deaths))
             return card
         cur = self.db.execute("SELECT start, end, map, map_id, pq, level_start, level_end, exp_gained, active_s,"
-                              " kills, mesos_picked, deaths, exp_lost FROM sessions WHERE id=?", (int(num),))
+                              " kills, mesos_picked, mesos_gained, deaths, exp_lost FROM sessions WHERE id=?", (int(num),))
         r = cur.fetchone()
         if not r:
             return None
-        card = dict(zip([c[0] for c in cur.description], r))
-        card.update(id=key, old=True, character=None, job=None,
-                    exp_hr=card["exp_gained"] / card["active_s"] * 3600 if (card["active_s"] or 0) >= 1 else None)
-        return card
+        row = dict(zip([c[0] for c in cur.description], r))
+        kills, deaths, lost = row.pop("kills"), row.pop("deaths"), row.pop("exp_lost")
+        act = row["active_s"] or 0
+        # the same shape as a saved card, with what an old session never kept left empty
+        return {**row, "id": key, "old": True, "character": None, "job": None,
+                "exp_hr": row["exp_gained"] / act * 3600 if act >= 1 else None,
+                "minutes": None, "levelups": [], "kills": [], "party_kills": [], "loot": [], "used": [],
+                "deaths": [], "kills_total": kills or 0, "deaths_count": deaths or 0, "exp_lost": lost or 0,
+                "mesos_change": row.pop("mesos_gained")}
 
     def _chart(self, now):
         """EXP per minute over the whole session (net of deaths), from its first minute to now."""

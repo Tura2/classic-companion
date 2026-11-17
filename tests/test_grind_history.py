@@ -175,10 +175,11 @@ def test_the_card_is_flat_and_missing_ones_are_none(tmp_path):
     assert g.history_card(f"h{open_id}") is None
 
 
-def test_an_old_session_card_has_its_segment_totals(tmp_path):
+def test_an_old_session_card_has_the_saved_card_shape(tmp_path):
     g = tracker(tmp_path)
     g.db.execute("INSERT INTO sessions (start, end, map_id, map, level_start, level_end, exp_gained, active_s, kills,"
-                 " mesos_picked, deaths, exp_lost) VALUES (1,2,1,'Old Map',30,30,900,600,40,1234,2,50)")
+                 " mesos_picked, mesos_gained, deaths, exp_lost) VALUES (1,2,1,'Old Map',30,30,900,600,40,1234,999,2,50)")
     g.db.commit()
     c = g.history_card("s1")
-    assert (c["kills"], c["mesos_picked"], c["deaths"], c["exp_lost"], c["old"]) == (40, 1234, 2, 50, True)
+    assert (c["kills_total"], c["mesos_picked"], c["mesos_change"], c["deaths_count"], c["exp_lost"], c["old"]) ==         (40, 1234, 999, 2, 50, True)
+    assert c["kills"] == [] and c["deaths"] == [] and c["loot"] == [] and c["minutes"] is None
