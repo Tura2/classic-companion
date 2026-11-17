@@ -186,6 +186,7 @@ def handle_grind(app, seen, prof):
         pq = getattr(app, "grind_pq", None)
         if pq and pq_of(name) != pq:
             mid, name = -1, dict(PQS)[pq]       # the PQ by its prefix: no stage known
+        g.who = {"name": prof.get("name"), "job": prof.get("job")}
         gain = g.update(hud["exp"], hud.get("exp_pct"), prof.get("level"), mid, name, now)
         if gain and gain > 0 and not getattr(g, "last_lump", False):
             # the kills behind this gain, named by this map's monsters' EXP; a gain none of them

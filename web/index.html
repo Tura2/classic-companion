@@ -701,6 +701,7 @@ input.sw:disabled{cursor:not-allowed}
 .gchart .gl{stroke:#3A4560;stroke-width:1;vector-effect:non-scaling-stroke}
 .gchart .ln{fill:none;stroke:#F5A23A;stroke-width:2;vector-effect:non-scaling-stroke;stroke-linejoin:round}
 .gchart .avg{stroke:#9FB4D8;stroke-width:1;stroke-dasharray:4 4;vector-effect:non-scaling-stroke}
+.gchart .lvup{stroke:#fff;stroke-width:1.5;stroke-dasharray:3 3;vector-effect:non-scaling-stroke;opacity:.75}
 .gchart .yl{position:absolute;left:-30px;transform:translateY(-50%);font:700 .7rem "Nunito",sans-serif;color:#8B97B2}
 .gchart .avgl{position:absolute;right:-2px;transform:translate(100%,-50%);padding-left:4px;font:800 .68rem "Nunito",sans-serif;color:#9FB4D8;background:#1E2638}
 .gchart .dmark{position:absolute;transform:translate(-50%,-10%);cursor:help;display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#FCE4E4;border:1px solid #E7A0A0;z-index:2}
@@ -708,6 +709,8 @@ input.sw:disabled{cursor:not-allowed}
 .gchart .xl{position:absolute;transform:translateX(-50%);font:700 .7rem "Nunito",sans-serif;color:#8B97B2;white-space:nowrap}
 .gchart .cfoot{display:flex;justify-content:space-between;color:#C9D3E8;font-size:.76rem;font-weight:700;margin-top:2px}
 .dhead .allmaps{white-space:nowrap;margin-left:6px;font-family:"Nunito",sans-serif}
+.dhead.blue{white-space:nowrap}.dhead.blue .sub{min-width:0;overflow:hidden;text-overflow:ellipsis}   /* room for History › and All maps › */
+.gcard.small .dhead #history-btn{margin-left:auto}
 .rk.rx{background:#C9D2DE;color:#334}
 .gbtns .btn{display:inline-flex;align-items:center;gap:5px}
 .tombi{width:16px;height:17px;image-rendering:pixelated;vertical-align:middle}.dmark .tombi{width:18px;height:19px}
@@ -759,6 +762,44 @@ input.sw:disabled{cursor:not-allowed}
 .lb th{text-align:left;font-size:.75rem;color:var(--muted);font-weight:800;padding:0 8px}
 .lb td{background:var(--cell);padding:4px 8px}.lb td:first-child{border-radius:6px 0 0 6px}.lb td:last-child{border-radius:0 6px 6px 0}
 .lb tr.here td{background:var(--goodbg)}.lb .eh{color:var(--good);font-weight:900}
+/* Grind history (2026-11-17 design): 8 sessions a page; a row's chevron opens it into the whole card */
+.popwin.hpop{width:min(1000px,94vw);max-height:min(820px,94vh)}     /* as tall as its content, up to this */
+.hpop > .body{flex:1;padding:8px 12px 10px}
+.hpg{display:flex;align-items:center;gap:10px}.hpg small{font:800 .8rem "Nunito",sans-serif;color:var(--muted)}
+.hlist{flex:1;min-height:428px;display:flex;flex-direction:column;gap:4px;overflow:hidden}
+.hlist.has-open .hr:not(.open),.hlist.has-open + .pager{display:none}
+.hlist.has-open{min-height:0}     /* an open card is as tall as its content */
+.hr{background:var(--cell);border-radius:7px;border:1px solid transparent;flex:none}
+.hr.open{border-color:var(--amber);flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.hrow{all:unset;box-sizing:border-box;width:100%;min-height:48px;display:grid;grid-template-columns:minmax(0,1fr) 92px 84px 104px 88px 24px;align-items:center;gap:10px;padding:5px 10px;cursor:pointer;border-radius:7px}
+.hrow:hover{background:rgba(255,255,255,.04)}.hrow:focus-visible{outline:3px solid var(--blue)}
+.hm{min-width:0;line-height:1.3}.hm b{display:block;font-size:.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hm .sub{font-size:.76rem}.hwho{color:var(--pink)}
+.hlv{font:400 .9rem "DotGothic16",sans-serif;color:#fff;background:var(--tile);border:1px solid #F7B062;border-radius:5px;padding:1px 6px;text-align:center;white-space:nowrap;box-shadow:inset 0 -2px 0 rgba(0,0,0,.18)}
+.hc{text-align:right;line-height:1.1}.hc b{display:block;font-size:1rem}.hc small{font-size:.68rem;color:var(--muted);font-weight:800}.hc .g{color:var(--good)}
+.chev{color:var(--amber);transition:transform .15s}.hr.open .chev{transform:rotate(180deg)}
+.hnote{margin:0;padding:14px;text-align:center;color:var(--muted);font-weight:700}
+.xbody{flex:1;min-height:0;display:flex;flex-direction:column;gap:8px;padding:2px 10px 10px}
+.xtop{display:flex;gap:10px;align-items:stretch}
+.hthumb{width:200px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--rim);flex:none}
+.xtop .gstrip{flex:1}.hs{grid-template-columns:repeat(4,1fr)}.hs b{font-size:1.25rem}.hs b.best{color:var(--good)}
+.hr .gstrip div,.hr .lvrow,.hr .krow{background:var(--win)}
+.hr .gchart{flex:1 0 150px;min-height:150px;margin-top:0}     /* the chart takes any spare height */
+.lvrow{display:flex;align-items:center;gap:8px;border-radius:6px;padding:6px 10px}
+.lvrow .xbar{flex:1;min-width:24px}
+.lvrow .lvl{font:400 .95rem "DotGothic16",sans-serif;white-space:nowrap}.lvrow .lvl b{color:var(--amber);font-weight:400}
+.lvrow .plus{color:var(--good);font-size:1.05rem}.lvrow .plus.neg{color:var(--bad)}
+.lvup-chip{font:400 .72rem "DotGothic16",sans-serif;color:var(--gold-ink);background:var(--amber);border-radius:4px;padding:1px 6px;white-space:nowrap}
+.hsplit{flex:0 1 auto;min-height:0;display:grid;grid-template-columns:1.1fr 1fr;gap:10px}
+.hcol{display:flex;flex-direction:column;min-height:0}.hcol .dhead{margin-top:0}
+.hr .lgrid{grid-template-columns:repeat(6,minmax(0,1fr))}
+.hcol .net{margin-top:auto}.hcol .hnote{flex:1}
+.kl{flex:1;display:flex;flex-direction:column;gap:5px}
+.krow{display:grid;grid-template-columns:40px minmax(0,1fr) auto;align-items:center;gap:10px;border-radius:6px;padding:4px 10px;flex:none;min-height:48px}   /* one height, with a picture or not: pageFit counts rows by the first */
+.krow img{width:38px;height:38px;object-fit:contain;image-rendering:pixelated}.krow .kn{font-size:1.3rem}
+.krow b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kbar{height:5px;border-radius:3px;background:var(--rim-soft);margin-top:3px;overflow:hidden}.kbar i{display:block;height:100%;background:var(--blue)}
+.deathrow{display:flex;align-items:center;gap:8px;margin-top:6px;padding:5px 10px;border-radius:6px;background:var(--badbg);color:var(--bad);font-weight:800;font-size:.85rem}
+.oldnote{flex:1;display:grid;place-items:center;text-align:center;padding:20px;border:1px dashed var(--rim);border-radius:8px;color:var(--muted);font-weight:700}
 #tip.small{width:250px;padding:9px 11px;font-size:13px}
 #tip.small .tname{font-size:1rem;margin-bottom:6px}
 #tip.small .timg{width:52px;height:52px}#tip.small .timg img{width:34px;height:34px}
@@ -1097,14 +1138,15 @@ async function loadHere(){
   return hereCache.data;
 }
 const MEDAL = ["r1", "r2", "r3"];
+const HIST_BTN = `<button class="btn mini allmaps" id="history-btn">History ›</button>`;
 function bestMaps(best, limit = 5){
   const here = state.current && state.current.id;
   const rows = (best || []).slice(0, limit).map((b, i) => `<div class="bl${b.map_id === here ? " here" : ""}"><span class="rk ${MEDAL[i] || "rx"}">${i + 1}</span>
       <b>${pretty(b.map)}</b><span class="sub">Lv ${b.level_lo === b.level_hi ? b.level_lo : `${b.level_lo}–${b.level_hi}`} · ${dur(b.active_s)}</span>
       <span class="eh">${perHr(b.exp_hr)}</span>${b.map_id === here ? `<span class="hereb">here</span>`
         : `<button class="btn mini" data-go="${b.map_id}" data-name="${esc(b.map)}">Go</button>`}</div>`).join("");
-  return `<div class="dhead blue">${itemIcon(4001009, 18)} Your best maps <span class="sub">EXP / hour killing · your last 5 levels</span>
-      <button class="btn mini allmaps" id="allmaps-btn">All maps ›</button></div>
+  return `<div class="dhead blue">${itemIcon(4001009, 18)} Your best maps <span class="sub" title="EXP / hour killing · your last 5 levels">EXP / hour killing · your last 5 levels</span>
+      ${HIST_BTN}<button class="btn mini allmaps" id="allmaps-btn">All maps ›</button></div>
     ${rows ? `<div class="best">${rows}</div>` : `<p class="sub" style="margin:0">Grind 10 minutes on a map and it shows here.</p>`}`;
 }
 // the game's tombstone (a death), and the icons on Now's monster boxes
@@ -1114,13 +1156,14 @@ const IC_HP = '<svg class="mi" viewBox="0 0 20 20" aria-hidden="true"><path d="M
 const IC_EXP = '<svg class="mi" viewBox="0 0 20 20" aria-hidden="true"><path d="m10 1.8 2.5 5.1 5.6.8-4 3.9.9 5.6-5-2.6-5 2.6.9-5.6-4-3.9 5.6-.8z" fill="#7DD36B" stroke="#2F7A22" stroke-width="1.2" stroke-linejoin="round"/></svg>';
 const shortN = n => n >= 1e6 ? (n / 1e6).toFixed(1) + "M" : n >= 1e4 ? (n / 1e3).toFixed(1).replace(/\.0$/, "") + "K" : fmt(n);
 const gicon = (d, word) => `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">${d}</svg> ${word}`;
-// EXP per minute over the whole session: a filled line, gridlines, clock times, the average, a tombstone at each death
+// EXP per minute over the whole session: a filled line, gridlines, clock times, the average, a tombstone at each death,
+// a dotted line at each level-up (the history's cards)
 let chartSeq = 0;
-function chartBox(ch, deaths, gained, dim){
+function chartBox(ch, deaths, gained, dim, levelups){
   const vals = (ch && ch.vals) || [];
   if (vals.length < 2) return `<div class="gchart empty${dim ? " dim" : ""}"><span>The chart starts after two minutes of grinding.</span></div>`;
   const W = 420, H = 100, mx = Math.max(...vals, 1);
-  const step = mx > 8000 ? 4000 : mx > 4000 ? 2000 : mx > 2000 ? 1000 : mx > 800 ? 500 : mx > 200 ? 100 : 50;
+  const step = mx > 16000 ? [10000, 20000, 50000, 100000, 200000, 500000].find(s => mx / s <= 4) || 1e6 : mx > 8000 ? 4000 : mx > 4000 ? 2000 : mx > 2000 ? 1000 : mx > 800 ? 500 : mx > 200 ? 100 : 50;
   const top = Math.ceil(mx / step) * step;
   const x = i => i / (vals.length - 1) * W, y = v => H - Math.max(0, v) / top * H;
   const line = vals.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
@@ -1140,22 +1183,27 @@ function chartBox(ch, deaths, gained, dim){
     return i < 0 || i >= vals.length ? "" : `<span class="dmark" style="left:${i / (vals.length - 1) * 100}%;top:${Math.min(84, y(vals[i]) / H * 100)}%"
       title="Died at ${clock(d.ts)}: lost ${fmt(d.lost)} EXP">${TOMB(18)}</span>`;
   }).join("");
+  const ups = (levelups || []).map(u => Math.floor(u.ts / 60) - ch.t0).filter(i => i >= 0 && i < vals.length);
+  const upl = ups.map(i => `<line x1="${x(i).toFixed(1)}" x2="${x(i).toFixed(1)}" y1="0" y2="${H}" class="lvup"/>`).join("");
+  const say = ups.length ? ` · the dotted line${ups.length > 1 ? "s are your level-ups" : " is your level-up"}` : "";
   return `<div class="gchart${dim ? " dim" : ""}"><div class="plot">${ylab}
       <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="EXP per minute this session">
         <defs><linearGradient id="${id}" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#F5A23A" stop-opacity=".55"/><stop offset="1" stop-color="#F5A23A" stop-opacity=".05"/></linearGradient></defs>
         ${grid}<polygon points="0,${H} ${line} ${W},${H}" fill="url(#${id})"/><polyline points="${line}" class="ln"/>
-        <line x1="0" x2="${W}" y1="${y(avg)}" y2="${y(avg)}" class="avg"/></svg>
+        <line x1="0" x2="${W}" y1="${y(avg)}" y2="${y(avg)}" class="avg"/>${upl}</svg>
       <span class="avgl" style="top:${(1 - avg / top) * 100}%">avg ${shortN(Math.round(avg))}</span>${marks}</div>
-    <div class="xax">${xl}</div><div class="cfoot"><span>EXP per minute</span><span>+${fmt(gained || 0)} EXP this session</span></div></div>`;
+    <div class="xax">${xl}</div><div class="cfoot"><span>EXP per minute${say}</span><span>+${fmt(gained || 0)} EXP this session</span></div></div>`;
 }
 function grindCard(gr, g){
   const best = bestMaps(gr && gr.best);
   if (!state.screen.reading){
     const has = gr && gr.best && gr.best.length;
-    return win(`${itemIcon(4000001, 22)} ${has ? "Your best maps" : "Grind"}`, has ? `<div class="body">${best.replace(/^[\s\S]*?<\/div>/, "")}
+    // the best maps' heading (and its buttons) is left out here: History › goes in the title, as past sessions stay
+    return `<section class="card win"><div class="title"><span>${itemIcon(4000001, 22)} ${has ? "Your best maps" : "Grind"}</span>${HIST_BTN}</div>${has
+      ? `<div class="body">${best.replace(/^[\s\S]*?<\/div>/, "")}
       <p class="sub" style="margin:8px 0 0">Turn on screen reading in Settings to track your EXP an hour and time to level.</p></div>`
       : `<div class="body emptyfill">${itemIcon(4000001, 48)}<b>Your EXP an hour, time to level and best maps show here</b>
-        <span class="sub">Turn on screen reading in Settings, then grind a few minutes.</span></div>`);
+        <span class="sub">Turn on screen reading in Settings, then grind a few minutes.</span></div>`}</section>`;
   }
   if (!gr || !gr.available) return "";
   const n = gr.now, hud = !!(g.windows || {}).hud;
@@ -1202,7 +1250,7 @@ function lootItems(sv){
   return out;
 }
 // an item: picked up less drunk from the quick slots; below zero it's red, "−11"
-const lootTile = (x, i) => `<div class="lt${x.meso ? " meso" : x.count < 0 ? " used" : x.count === 0 && x.used ? " zero" : ""}" data-lk="${i}"><img src="${esc(x.img)}" alt="${esc(x.name)}" width="32" height="32"><i>${x.meso ? shortN(x.count) : x.count < 0 ? `−${fmt(-x.count)}` : fmt(x.count)}</i></div>`;
+const lootTile = (x, i) => `<div class="lt${x.meso ? " meso" : x.count < 0 ? " used" : x.count === 0 && x.used ? " zero" : ""}" data-lk="${i}">${x.img ? `<img src="${esc(x.img)}" alt="${esc(x.name)}" width="32" height="32" onerror="this.remove()">` : ""}<i>${x.meso ? shortN(x.count) : x.count < 0 ? `−${fmt(-x.count)}` : fmt(x.count)}</i></div>`;
 function lootTip(x){
   if (x.meso) return `<div class="tname"><i></i>Mesos</div><p class="tdesc">${fmt(x.count)} picked up this session${x.per != null ? `, ${fmt(x.per)} a minute` : ""}.</p>`;
   const have = x.count != null;
@@ -1211,7 +1259,7 @@ function lootTip(x){
       ${have && x.count > 0 ? `<div><span>Yours worth</span><b class="msc">${fmt((x.msc || x.npc) * x.count)}</b></div>` : ""}</div>`
     : `<div class="tprice none">Not traded on the market yet</div>`;
   return `<div class="tname"><i></i>${pretty(x.name)}</div>
-    <div class="ttop"><div class="timg"><img src="${esc(x.img)}" alt=""></div><div><div class="tkind">${esc(x.kind || "")}</div>${x.used ? `<div class="thave">Picked up <b>${fmt(x.picked || 0)}</b> · used <b>${fmt(x.used)}</b></div>` : have ? `<div class="thave">You picked up <b>${fmt(x.count)}</b></div>` : ""}</div></div>
+    <div class="ttop"><div class="timg">${x.img ? `<img src="${esc(x.img)}" alt="" onerror="this.remove()">` : ""}</div><div><div class="tkind">${esc(x.kind || "")}</div>${x.used ? `<div class="thave">Picked up <b>${fmt(x.picked || 0)}</b> · used <b>${fmt(x.used)}</b></div>` : have ? `<div class="thave">You picked up <b>${fmt(x.count)}</b></div>` : ""}</div></div>
     ${x.desc ? `<p class="tdesc">${esc(x.desc)}</p>` : ""}${worth}`;
 }
 function sessionCard(gr){
@@ -1296,6 +1344,115 @@ async function allMapsModal(){
   openModal(`${itemIcon(4001009, 22)} All your maps`, body, m => m.querySelectorAll("[data-go]").forEach(b =>
     b.addEventListener("click", () => { closeModal(); goTo(+b.dataset.go, b.dataset.name); })));
 }
+// Grind history: past sessions, 8 a page, newest first; a row opens into its whole card, one at a time
+const CHEV = `<svg class="chev" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+  stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>`;
+const histCards = {};          // cards already opened, by id: a past session doesn't change
+function dayLabel(ts){
+  const d = new Date(ts * 1000), day = new Date(d).setHours(0, 0, 0, 0), today = new Date().setHours(0, 0, 0, 0);
+  const ago = Math.round((today - day) / 864e5);
+  return ago === 0 ? "Today" : ago === 1 ? "Yesterday" : d.toLocaleDateString("en-US", {weekday:"short", month:"short", day:"numeric"});
+}
+function histRow(r, multi){
+  const lv = r.level_start != null && r.level_end > r.level_start ? `${r.level_start}→${r.level_end}` : r.level_end ?? r.level_start ?? "?";
+  return `<div class="hr${r.old ? " old" : ""}" data-hid="${esc(r.id)}"><button class="hrow" aria-expanded="false">
+      <span class="hm"><b>${pretty(r.pq || r.map || "Unknown map")}</b><span class="sub">${dayLabel(r.start)}${multi && r.character ? ` · <span class="hwho">${esc(r.character)}</span>` : ""} · ${clock(r.start)}</span></span>
+      <span class="hlv">Lv. ${lv}</span>
+      <span class="hc"><b>${dur(r.active_s)}</b><small>grinding</small></span>
+      <span class="hc"><b class="g">+${fmt(r.exp_gained || 0)}</b><small>EXP</small></span>
+      <span class="hc"><b>${perHr(r.exp_hr)}</b><small>EXP / hour</small></span>${CHEV}</button></div>`;
+}
+// the EXP bar from where the session started to where it ended, a LEVEL UP between each level
+function histLevels(c){
+  const l0 = c.level_start, l1 = c.level_end, p0 = c.pct_start, p1 = c.pct_end;
+  if (l0 == null || l1 == null || p0 == null || p1 == null) return "";
+  const cl = v => Math.max(0, Math.min(100, v)), n = Math.max(0, l1 - l0);
+  const bar = (from, to, mark) => `<div class="xbar">${from ? `<i class="was" style="width:${from}%"></i>` : ""}<i class="gain" style="left:${from}%;width:${Math.max(0, to - from)}%"></i>${mark ? `<span class="mark" style="left:${from}%"></span>` : ""}</div>`;
+  const chip = `<span class="lvup-chip">LEVEL UP</span>`;
+  let bars = n ? bar(cl(p0), 100, true) : bar(cl(p0), cl(p1), true);
+  for (let i = 1; i <= n; i++) bars += chip + bar(0, i < n ? 100 : cl(p1));
+  const g = n * 100 + p1 - p0;
+  return `<div class="lvrow"><span class="lvl">Lv. <b>${l0}</b> ${p0.toFixed(2)}%</span>${bars}
+    <span class="lvl">Lv. <b>${l1}</b> ${p1.toFixed(2)}%</span><b class="plus${g < 0 ? " neg" : ""}">${g < 0 ? "−" : "+"}${Math.abs(g).toFixed(2)}%</b></div>`;
+}
+const killRow = top => k => `<div class="krow">${k.img ? `<img src="${esc(k.img)}" alt="" onerror="this.remove()">` : "<span></span>"}
+    <div><b>${k.name == null ? "Unnamed" : pretty(k.name)}</b><div class="kbar"><i style="width:${Math.max(1, k.count / top * 100)}%"></i></div></div><b class="kn">${fmt(k.count)}</b></div>`;
+// an open row: the map, four boxes, the chart, the EXP bar, then loot | kills; an older row only its totals
+function histBody(c){
+  const net = c.mesos_picked ?? c.mesos_change, nd = c.deaths_count || 0, kt = c.kills_total || 0;
+  const netS = net == null ? "—" : net < 0 ? `−${fmt(-net)}` : `+${fmt(net)}`;
+  const top = `<div class="xtop">${c.map_id ? `<img class="hthumb" src="/api/mapimg?id=${c.map_id}" alt="" onerror="this.remove()">` : ""}<div class="gstrip hs">
+      <div><b${c.best_minute != null ? ` class="best">${fmt(c.best_minute)}` : ">—"}</b><span>best minute</span></div>
+      <div><b>${fmt(kt)}</b><span>killed${c.kills_per_min != null ? ` · ${c.kills_per_min} a minute` : ""}</span></div>
+      <div><b>${netS}</b><span>net mesos</span></div>
+      <div><b>${nd}</b><span>${nd === 1 ? "death" : "deaths"}${nd ? ` · −${fmt(c.exp_lost || 0)} EXP` : ""}</span></div></div></div>`;
+  if (c.old) return `<div class="xbody">${top}<div class="oldnote">Saved before Companion kept the full story: no chart, loot or kills per monster for this one.
+    Sessions from now on keep everything.</div></div>`;
+  const loot = c.loot.length || c.mesos_picked ? `<div class="lgrid" id="hlgrid"></div><div class="pager" id="hlpager"></div>` : `<p class="hnote">No loot was read in this session.</p>`;
+  const party = (c.party_kills || []).reduce((a, k) => a + k.count, 0);
+  const kills = c.kills.length ? `<div class="kl pfit" id="hkl"></div><div class="pager" id="hkpager"></div>`
+    : `<p class="hnote">${kt ? `About ${fmt(kt)} killed (worked out from your EXP).` : "No kills were read in this session."}</p>`;
+  const d = c.deaths || [];
+  const died = !nd ? "" : `<div class="deathrow">${TOMB(16)} ${nd === 1 && d.length ? `Died once, at ${clock(d[0].ts)}` : nd === 1 ? "Died once" : `Died ${nd} times`} · lost ${fmt(c.exp_lost || 0)} EXP</div>`;
+  return `<div class="xbody">${top}${chartBox(c.minutes, d, c.exp_gained, false, c.levelups)}${histLevels(c)}
+    <div class="hsplit"><div class="hcol"><div class="dhead">${itemIcon(2028000, 18)} Loot <span class="sub">picked up − drunk</span></div>${loot}
+        <div class="net"><span>NET</span><b class="${net == null ? "zero" : ""}">${netS}</b><span class="sub">mesos${c.mesos_picked != null
+          ? ` picked up${c.mesos_per_min != null ? ` · ${fmt(c.mesos_per_min)} a minute` : ""}` : net != null ? ", your mesos’ change" : ""}</span></div></div>
+      <div class="hcol"><div class="dhead">${itemIcon(4000094, 18)} Killed <span class="sub">${fmt(kt)}${c.kills_per_min != null ? ` · ${c.kills_per_min} a minute` : ""}${party ? ` · +${fmt(party)} by party` : ""}</span></div>
+        ${kills}${died}</div></div></div>`;
+}
+async function toggleHist(hr){
+  const list = hr.parentElement, was = hr.classList.contains("open");
+  list.querySelectorAll(".hr.open").forEach(x => { x.classList.remove("open"); x.firstElementChild.setAttribute("aria-expanded", "false"); x.querySelector(".xbody")?.remove(); });
+  list.classList.remove("has-open"); hideTip();
+  if (was) return;
+  const id = hr.dataset.hid;
+  const c = histCards[id] || await api("/api/history/" + encodeURIComponent(id)).catch(() => null);
+  if (!c || c.error || !hr.isConnected || list.querySelector(".hr.open")) return;    // another row opened meanwhile
+  histCards[id] = c;
+  hr.classList.add("open"); list.classList.add("has-open"); hr.firstElementChild.setAttribute("aria-expanded", "true");
+  hr.insertAdjacentHTML("beforeend", histBody(c));
+  const lg = hr.querySelector("#hlgrid"), kl = hr.querySelector("#hkl"), items = lootItems(c);
+  const krow = killRow(Math.max(1, ...c.kills.map(k => k.count)));
+  // loot | kills as tall as all of it, so a short list leaves no empty band (the chart takes the rest);
+  // when that's more than the pop-up holds, it shrinks and the lists page inside it
+  const hs = hr.querySelector(".hsplit"), pop = hr.closest(".popwin");
+  if (hs){                       // none on an older card
+    if (lg) lg.innerHTML = items.map(lootTile).join("");
+    if (kl) kl.innerHTML = c.kills.map(krow).join("");
+    hs.style.flex = "none"; pop.style.maxHeight = "none";
+    const need = hs.offsetHeight;
+    hs.style.flex = pop.style.maxHeight = ""; hs.style.height = need + "px";
+  }
+  if (lg){
+    lg.addEventListener("paged", () => wireTips(lg, "[data-lk]", items, e => +e.dataset.lk));
+    pageFit(lg, items, lootTile, hr.querySelector("#hlpager"), Math.max(1, getComputedStyle(lg).gridTemplateColumns.split(" ").length));
+  }
+  if (kl) pageFit(kl, c.kills, krow, hr.querySelector("#hkpager"));
+}
+async function historyModal(page = 0){
+  const h = await api("/api/history?page=" + page).catch(() => null);
+  if (!h || !h.rows) return;
+  const rows = h.rows.length ? h.rows.map(r => histRow(r, h.multi_char)).join("")
+    : `<p class="hnote">No sessions yet. Grind 2 minutes on a map: the session shows here once it ends.</p>`;
+  const pager = h.pages > 1 ? `<button class="pg" data-hpg="-1" aria-label="Previous page" ${h.page ? "" : "disabled"}>&#9664;</button>
+    <span><b>${h.page + 1}</b> / ${h.pages}</span><button class="pg" data-hpg="1" aria-label="Next page" ${h.page < h.pages - 1 ? "" : "disabled"}>&#9654;</button>` : "";
+  const body = `<div class="hlist">${rows}</div><div class="pager">${pager}</div>`;
+  const wire = pop => {
+    pop.querySelector(".hcount").textContent = `${fmt(h.total)} session${h.total === 1 ? "" : "s"}`;
+    pop.querySelectorAll(".hrow").forEach(b => b.addEventListener("click", () => toggleHist(b.parentElement)));
+    pop.querySelectorAll("[data-hpg]").forEach(b => b.addEventListener("click", () => historyModal(h.page + +b.dataset.hpg)));
+  };
+  const open = $("#modal .hpop");
+  if (open){ hideTip(); open.querySelector(".body").innerHTML = body; return wire(open); }    // another page: the same pop-up
+  openModal(`${itemIcon(4001009, 22)} Grind history`, body, m => {
+    const pop = m.querySelector(".popwin"), x = m.querySelector("#modal-x"), side = document.createElement("span");
+    pop.classList.add("hpop");
+    side.className = "hpg"; side.innerHTML = `<small class="hcount"></small>`;
+    x.replaceWith(side); side.append(x);
+    wire(pop);
+  });
+}
 function dropRow(d, i){
   return `<div class="drow${i === 0 ? " hot" : ""}">${slot(d.img, 30)}
     <div class="grow"><b>${pretty(d.item)}</b>${d.success != null ? ` <span class="chip warn">${d.success}%</span>` : ""}
@@ -1367,6 +1524,7 @@ const sessionKey = sv => [sv.kills_total, (sv.kills || []).map(k => k.count + "/
   (sv.chart && sv.chart.vals || []).slice(-1)[0]].join("|");
 function wireNow(gr, h){
   const ab = $("#allmaps-btn"); if (ab) ab.addEventListener("click", allMapsModal);
+  const hb = $("#history-btn"); if (hb) hb.addEventListener("click", () => historyModal());
   const db = $("#drops-btn"); if (db) db.addEventListener("click", () => dropsModal(h));
   const pe = $("#npcs");
   if (pe && h && h.npcs){

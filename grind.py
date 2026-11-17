@@ -14,6 +14,7 @@ A party quest is counted by the run instead: entering any of its maps starts a r
 are the same run, and leaving ends it. A run's time is all of it, the quiet puzzle minutes too, so
 "EXP per hour" there is what the PQ really pays for the time it takes.
 """
+import json
 import math
 import sqlite3
 import time
@@ -64,6 +65,8 @@ DEATH_MIN = 0.005       # ...and at least this: a HUD digit misread that still f
 STALL_AFTER = 300.0     # "no EXP" note: only after this much grinding on the map you're still on
 KILL_SAMPLE = 30        # kills to level: the typical gain over this many recent ones
 KILL_MIN = 5            # ... once there are at least this many
+IDLE_END = 1800.0       # no EXP for this long ends the session: the next gain starts a new one
+CARD_MIN_ACTIVE = 120.0 # a session shorter than this (2 minutes of grinding) isn't kept in the history
 RETHINK_VALUES = 3      # different EXPs in a row agreeing on another level EXP replace one set by misreads
 
 
@@ -88,10 +91,23 @@ class Grind:
                 self.db.execute(f"ALTER TABLE sessions ADD COLUMN {col}")
             except sqlite3.OperationalError:
                 pass
+        # one row per session with its whole card (the sessions table above is per map, for the rates)
+        self.db.execute("""CREATE TABLE IF NOT EXISTS history (id INTEGER PRIMARY KEY, start REAL, end REAL,
+            map_id INTEGER, map TEXT, pq TEXT, character TEXT, job TEXT, level_start INTEGER, pct_start REAL,
+            level_end INTEGER, pct_end REAL, exp_gained INTEGER, active_s REAL, exp_hr REAL, open INTEGER,
+            data TEXT)""")
+        self.db.execute("CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT)")
+        # when the history began, so the page can say "since ..." (sessions before it were never kept)
+        self.db.execute("INSERT OR IGNORE INTO meta (key, value) VALUES ('history_since', ?)", (str(time.time()),))
+        # a session still open was cut off (a crash): its last save is all there is
+        self.db.execute("UPDATE history SET open = 0 WHERE open = 1")
         self.db.commit()
+        self.who = {"name": None, "job": None}     # the character, set by the app before each update
+        self.card_id = None
         self.pq = None               # the party quest you're in, if any
         self.no_reset = False
         self.paused = False          # paused by hand from the dashboard
+        self.after_pause = False     # resumed from a pause that no counted gain has followed yet: never idle
         self.last = None             # the last accepted (exp, pct, level)
         self.raw = None              # the last read, for the two-reads rule
         self.map_id = self.map = None
@@ -104,9 +120,18 @@ class Grind:
         self._new_session(None)
 
     # ---- state
-    def _new_session(self, now):
+    def _new_session(self, now, ended=None):
         if getattr(self, "s_start", None) is not None:
             self.last_session = self._session_brief(now)
+            # a map session ended at its last gain, not at this read; a party quest run at the time it was left
+            self.save_card(ended or (now if self.s_pq else (self.last_any or now)), final=True)
+        self.card_id = None
+        self.levelups = []           # {"ts", "level"}: each level reached in the session
+        self.s_pq = self.pq          # the party quest the session is in, if any
+        self.s_enter = now           # when it began: a PQ run's card starts here (its whole wall time)
+        self.s_maps = []             # maps the session's EXP came on, in order
+        self.s_map_ids = []          # their ids, in the same order (skipping party quest stages)
+        self.s_map_id = None
         self.s_gained, self.s_active, self.s_mesos0, self.s_mesos = 0, 0.0, None, None
         self.s_paced = 0             # EXP gained by killing: one-off lumps after a break left out
         self.s_start = None          # the session's first gain
@@ -158,6 +183,58 @@ class Grind:
     def flush(self, now=None):
         self._save_segment(now or time.time())
 
+    def save_card(self, now, final=False):
+        """Write the session's whole card to the history (a new row the first time, then the same one
+        updated). `now` is where it ends. Under 2 minutes of grinding or with no EXP gained it isn't
+        kept. Returns the row's id, or None."""
+        pq = self.s_pq
+        start = self.s_enter if pq and self.s_enter is not None else self.s_start
+        active = (now - start if pq else self.s_active) if start is not None else 0.0     # a PQ run counts all its time
+        if self.s_start is None or self.s_gained <= 0 or active < CARD_MIN_ACTIVE:
+            if self.card_id is not None:      # it was saved, but a death took its EXP: it isn't a session after all
+                self.db.execute("DELETE FROM history WHERE id=?", (self.card_id,))
+                self.db.commit()
+                self.card_id = None
+            return None
+        if pq:
+            hr = self.s_gained / active * 3600
+        else:
+            live = self.s_active + self._open_gap(now)
+            hr = self.s_paced / live * 3600 if live >= 1 else None
+            if hr is not None and hr <= 0:
+                hr = None
+        first, last = self.s_first or {}, self.last or (None, None, None)
+        change = self.s_mesos - self.s_mesos0 if self.s_mesos0 is not None and self.s_mesos is not None else None
+        picked = self.picked or None       # the corner lines' total only; the inventory change is mesos_change
+        by_count = lambda d: [{"name": n, "count": c} for n, c in sorted(d.items(), key=lambda kv: -kv[1])]
+        data = {"minutes": self._chart(now), "levelups": list(self.levelups), "kills": by_count(self.kills),
+                "party_kills": by_count(self.party_kills), "kills_total": self._kills_total(),
+                "loot": [{"name": n, "count": c} for n, c in self.loot.items()],
+                "used": [{"name": n, "count": c} for n, c in self.used.items()],
+                "mesos_picked": picked, "mesos_change": change,
+                "deaths": [{"ts": d["ts"], "lost": d["lost"]} for d in self.deaths], "maps": list(self.s_maps), "map_ids": list(self.s_map_ids)}
+        row = (start, now, self.s_map_id, self.s_map, pq, self.who.get("name"), self.who.get("job"),
+               first.get("level"), first.get("pct"), last[2], last[1], self.s_gained, active, hr,
+               0 if final else 1, json.dumps(data))
+        if self.card_id is None:
+            cur = self.db.execute("INSERT INTO history (start, end, map_id, map, pq, character, job, level_start,"
+                                  " pct_start, level_end, pct_end, exp_gained, active_s, exp_hr, open, data)"
+                                  " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", row)
+            self.card_id = cur.lastrowid
+        else:
+            self.db.execute("UPDATE history SET start=?, end=?, map_id=?, map=?, pq=?, character=?, job=?,"
+                            " level_start=?, pct_start=?, level_end=?, pct_end=?, exp_gained=?, active_s=?,"
+                            " exp_hr=?, open=?, data=? WHERE id=?", row + (self.card_id,))
+        self.db.commit()
+        return self.card_id
+
+    def close(self, now):
+        """The app is closing: save the map's stretch and close the session's card."""
+        # the session ended at its last gain (a party quest run, at the time it is left): not hours later
+        end = now if self.s_pq else (self.last_any or now)
+        self._save_segment(end)
+        self.save_card(end, final=True)
+
     # ---- reads
     def _open_gap(self, now):
         """Seconds since the last gain while they still count as grinding (not yet a break)."""
@@ -171,7 +248,7 @@ class Grind:
         if exp is None or pct is None:
             return 0
         if map_id is not None and map_id != self.map_id:
-            pq = pq_of(map_name)
+            pq, old_pq = pq_of(map_name), self.pq
             self.map_id, self.map = map_id, map_name
             if pq is not None and pq == self.pq and self.seg:
                 self.seg["stage"] = map_name      # the next stage: the same run
@@ -179,7 +256,7 @@ class Grind:
                 self._save_segment(now)
                 self.pq = pq
                 self._new_segment(now, level)
-                if not self.no_reset:
+                if not self.no_reset or pq or old_pq:     # a party quest is always a session of its own
                     self._new_session(now)
         elif self.seg is None:
             self._new_segment(now, level)
@@ -207,6 +284,14 @@ class Grind:
             if fresh:
                 self.last = read          # a level EXP just settled that the old read can't lead to: start here
             return 0                      # a misread: keep what we had
+        if gain > 0 and not self.paused and not self.after_pause and self.last_any is not None and now - self.last_any > IDLE_END:
+            # half an hour without EXP: that session is over, this gain starts the next one
+            self._save_segment(self.last_any)
+            self._new_segment(now, level)
+            self._new_session(now, ended=self.last_any)
+            self.s_first = {"level": self.last[2], "pct": self.last[1]}
+        if gain > 0 and level is not None and self.last[2] is not None and level > self.last[2]:
+            self.levelups.append({"ts": now, "level": level})
         self.last = read
         if gain <= 0 or self.paused:
             return 0
@@ -216,6 +301,7 @@ class Grind:
         # gain after a real break can be a lump.
         resumed = self.last_any is None or now - self.last_any > BREAK
         self.last_any = now
+        self.after_pause = False
         need = self.need or need_of(exp, pct) or 0
         lump = resumed and gain > LUMP_SHARE * need     # a quest turned in, not a kill
         self.last_lump = lump
@@ -232,13 +318,20 @@ class Grind:
             self.s_start = now
         m = int(now // 60)
         self.minutes[m] = self.minutes.get(m, 0) + gain     # the whole session: Now's chart
-        self.s_map = self.pq or self.map
+        if self.pq or self.s_map is None:      # a map session's title is its first map; a run's is the quest
+            self.s_map = self.pq or self.map
+            self.s_map_id = None if self.pq else self.map_id
+        if self.map and self.map not in self.s_maps:
+            self.s_maps.append(self.map)
+            if not self.pq and self.map_id is not None:
+                self.s_map_ids.append(self.map_id)
         self.s_gained += gain
         self.seg["exp"] += gain
         self.seg["level_end"] = level
         if self.seg["exp"] and now - (self.seg.get("saved") or 0) > 60:
             self.seg["saved"] = now
             self._save_segment(now)
+            self.save_card(now)
         return gain
 
     def _fits_level(self, exp, pct, level):
@@ -306,6 +399,7 @@ class Grind:
         m = int(now // 60)
         self.minutes[m] = self.minutes.get(m, 0) - lost
         self.events.append((now, -lost, self.s_active, False))
+        self.save_card(now)              # a death is part of the card: keep it even if the app is cut off
 
     @staticmethod
     def _gain(old, new):
@@ -400,6 +494,7 @@ class Grind:
     def pause(self, on):
         self.paused = bool(on)
         if self.paused:
+            self.after_pause = True        # a pause you chose never counts toward the 30 idle minutes
             self.last_gain = None          # the paused time isn't grinding time
 
     def reset(self, now):
@@ -500,6 +595,67 @@ class Grind:
                               " mesos_gained, pq FROM sessions ORDER BY start DESC LIMIT ?", (limit,))
         cols = [c[0] for c in cur.description]
         return [dict(zip(cols, r)) for r in cur.fetchall()]
+
+    # ---- the history list and card
+    def _old_rule(self):
+        """The SQL for sessions from before the history began (walk-throughs and no-EXP ones left out)."""
+        row = self.db.execute("SELECT value FROM meta WHERE key='history_since'").fetchone()
+        return "start < ? AND active_s >= 120 AND exp_gained > 0", float(row[0]) if row else 0.0
+
+    def history_page(self, page, per=8):
+        """One page of the grind history, newest first: saved cards, with the old per-map sessions
+        mixed in by time. The running session isn't listed."""
+        rule, since = self._old_rule()
+        total = (self.db.execute("SELECT COUNT(*) FROM history WHERE open = 0").fetchone()[0]
+                 + self.db.execute(f"SELECT COUNT(*) FROM sessions WHERE {rule}", (since,)).fetchone()[0])
+        pages = max(1, -(-total // per))
+        page = max(0, min(int(page), pages - 1))
+        cur = self.db.execute(
+            "SELECT 'h' || id, 0, start, end, map, map_id, pq, character, level_start, level_end, active_s,"
+            " exp_gained, exp_hr FROM history WHERE open = 0 UNION ALL "
+            "SELECT 's' || id, 1, start, end, map, map_id, pq, NULL, level_start, level_end, active_s,"
+            f" exp_gained, CASE WHEN active_s >= 1 THEN exp_gained / active_s * 3600 END FROM sessions WHERE {rule} "
+            "ORDER BY start DESC, 2, 1 LIMIT ? OFFSET ?", (since, per, page * per))
+        keys = ("id", "old", "start", "end", "map", "map_id", "pq", "character", "level_start", "level_end",
+                "active_s", "exp_gained", "exp_hr")
+        rows = [dict(zip(keys, r)) for r in cur.fetchall()]
+        for r in rows:
+            r["old"] = bool(r["old"])
+        chars = self.db.execute("SELECT COUNT(DISTINCT character) FROM history WHERE open = 0").fetchone()[0]
+        return {"total": total, "page": page, "pages": pages, "multi_char": chars > 1, "rows": rows}
+
+    def history_card(self, key):
+        """One session's card by its row id ("h<id>" a saved card, "s<id>" an old per-map session), or
+        None. A saved card's data keys sit flat beside its row fields."""
+        kind, num = str(key)[:1], str(key)[1:]
+        if kind not in "hs" or not (num.isdecimal() and len(num) <= 12):
+            return None
+        if kind == "h":
+            cur = self.db.execute("SELECT start, end, map, map_id, pq, character, job, level_start, pct_start,"
+                                  " level_end, pct_end, exp_gained, active_s, exp_hr, data FROM history"
+                                  " WHERE id=? AND open = 0", (int(num),))
+            r = cur.fetchone()
+            if not r:
+                return None
+            card = dict(zip([c[0] for c in cur.description], r))
+            card.update(json.loads(card.pop("data") or "{}"))
+            deaths = card.get("deaths") or []
+            card.update(id=key, old=False, deaths_count=len(deaths), exp_lost=sum(d["lost"] for d in deaths))
+            return card
+        cur = self.db.execute("SELECT start, end, map, map_id, pq, level_start, level_end, exp_gained, active_s,"
+                              " kills, mesos_picked, mesos_gained, deaths, exp_lost FROM sessions WHERE id=?", (int(num),))
+        r = cur.fetchone()
+        if not r:
+            return None
+        row = dict(zip([c[0] for c in cur.description], r))
+        kills, deaths, lost = row.pop("kills"), row.pop("deaths"), row.pop("exp_lost")
+        act = row["active_s"] or 0
+        # the same shape as a saved card, with what an old session never kept left empty
+        return {**row, "id": key, "old": True, "character": None, "job": None,
+                "exp_hr": row["exp_gained"] / act * 3600 if act >= 1 else None,
+                "minutes": None, "levelups": [], "kills": [], "party_kills": [], "loot": [], "used": [],
+                "deaths": [], "kills_total": kills or 0, "deaths_count": deaths or 0, "exp_lost": lost or 0,
+                "mesos_change": row.pop("mesos_gained")}
 
     def _chart(self, now):
         """EXP per minute over the whole session (net of deaths), from its first minute to now."""
