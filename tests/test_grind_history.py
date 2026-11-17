@@ -74,12 +74,36 @@ def test_thirty_minutes_without_exp_ends_the_session(tmp_path):
 def test_a_pq_starts_its_own_session_even_when_keeping_across_maps(tmp_path):
     g = tracker(tmp_path); g.no_reset = True
     t = feed(g, [50000 + 100 * i for i in range(41)])
+    t_in = t + 18.0                      # kpq_run reads Kerning City for 18 s, then the first stage begins
     t, _ = kpq_run(g, t, 54000)
+    t_out = t - 18.0                     # ...and its last 18 s are back in town: that read is the exit
     g.close(t)
-    out = g.db.execute("SELECT pq, exp_gained, active_s, start, end FROM history ORDER BY id").fetchall()
+    out = g.db.execute("SELECT pq, exp_gained, active_s, start, end, exp_hr FROM history ORDER BY id").fetchall()
     assert [r[0] for r in out] == [None, "Kerning PQ"]
-    pq, exp, active, start, end = out[1]
-    assert exp == 5500 and abs(active - (end - start)) < 0.01 and active > 240   # wall time, quiet minutes too
+    pq, exp, active, start, end, hr = out[1]
+    # the run's whole time, entry to exit (not first gain to last gain), and what the run's own log row says
+    assert exp == 5500 and abs(start - t_in) < 0.01 and abs(end - t_out) < 0.01 and abs(active - (t_out - t_in)) < 0.01
+    run = g.db.execute("SELECT active_s FROM sessions WHERE pq='Kerning PQ'").fetchone()
+    assert abs(run[0] - active) < 0.01 and abs(hr - exp / active * 3600) < 0.01
+
+
+def test_a_death_that_wipes_a_saved_session_removes_its_card(tmp_path):
+    g = tracker(tmp_path)
+    t = feed(g, [50000 + 100 * i for i in range(41)])
+    assert rows(g)[0][1] == 1                                       # saved while it runs
+    t = feed(g, [49900], t0=t)                                      # a death costing 4,100 EXP: below zero
+    assert g.summary(t)["gained"] < 0
+    feed(g, [49900], t0=t, map_id=2, name="Ant Tunnel II")
+    assert rows(g) == []
+
+
+def test_companion_saves_the_card_when_its_window_closes(tmp_path):
+    import companion
+    g = tracker(tmp_path)
+    feed(g, [50000 + 100 * i for i in range(41)])
+    companion.close_grind({"state": {"grind": g}})
+    assert [r[1] for r in rows(g)] == [0]
+    companion.close_grind({})                                       # no state yet (closed during start-up)
 
 
 def test_close_saves_and_a_crash_is_closed_on_next_start(tmp_path):

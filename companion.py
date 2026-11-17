@@ -622,8 +622,19 @@ def main():
     started = {}
     threading.Thread(target=update_then_serve, args=(win, started), daemon=True).start()
     win.run()                  # until the window is closed (or an update closes it)
+    close_grind(started)
     if started.get("server"):
         started["server"].shutdown()
+
+
+def close_grind(started):
+    """The window closed: keep the grind session's card in the history."""
+    g = (started.get("state") or {}).get("grind")
+    if g is not None:
+        try:
+            g.close(time.time())
+        except Exception as e:
+            applog.log(f"Couldn't save the grind session on exit: {e}")
 
 
 def hold_single_instance():
@@ -705,6 +716,7 @@ def start(win, started):
 
     server, port = start_server(make_handler(data, state, cfg))
     started["server"] = server
+    started["state"] = state
     threading.Thread(target=server.serve_forever, daemon=True).start()
     local = f"http://localhost:{port}"
     applog.say(f"Ready. The dashboard is at {local}")

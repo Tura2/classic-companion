@@ -119,13 +119,15 @@ class Grind:
         self._new_session(None)
 
     # ---- state
-    def _new_session(self, now):
+    def _new_session(self, now, ended=None):
         if getattr(self, "s_start", None) is not None:
             self.last_session = self._session_brief(now)
-            self.save_card(self.last_any or now, final=True)     # it ended at its last gain, not at this read
+            # a map session ended at its last gain, not at this read; a party quest run at the time it was left
+            self.save_card(ended or (now if self.s_pq else (self.last_any or now)), final=True)
         self.card_id = None
         self.levelups = []           # {"ts", "level"}: each level reached in the session
         self.s_pq = self.pq          # the party quest the session is in, if any
+        self.s_enter = now           # when it began: a PQ run's card starts here (its whole wall time)
         self.s_maps = []             # maps the session's EXP came on, in order
         self.s_map_id = None
         self.s_gained, self.s_active, self.s_mesos0, self.s_mesos = 0, 0.0, None, None
@@ -183,11 +185,14 @@ class Grind:
         """Write the session's whole card to the history (a new row the first time, then the same one
         updated). `now` is where it ends. Under 2 minutes of grinding or with no EXP gained it isn't
         kept. Returns the row's id, or None."""
-        if self.s_start is None or self.s_gained <= 0:
-            return None
         pq = self.s_pq
-        active = now - self.s_start if pq else self.s_active          # a PQ run counts all its time
-        if active < CARD_MIN_ACTIVE:
+        start = self.s_enter if pq and self.s_enter is not None else self.s_start
+        active = (now - start if pq else self.s_active) if start is not None else 0.0     # a PQ run counts all its time
+        if self.s_start is None or self.s_gained <= 0 or active < CARD_MIN_ACTIVE:
+            if self.card_id is not None:      # it was saved, but a death took its EXP: it isn't a session after all
+                self.db.execute("DELETE FROM history WHERE id=?", (self.card_id,))
+                self.db.commit()
+                self.card_id = None
             return None
         if pq:
             hr = self.s_gained / active * 3600
@@ -206,7 +211,7 @@ class Grind:
                 "used": [{"name": n, "count": c} for n, c in self.used.items()],
                 "mesos_picked": picked, "mesos_change": change,
                 "deaths": [{"ts": d["ts"], "lost": d["lost"]} for d in self.deaths], "maps": list(self.s_maps)}
-        row = (self.s_start, now, self.s_map_id, self.s_map, pq, self.who.get("name"), self.who.get("job"),
+        row = (start, now, self.s_map_id, self.s_map, pq, self.who.get("name"), self.who.get("job"),
                first.get("level"), first.get("pct"), last[2], last[1], self.s_gained, active, hr,
                0 if final else 1, json.dumps(data))
         if self.card_id is None:
@@ -279,7 +284,7 @@ class Grind:
             # half an hour without EXP: that session is over, this gain starts the next one
             self._save_segment(self.last_any)
             self._new_segment(now, level)
-            self._new_session(now)
+            self._new_session(now, ended=self.last_any)
             self.s_first = {"level": self.last[2], "pct": self.last[1]}
         if gain > 0 and level is not None and self.last[2] is not None and level > self.last[2]:
             self.levelups.append({"ts": now, "level": level})

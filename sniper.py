@@ -876,8 +876,6 @@ class App:
             except queue.Empty:
                 break
             if msg[0] == "quit":
-                if getattr(self, "grind", None) is not None:
-                    self.grind.close(time.time())     # keep the session's card
                 self.root.destroy()
                 return
             try:
