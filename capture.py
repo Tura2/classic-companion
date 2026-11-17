@@ -102,6 +102,49 @@ def client_box(hwnd):
     return p.x, p.y, r.right, r.bottom
 
 
+def monitor_box(hwnd):
+    """The bounds (left, top, right, bottom) of the monitor the window is on, or None."""
+    class RECT(ctypes.Structure):
+        _fields_ = [("left", ctypes.c_long), ("top", ctypes.c_long),
+                    ("right", ctypes.c_long), ("bottom", ctypes.c_long)]
+
+    class MONITORINFO(ctypes.Structure):
+        _fields_ = [("cbSize", ctypes.c_ulong), ("rcMonitor", RECT), ("rcWork", RECT), ("dwFlags", ctypes.c_ulong)]
+    try:
+        u = ctypes.windll.user32
+        u.MonitorFromWindow.restype = ctypes.c_void_p
+        mon = u.MonitorFromWindow(ctypes.c_void_p(hwnd), 2)          # 2 = the nearest monitor
+        info = MONITORINFO()
+        info.cbSize = ctypes.sizeof(MONITORINFO)
+        if not mon or not u.GetMonitorInfoW(ctypes.c_void_p(mon), ctypes.byref(info)):
+            return None
+        r = info.rcMonitor
+        return r.left, r.top, r.right, r.bottom
+    except Exception:
+        return None
+
+
+def covers(client, monitor):
+    """Whether the game's drawing area (left, top, width, height) is its whole monitor (full screen)."""
+    if monitor is None:
+        return False
+    cl, ct, cw, ch = client
+    return (cl, ct, cl + cw, ct + ch) == tuple(monitor)
+
+
+def game_area(img, window, client, full=False):
+    """The game's picture out of a capture of its window: the client area (no title bar or border),
+    and in full screen on a monitor of another shape without the black bars round it (the game keeps
+    its own shape there), so every reader sees the game as it does in a window. full: the game covers
+    its whole monitor; only then are black sides bars (in a window they're a small map's)."""
+    import native
+    wl, wt = window
+    cl, ct, cw, ch = client
+    x, y = max(0, cl - wl), max(0, ct - wt)
+    area = img.crop((x, y, min(img.width, x + cw), min(img.height, y + ch)))
+    return native.trim_bars(area) if full else area
+
+
 class GameCapture:
     def __init__(self, title_getter):
         self.title_getter = title_getter     # reads the current "game window title" setting
@@ -239,6 +282,7 @@ class GameCapture:
                 return None
             wl, wt, _, _ = window_bounds(self.hwnd)
             cl, ct, cw, ch = client_box(self.hwnd)
+            self.monitor = monitor_box(self.hwnd)
             with self.lock:
                 img = self.frame
         if img is None or cw < 100 or ch < 100:
@@ -246,8 +290,7 @@ class GameCapture:
             self._log()
             return None
         self.error = ""
-        x, y = max(0, cl - wl), max(0, ct - wt)
-        return img.crop((x, y, min(img.width, x + cw), min(img.height, y + ch)))
+        return game_area(img, (wl, wt), (cl, ct, cw, ch), full=covers((cl, ct, cw, ch), self.monitor))
 
     def _log(self):
         if self.error and self.error != getattr(self, "_last_logged", None):

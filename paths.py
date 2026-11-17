@@ -24,7 +24,7 @@ DATA_FILES = ("profile.json", "profile.json.bak", "config.json", "scans.sqlite",
 
 
 def migrate(app_dir=None):
-    """Move data files an older version left loose in the app folder into data\. A file already in
+    r"""Move data files an older version left loose in the app folder into data\. A file already in
     data\ wins, and the loose one is left where it is (never lost). Returns the names moved."""
     app_dir = Path(app_dir or APP_DIR)
     data = app_dir / "data"

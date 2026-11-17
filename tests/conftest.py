@@ -1,6 +1,10 @@
+import os
 import shutil
 import sys
 from pathlib import Path
+
+for _var in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS"):    # as the app (companion.py)
+    os.environ.setdefault(_var, "1")
 
 import pytest
 

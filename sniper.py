@@ -35,6 +35,7 @@ from shopwatch import ShopWatch
 from grind import PQS, Grind, pq_of, pq_of_read
 import notices as notice_lines
 import party as party_split
+import native
 import quickslots
 from capture import GameCapture, client_box, find_window, foreground_window, window_bounds
 from gamedata import JOBS, NPC_PRICES, MapMove
@@ -998,18 +999,24 @@ class App:
             threading.Thread(target=self._corner_look, daemon=True).start()
 
     def _corner_look(self):
+        started = time.time()
         try:
             frame = self.capture.grab_game()
             if frame is None or frame.height < reader.MIN_HEIGHT:
                 return
+            # lines are lost when looks fall more than notices.FORGET apart: say so in the log
+            prev, self.corner_seen = getattr(self, "corner_seen", None), started
+            if prev is not None and started - prev > notice_lines.FORGET:
+                applog.log(f"Corner: {started - prev:.1f} s since the last look; lines in between may be missed")
             if not self.corner_names:
                 self.corner.set_names(list(getattr(self.data, "item_ids", {}) or {}))
                 self.corner_names = True
             mid = self.state["profile"].get("current_map")
             now = time.time()
-            events = self.corner.step(frame, now, prefer=self.data.map_drop_names(mid))
+            view = native.game_view(frame)      # where the game's picture is, worked out once for both
+            events = self.corner.step(view, now, prefer=self.data.map_drop_names(mid))
             try:
-                events = events + self.slots.step(frame, now)
+                events = events + self.slots.step(view, now)
             except Exception as e:      # the quick slots failing never loses the corner's lines
                 applog.problem("read", "Reading the game hit an error. Companion keeps trying.", exc=e)
             if events:
@@ -1018,6 +1025,9 @@ class App:
             applog.problem("read", "Reading the game hit an error. Companion keeps trying.", exc=e)
         finally:
             self.corner_busy = False
+            took = time.time() - started
+            if took > 0.5:
+                applog.log(f"Corner: a look took {took:.2f} s")
 
     def tip_loop(self):
         """Seven times a second while the game is in front and drawing on it is on: has an item

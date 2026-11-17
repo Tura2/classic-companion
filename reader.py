@@ -23,6 +23,7 @@ from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont, ImageOps, 
 from paths import APP_DIR, CACHE_DIR, RES_DIR
 from anchors import Titles
 from hudexp import ExpDigits, exp_glyphs
+import hudnative
 from gamedata import fix_numeral, match_place
 
 DIGITS_FILE = CACHE_DIR / "hud_digits.json"   # level digit shapes learned from CHARACTER STAT
@@ -1428,15 +1429,22 @@ class Reader:
         seen = {"windows": {k: [round(v[1] / frame.width, 4), round(v[2] / frame.height, 4)] for k, v in wins.items()},
                 "scale": round(s, 3)}
         glyphs = exp_g = None
+        # the level and EXP on the game's own pixels by its own sprites: every resolution, nothing to
+        # learn; the frame-scale readers below are the fallback where those don't read
+        nat_lv, nat_exp = hudnative.read_level(frame), hudnative.read_exp(frame)
         if "hud" in wins:
             seen["hud"] = read_hud(frame, wins["hud"], s, self.job_names)
             glyphs = self.last_glyphs = level_glyphs(frame, wins["hud"])
-            lv, exact = self.digits.read(glyphs)
+            lv, exact = (nat_lv, True) if nat_lv else self.digits.read(glyphs)
             seen["hud"].update(level=lv, level_exact=exact)
             exp_g = exp_glyphs(frame, wins["hud"])
-            got = self.exp_digits.read(exp_g)
+            got = nat_exp or self.exp_digits.read(exp_g)
             if got:
                 seen["hud"].update(exp=got["exp"], exp_pct=got["pct"])
+        elif nat_lv or nat_exp:         # "LV." didn't read, the HUD's numbers did
+            seen["hud"] = {"job": None, "level": nat_lv, "level_exact": bool(nat_lv)}
+            if nat_exp:
+                seen["hud"].update(exp=nat_exp["exp"], exp_pct=nat_exp["pct"])
         done = quest_completed(lines, s, self.quest_names)
         if done:
             seen["quest_complete"] = done

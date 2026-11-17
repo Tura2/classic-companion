@@ -336,3 +336,56 @@ def test_the_cursor_over_a_count_never_reads_as_a_few_drunk():
                 got = d.read(p @ native.LUM, x0, y0)
                 cut = got is not None and len(str(got)) < len(str(n)) and str(n).startswith(str(got))
                 assert got is None or got == n or cut or not 1 <= n - got <= quickslots.MAX_DROP, (n, got, dx, dy)
+
+
+def test_full_screen_with_side_bars_reads_the_same():
+    """1920 x 1200 full screen on a 2560 x 1440 monitor: the game draws 1230 x 768 between black bars
+    (measured 2026-11-17), so every place is taken from the picture, not the frame."""
+    from test_native import boxed
+    rng = np.random.default_rng(7)
+    small = rng.integers(60, 230, (48, 77, 3)).astype(np.uint8)
+    pic = np.asarray(Image.fromarray(small).resize((1230, 768), Image.BICUBIC), float)
+    pic[-40:] = 120 + 60 * (np.arange(1230) % 7 == 0)[None, :, None]          # the HUD's bottom bar
+    want = {4: 99, 5: 79, 7: 28, 9: 3}
+    for slot, n in want.items():
+        _, x, y = quickslots.count_spots((1230, 768))[slot]
+        for ch in str(n):
+            paste(pic, sprite(int(ch)), x, y)
+            x += quickslots.ADV[int(ch)]
+    f = native.trim_bars(boxed(np.clip(pic, 0, 255), (2560, 1440), 127.459, 2305.071))   # as the capture does
+    assert quickslots.Digits().read_all(f) == [want.get(s) for s in range(12)]
+
+
+def test_the_slots_hang_from_the_screens_middle():
+    """At 16:9 (1366 wide) the slots sit 69 px further right than at 1228: half the extra width. The
+    HUD is centred; the rows stay on the bottom (measured 2026-11-17, 2560 x 1440 full screen)."""
+    at = {s: (x, y) for s, x, y in quickslots.count_spots((1366, 768))}
+    assert at[4] == (871 + 69, 649) and at[9] == (906 + 69, 683)
+    assert quickslots.slot_origin((1366, 768), 0) == (870 + 69, 596)
+
+
+def test_an_icon_a_row_off_the_rule_is_still_named(tmp_path):
+    """Each icon has its own anchor in the game: Warrior Potion (a thin diagonal vial) sits a row
+    higher than the bottom-on-row-31 rule (measured 2026-11-17: 0.86 a row up, 0.19 at the rule's
+    place, below many icons that half fit anything there), so the first pass tries a row up and down."""
+    flat = (200, 200, 200)
+    vial = np.zeros((28, 26, 4))
+    for k in range(22):                              # a thin diagonal vial: off by a row it hardly fits
+        vial[3 + k, 2 + k, :3] = (150, 60, 200) if k % 2 else (90, 230, 120)
+        vial[3 + k, 2 + k, 3] = 255
+    half = np.zeros((30, 27, 4))                     # icons that half fit any flat slot at the rule's place
+    half[:, :, 3] = 255
+    half[:, :14, :3] = flat
+    others = {}
+    for k in range(12):
+        a = half.copy()
+        a[:, 14:, :3] = (40 + 15 * k, 30, 30)
+        others[2100000 + k] = (f"Item {k}", a)
+    names_set = icon_files(tmp_path, {**others, 2002000: ("Warrior Potion", vial)})
+    names_set.load()
+    pic = background()
+    x0, y0 = quickslots.slot_origin((NW, NH), 0)
+    pic[y0 - 3:y0 + 34, x0 - 1:x0 + 38] = flat         # the slot: flat
+    x, y = quickslots.icon_spot((NW, NH), 0, vial.shape[:2])
+    paste(pic, (vial[..., :3], vial[..., 3:] / 255), x, y - 1)
+    assert names(names_set, stretch(pic))[0] == "Warrior Potion"

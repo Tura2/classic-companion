@@ -4,7 +4,7 @@ many you have left at the slot's bottom left; a count going down is that many dr
 
 Read on the game's own pixels (native.py), where the counts are the game's ItemNo digit pictures,
 exact every time (measured 2026-11-15 on frames at 1920 x 1200): each count starts at a fixed spot
-in its slot, a digit is 8 px on (a "1" 5 px), so it's read left to right by matching the pictures.
+in its slot (the grid hangs from the screen's middle and its bottom), a digit is 8 px on (a "1" 5 px), so it's read left to right by matching the pictures.
 A skill's own number (the zero-job speed skill's charges) sits at the slot's top right and is never
 read. An empty slot keeps its item's icon and shows 0.
 
@@ -25,11 +25,12 @@ from paths import RES_DIR
 DIGIT_DIR = RES_DIR / "assets" / "itemno"
 ADV = {d: 5 if d == 1 else 8 for d in range(10)}     # how far the next digit starts
 ROWS, COLS = 3, 4
-CX, CY = 357, 153       # slot (0, 0)'s count from the game's right and bottom edges: x = NW - CX, y = NH - CY
+CX, CY = 257, 153       # slot (0, 0)'s count from the game's middle and its bottom: x = NW // 2 + CX, y = NH - CY
+                        # (the HUD is centred: at 16:9, 1366 wide, the slots sit 69 px right of 1228's)
 PX, PY = 35, 34         # from one slot to the next
 TOL, SHARE = 6, 0.85    # a digit fits when this share of its pixels is within TOL levels
 MOST = 5                # digits in a count, at most
-SX, SY = 358, 172       # slot (0, 0)'s top left from the game's right and bottom edges
+SX, SY = 256, 172       # slot (0, 0)'s top left from the game's middle and its bottom
 CH, CW = 34, 36         # an icon's place: the slot's rows -2..31 and columns 0..35
 FIT, BEATS = 0.5, 0.15  # an item is named when this share of its icon fits, this much better than any other
 CLOSE = 30              # a pixel fits when its R, G and B are this close, summed
@@ -41,7 +42,7 @@ def count_spots(nsize):
     """[(slot, x, y)]: where each slot's count starts (its first digit's top left), in game pixels,
     slots numbered left to right, top to bottom, from 0."""
     nw, nh = nsize
-    return [(r * COLS + c, nw - CX + PX * c, nh - CY + PY * r) for r in range(ROWS) for c in range(COLS)]
+    return [(r * COLS + c, nw // 2 + CX + PX * c, nh - CY + PY * r) for r in range(ROWS) for c in range(COLS)]
 
 
 class Digits:
@@ -88,12 +89,11 @@ class Digits:
         return int(text)
 
     def read_all(self, frame):
-        """Every slot's count, slot 0 to 11 (None where none is read), from a game frame."""
-        size = native.native_size(*frame.size)
-        spots = count_spots(size)
+        """Every slot's count, slot 0 to 11 (None where none is read), from a game frame (or its View)."""
+        view = native.view_of(frame)
+        spots = count_spots(view.size)
         xs, ys = [s[1] for s in spots], [s[2] for s in spots]
-        nbox = (min(xs) - 2, min(ys) - 2, max(xs) + 8 * MOST + 2, max(ys) + 14)
-        L, (ox, oy) = native.lum(frame, native.frame_box(frame.size, nbox))
+        L, (ox, oy) = view.lum((min(xs) - 2, min(ys) - 2, max(xs) + 8 * MOST + 2, max(ys) + 14))
         return [self.read(L, x - ox, y - oy) for _, x, y in spots]
 
 
@@ -101,7 +101,7 @@ def slot_origin(nsize, slot):
     """A slot's top left in game pixels."""
     nw, nh = nsize
     r, c = divmod(slot, COLS)
-    return nw - SX + PX * c, nh - SY + PY * r
+    return nw // 2 + SX + PX * c, nh - SY + PY * r
 
 
 def icon_spot(nsize, slot, hw):
@@ -163,12 +163,14 @@ class Icons:
         if slot in self.last and np.abs(self.last[slot][0] - top).mean() < SAME:
             return self.last[slot][1]
         self.work += 1
-        best = self._fit(win, 0, 0, slice(None))                 # every icon at its place, then
-        short = np.argsort(-best)[:SHORT]                         # the best few a pixel either way too
+        # every icon at its place and a row up and down (each has its own anchor: Warrior Potion sits
+        # a row higher than the rule, and a thin icon a row off hardly fits), then the best few at
+        # every place a pixel either way
+        best = np.max([self._fit(win, dy, 0, slice(None)) for dy in (-1, 0, 1)], axis=0)
+        short = np.argsort(-best)[:SHORT]
         for dy in (-1, 0, 1):
-            for dx in (-1, 0, 1):
-                if dy or dx:
-                    best[short] = np.maximum(best[short], self._fit(win, dy, dx, short))
+            for dx in (-1, 1):
+                best[short] = np.maximum(best[short], self._fit(win, dy, dx, short))
         by_name = {}
         for n, v in zip(self.names, best):
             by_name[n] = max(v, by_name.get(n, 0))
@@ -181,13 +183,13 @@ class Icons:
 
 
 def slot_names(icons, frame):
-    """Each slot's Use item (None: not one, or not known), slot 0 to 11, from a game frame."""
+    """Each slot's Use item (None: not one, or not known), slot 0 to 11, from a game frame (or its View)."""
     if not icons.ready:
         return [None] * (ROWS * COLS)
-    size = native.native_size(*frame.size)
-    spots = [slot_origin(size, s) for s in range(ROWS * COLS)]
+    view = native.view_of(frame)
+    spots = [slot_origin(view.size, s) for s in range(ROWS * COLS)]
     xs, ys = [p[0] for p in spots], [p[1] for p in spots]
-    R, (ox, oy) = native.rgb(frame, native.frame_box(frame.size, (min(xs) - 2, min(ys) - 4, max(xs) + CW + 3, max(ys) + 34)))
+    R, (ox, oy) = view.rgb((min(xs) - 2, min(ys) - 4, max(xs) + CW + 3, max(ys) + 34))
     return [icons.name(R[y - 3 - oy:y + 33 - oy, x - 1 - ox:x + CW + 1 - ox], s) for s, (x, y) in enumerate(spots)]
 
 
@@ -214,8 +216,8 @@ class QuickSlots:
 
     def counts(self, frame):
         """{item: its count} for the Use items in the quick slots this look."""
-        seen = {}
-        for name, n in zip(slot_names(self.icons, frame), self.digits.read_all(frame)):
+        seen, view = {}, native.view_of(frame)
+        for name, n in zip(slot_names(self.icons, view), self.digits.read_all(view)):
             if name is not None:
                 seen.setdefault(name, set()).add(n)
         return {name: ns.pop() for name, ns in seen.items() if len(ns) == 1 and None not in ns}

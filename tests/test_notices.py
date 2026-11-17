@@ -160,3 +160,58 @@ def test_after_a_long_gap_the_lines_showing_are_the_new_baseline():
     c.set_names(NAMES)
     c.step(frame([]), now=1.0)
     assert c.step(frame(["You have gained mesos (+15)"]), now=30.0) == []
+
+
+def full_screen_lines(texts, xr):
+    """A 2560 x 1440 full-screen frame (the game 1230 x 768 between black bars) with `texts`, newest
+    first, ending at game x xr."""
+    from test_native import boxed
+    import native
+    font = notices.Font()
+    rng = np.random.default_rng(5)
+    small = rng.integers(60, 230, (48, 77, 3)).astype(np.uint8)
+    pic = np.asarray(Image.fromarray(small).resize((1230, 768), Image.BICUBIC), float)
+    pic[-40:] = 120 + 60 * (np.arange(1230) % 7 == 0)[None, :, None]
+    for k, text in enumerate(texts):
+        m = font.mask(text)
+        y, x = notices.Y0 - notices.PITCH * k, xr - m.shape[1]
+        shadow = np.zeros_like(m)
+        shadow[1:, 1:] = m[:-1, :-1]
+        shadow &= ~m
+        for mask, col in ((shadow, (10, 10, 10)), (m, WHITE)):
+            pic[y:y + m.shape[0], x:x + m.shape[1]][mask] = col
+    return native.trim_bars(boxed(np.clip(pic, 0, 255), (2560, 1440), 127.459, 2305.071))     # as the capture does
+
+
+def test_lines_a_pixel_off_are_found_and_kept_to():
+    """At 1230 wide the lines end at 1223, a pixel left of 1228's and 1366's rule (width - 6; measured
+    2026-11-17): the reader tries a pixel either way until a line reads for sure, then keeps to it."""
+    c = notices.Corner()
+    c.set_names(NAMES)
+    f = full_screen_lines(["You have gained mesos (+49)", "Orange Potion x1 earned. (Use)"], 1223)
+    rows = c.read(f)
+    assert [(r.kind, r.n, r.name) for r in rows[:2]] == [("mesos", 49, None), ("item", 1, "Orange Potion")]
+    assert c.shift == {(1230, 768): -1}
+
+
+def test_full_screen_with_side_bars_reads_the_same(corner):
+    """The lines end at the game picture's right edge, not the frame's: in full screen on a wider
+    monitor that's before the black bar (measured 2026-11-17)."""
+    from test_native import boxed
+    import native
+    font = notices.Font()
+    rng = np.random.default_rng(5)
+    small = rng.integers(60, 230, (48, 77, 3)).astype(np.uint8)
+    pic = np.asarray(Image.fromarray(small).resize((1230, 768), Image.BICUBIC), float)
+    pic[-40:] = 120 + 60 * (np.arange(1230) % 7 == 0)[None, :, None]
+    xr, y0 = 1230 - (1228 - notices.XR), notices.Y0
+    for k, text in enumerate(["You have gained mesos (+49)", "Orange Potion x1 earned. (Use)"]):
+        m = font.mask(text)
+        y, x = y0 - notices.PITCH * k, xr - m.shape[1]
+        shadow = np.zeros_like(m)
+        shadow[1:, 1:] = m[:-1, :-1]
+        shadow &= ~m
+        for mask, col in ((shadow, (10, 10, 10)), (m, WHITE)):
+            pic[y:y + m.shape[0], x:x + m.shape[1]][mask] = col
+    rows = corner.read(native.trim_bars(boxed(np.clip(pic, 0, 255), (2560, 1440), 127.459, 2305.071)))
+    assert [(r.kind, r.n, r.name) for r in rows[:2]] == [("mesos", 49, None), ("item", 1, "Orange Potion")]

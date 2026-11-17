@@ -12,6 +12,14 @@ Screen reading and on-game drawing are optional and switched on in the Settings 
   --refresh    re-download game data now
   --no-browser don't open the dashboard automatically
 """
+import os
+
+# The matrix library's own threads, before numpy loads: one. Its many threads fight over the cores and
+# took 29 s, every core full (the PC stuck), for a sum one thread does in 0.6 s (2026-11-17, full
+# screen's width check); the screen reading's sums are all small.
+for _var in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS"):
+    os.environ.setdefault(_var, "1")
+
 import json
 import queue
 import sys
