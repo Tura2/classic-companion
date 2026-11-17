@@ -27,8 +27,13 @@ python companion.py          rem dashboard at http://localhost:8765
 python -m pytest -q          rem the tests
 ```
 
-`build.bat` builds the installer, `dist\CompanionSetup.exe` (needs [Inno Setup 6](https://jrsoftware.org/isinfo.php): `winget install JRSoftware.InnoSetup`). You don't need `discord.json` to build or test; without
+`build.bat` builds the installer, `dist\CompanionSetup.exe` (needs [Inno Setup 6.7 or newer](https://jrsoftware.org/isinfo.php): `winget install JRSoftware.InnoSetup`). You don't need `discord.json` to build or test; without
 it Discord just says "Not set up in this build".
+
+To try the installer's look without a full build, compile a test build with any folder as the payload.
+It has its own AppId, folder and shortcut names, so it never touches a real install:
+`ISCC /DTestBuild /DSourceDir=C:\some\folder /Oout installer\companion.iss`. Its side picture comes from
+`tools/make_installer_art.py` (run it again after changing `web/logo.png`).
 
 ## Where things live
 | File | What it does |
