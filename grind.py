@@ -107,6 +107,7 @@ class Grind:
         self.pq = None               # the party quest you're in, if any
         self.no_reset = False
         self.paused = False          # paused by hand from the dashboard
+        self.after_pause = False     # resumed from a pause that no counted gain has followed yet: never idle
         self.last = None             # the last accepted (exp, pct, level)
         self.raw = None              # the last read, for the two-reads rule
         self.map_id = self.map = None
@@ -129,6 +130,7 @@ class Grind:
         self.s_pq = self.pq          # the party quest the session is in, if any
         self.s_enter = now           # when it began: a PQ run's card starts here (its whole wall time)
         self.s_maps = []             # maps the session's EXP came on, in order
+        self.s_map_ids = []          # their ids, in the same order (skipping party quest stages)
         self.s_map_id = None
         self.s_gained, self.s_active, self.s_mesos0, self.s_mesos = 0, 0.0, None, None
         self.s_paced = 0             # EXP gained by killing: one-off lumps after a break left out
@@ -203,14 +205,14 @@ class Grind:
                 hr = None
         first, last = self.s_first or {}, self.last or (None, None, None)
         change = self.s_mesos - self.s_mesos0 if self.s_mesos0 is not None and self.s_mesos is not None else None
-        picked = self._mesos_picked() if self.picked or self.s_mesos0 is not None else None
+        picked = self.picked or None       # the corner lines' total only; the inventory change is mesos_change
         by_count = lambda d: [{"name": n, "count": c} for n, c in sorted(d.items(), key=lambda kv: -kv[1])]
         data = {"minutes": self._chart(now), "levelups": list(self.levelups), "kills": by_count(self.kills),
                 "party_kills": by_count(self.party_kills), "kills_total": self._kills_total(),
                 "loot": [{"name": n, "count": c} for n, c in self.loot.items()],
                 "used": [{"name": n, "count": c} for n, c in self.used.items()],
                 "mesos_picked": picked, "mesos_change": change,
-                "deaths": [{"ts": d["ts"], "lost": d["lost"]} for d in self.deaths], "maps": list(self.s_maps)}
+                "deaths": [{"ts": d["ts"], "lost": d["lost"]} for d in self.deaths], "maps": list(self.s_maps), "map_ids": list(self.s_map_ids)}
         row = (start, now, self.s_map_id, self.s_map, pq, self.who.get("name"), self.who.get("job"),
                first.get("level"), first.get("pct"), last[2], last[1], self.s_gained, active, hr,
                0 if final else 1, json.dumps(data))
@@ -228,8 +230,10 @@ class Grind:
 
     def close(self, now):
         """The app is closing: save the map's stretch and close the session's card."""
-        self._save_segment(now)
-        self.save_card(now, final=True)
+        # the session ended at its last gain (a party quest run, at the time it is left): not hours later
+        end = now if self.s_pq else (self.last_any or now)
+        self._save_segment(end)
+        self.save_card(end, final=True)
 
     # ---- reads
     def _open_gap(self, now):
@@ -280,7 +284,7 @@ class Grind:
             if fresh:
                 self.last = read          # a level EXP just settled that the old read can't lead to: start here
             return 0                      # a misread: keep what we had
-        if gain > 0 and not self.paused and self.last_any is not None and now - self.last_any > IDLE_END:
+        if gain > 0 and not self.paused and not self.after_pause and self.last_any is not None and now - self.last_any > IDLE_END:
             # half an hour without EXP: that session is over, this gain starts the next one
             self._save_segment(self.last_any)
             self._new_segment(now, level)
@@ -297,6 +301,7 @@ class Grind:
         # gain after a real break can be a lump.
         resumed = self.last_any is None or now - self.last_any > BREAK
         self.last_any = now
+        self.after_pause = False
         need = self.need or need_of(exp, pct) or 0
         lump = resumed and gain > LUMP_SHARE * need     # a quest turned in, not a kill
         self.last_lump = lump
@@ -313,10 +318,13 @@ class Grind:
             self.s_start = now
         m = int(now // 60)
         self.minutes[m] = self.minutes.get(m, 0) + gain     # the whole session: Now's chart
-        self.s_map = self.pq or self.map
-        self.s_map_id = None if self.pq else self.map_id
+        if self.pq or self.s_map is None:      # a map session's title is its first map; a run's is the quest
+            self.s_map = self.pq or self.map
+            self.s_map_id = None if self.pq else self.map_id
         if self.map and self.map not in self.s_maps:
             self.s_maps.append(self.map)
+            if not self.pq and self.map_id is not None:
+                self.s_map_ids.append(self.map_id)
         self.s_gained += gain
         self.seg["exp"] += gain
         self.seg["level_end"] = level
@@ -486,6 +494,7 @@ class Grind:
     def pause(self, on):
         self.paused = bool(on)
         if self.paused:
+            self.after_pause = True        # a pause you chose never counts toward the 30 idle minutes
             self.last_gain = None          # the paused time isn't grinding time
 
     def reset(self, now):
@@ -619,7 +628,7 @@ class Grind:
         """One session's card by its row id ("h<id>" a saved card, "s<id>" an old per-map session), or
         None. A saved card's data keys sit flat beside its row fields."""
         kind, num = str(key)[:1], str(key)[1:]
-        if kind not in "hs" or not num.isdigit():
+        if kind not in "hs" or not (num.isdecimal() and len(num) <= 12):
             return None
         if kind == "h":
             cur = self.db.execute("SELECT start, end, map, map_id, pq, character, job, level_start, pct_start,"

@@ -65,6 +65,7 @@ def test_thirty_minutes_without_exp_ends_the_session(tmp_path):
     t += 1801
     t = feed(g, [54100], t0=t)                                       # the late gain
     assert g.summary(t)["gained"] == 100                             # Now restarted too
+    assert g.db.execute("SELECT exp_gained FROM history ORDER BY id").fetchone()[0] == 4000   # not the late gain
     assert len(rows(g)) == 1
     t = feed(g, [54200 + 100 * i for i in range(40)], t0=t)          # 4 more minutes: its own card
     out = g.db.execute("SELECT open, end FROM history ORDER BY id").fetchall()
@@ -183,3 +184,53 @@ def test_an_old_session_card_has_the_saved_card_shape(tmp_path):
     c = g.history_card("s1")
     assert (c["kills_total"], c["mesos_picked"], c["mesos_change"], c["deaths_count"], c["exp_lost"], c["old"]) ==         (40, 1234, 999, 2, 50, True)
     assert c["kills"] == [] and c["deaths"] == [] and c["loot"] == [] and c["minutes"] is None
+
+
+def test_closing_after_an_afk_ends_the_card_at_the_last_gain(tmp_path):
+    g = tracker(tmp_path)
+    t = feed(g, [50000 + 100 * i for i in range(41)])
+    last, n = g.last_any, len(g._chart(t)["vals"])
+    g.close(last + 8 * 3600)
+    end = g.db.execute("SELECT end FROM history").fetchone()[0]
+    assert end == last
+    assert len(data_of(g)["minutes"]["vals"]) == n
+
+
+def test_a_long_pause_never_ends_the_session(tmp_path):
+    g = tracker(tmp_path)
+    t = feed(g, [50000 + 100 * i for i in range(41)])
+    g.pause(True)
+    t += 40 * 60
+    g.pause(False)
+    t = feed(g, [54100], t0=t)
+    assert g.summary(t)["gained"] == 4100                  # the earlier EXP is still in Now
+    assert len(rows(g)) == 1 and rows(g)[0][1] == 1      # still the one open card
+
+
+def test_a_map_session_is_titled_by_its_first_map(tmp_path):
+    g = tracker(tmp_path); g.no_reset = True
+    t = feed(g, [50000 + 100 * i for i in range(21)], map_id=1, name="Ant Tunnel I")
+    feed(g, [52100 + 100 * i for i in range(21)], t0=t, map_id=2, name="Ant Tunnel II")
+    g.close(g.last_any)
+    r = g.db.execute("SELECT map, map_id FROM history").fetchall()
+    assert r == [("Ant Tunnel I", 1)]
+    assert data_of(g)["maps"] == ["Ant Tunnel I", "Ant Tunnel II"] and data_of(g)["map_ids"] == [1, 2]
+
+
+def test_mesos_picked_is_the_corner_total_only(tmp_path):
+    g = tracker(tmp_path)
+    t = feed(g, [50000 + 100 * i for i in range(41)])
+    g.s_mesos0, g.s_mesos = 1000, 1500
+    g.close(g.last_any)
+    d = data_of(g)
+    assert d["mesos_picked"] is None and d["mesos_change"] == 500
+    g2 = grind.Grind(tmp_path / "g2.sqlite")
+    t = feed(g2, [50000 + 100 * i for i in range(41)])
+    g2.picked = 300
+    g2.close(g2.last_any)
+    assert data_of(g2)["mesos_picked"] == 300
+
+
+def test_a_bad_card_key_is_none(tmp_path):
+    g = tracker(tmp_path)
+    assert g.history_card("h\u00b2") is None and g.history_card("h" + "9" * 40) is None

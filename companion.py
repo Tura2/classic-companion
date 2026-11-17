@@ -292,7 +292,7 @@ def make_handler(data, state, cfg):
                 if url.path == "/api/history":       # the grind history, a page at a time
                     g = state.get("grind")
                     page = parse_qs(url.query).get("page", ["0"])[0]
-                    return self.send(200, g.history_page(int(page) if page.isdigit() else 0) if g else
+                    return self.send(200, g.history_page(int(page) if page.isdecimal() and len(page) <= 9 else 0) if g else
                                      {"total": 0, "page": 0, "pages": 1, "multi_char": False, "rows": []})
                 if url.path.startswith("/api/history/"):     # one session's card
                     g = state.get("grind")
@@ -571,9 +571,11 @@ def loot_tiles(data, picked, used):
 def card_view(card, data):
     """A history card as the pop-up draws it: the card plus its loot tiles, its kills with each
     monster's picture (None for names not on the map or unnamed), the best minute and the rates."""
-    mid = card.get("map_id")
-    here = data.here(mid) if mid in getattr(data, "maps", {}) else {"mobs": []}
-    imgs = {m["name"]: m.get("img") for m in here["mobs"]}
+    imgs = {}
+    for mid in [card.get("map_id")] + list(card.get("map_ids") or []):     # every map the session ground on
+        if mid in getattr(data, "maps", {}):
+            for m in data.here(mid)["mobs"]:
+                imgs.setdefault(m["name"], m.get("img"))
     kills = [{**k, "img": imgs.get(k["name"])} for k in card.get("kills") or []]
     vals = (card.get("minutes") or {}).get("vals") or []
     mins = (card.get("active_s") or 0) / 60

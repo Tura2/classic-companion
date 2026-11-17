@@ -45,3 +45,12 @@ def test_a_saved_card_counts_its_deaths(tmp_path):
     g.db.commit()
     c = g.history_card("h1")
     assert (c["deaths_count"], c["exp_lost"]) == (2, 50)
+
+
+def test_card_view_finds_a_monster_picture_from_the_second_map(tmp_path, game_reader):
+    d = game_reader.data
+    first, second = d.match_map_name("Line 2 <Area 1>"), d.match_map_name("Line 1 <Area 1>")
+    only_second = next(m["name"] for m in d.here(second)["mobs"]
+                       if m["name"] not in {x["name"] for x in d.here(first)["mobs"]} and d.here(second)["mobs"])
+    card = {"map_id": first, "map_ids": [first, second], "kills": [{"name": only_second, "count": 1}], "loot": []}
+    assert companion.card_view(card, d)["kills"][0]["img"]
