@@ -35,6 +35,7 @@ from shopwatch import ShopWatch
 from grind import PQS, Grind, pq_of, pq_of_read
 import notices as notice_lines
 import party as party_split
+import native
 import quickslots
 from capture import GameCapture, client_box, find_window, foreground_window, window_bounds
 from gamedata import JOBS, NPC_PRICES, MapMove
@@ -1007,9 +1008,10 @@ class App:
                 self.corner_names = True
             mid = self.state["profile"].get("current_map")
             now = time.time()
-            events = self.corner.step(frame, now, prefer=self.data.map_drop_names(mid))
+            view = native.game_view(frame)      # where the game's picture is, worked out once for both
+            events = self.corner.step(view, now, prefer=self.data.map_drop_names(mid))
             try:
-                events = events + self.slots.step(frame, now)
+                events = events + self.slots.step(view, now)
             except Exception as e:      # the quick slots failing never loses the corner's lines
                 applog.problem("read", "Reading the game hit an error. Companion keeps trying.", exc=e)
             if events:

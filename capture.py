@@ -102,6 +102,17 @@ def client_box(hwnd):
     return p.x, p.y, r.right, r.bottom
 
 
+def game_area(img, window, client):
+    """The game's picture out of a capture of its window: the client area (no title bar or border),
+    and in full screen on a monitor of another shape without the black bars round it (the game keeps
+    its own shape there), so every reader sees the game as it does in a window."""
+    import native
+    wl, wt = window
+    cl, ct, cw, ch = client
+    x, y = max(0, cl - wl), max(0, ct - wt)
+    return native.trim_bars(img.crop((x, y, min(img.width, x + cw), min(img.height, y + ch))))
+
+
 class GameCapture:
     def __init__(self, title_getter):
         self.title_getter = title_getter     # reads the current "game window title" setting
@@ -246,8 +257,7 @@ class GameCapture:
             self._log()
             return None
         self.error = ""
-        x, y = max(0, cl - wl), max(0, ct - wt)
-        return img.crop((x, y, min(img.width, x + cw), min(img.height, y + ch)))
+        return game_area(img, (wl, wt), (cl, ct, cw, ch))
 
     def _log(self):
         if self.error and self.error != getattr(self, "_last_logged", None):

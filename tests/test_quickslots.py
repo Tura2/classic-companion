@@ -336,3 +336,30 @@ def test_the_cursor_over_a_count_never_reads_as_a_few_drunk():
                 got = d.read(p @ native.LUM, x0, y0)
                 cut = got is not None and len(str(got)) < len(str(n)) and str(n).startswith(str(got))
                 assert got is None or got == n or cut or not 1 <= n - got <= quickslots.MAX_DROP, (n, got, dx, dy)
+
+
+def test_full_screen_with_side_bars_reads_the_same():
+    """1920 x 1200 full screen on a 2560 x 1440 monitor: the game draws 1230 x 768 between black bars
+    (measured 2026-11-17), so every place is taken from the picture, not the frame."""
+    from test_native import boxed
+    native._views.clear()
+    rng = np.random.default_rng(7)
+    small = rng.integers(60, 230, (48, 77, 3)).astype(np.uint8)
+    pic = np.asarray(Image.fromarray(small).resize((1230, 768), Image.BICUBIC), float)
+    pic[-40:] = 120 + 60 * (np.arange(1230) % 7 == 0)[None, :, None]          # the HUD's bottom bar
+    want = {4: 99, 5: 79, 7: 28, 9: 3}
+    for slot, n in want.items():
+        _, x, y = quickslots.count_spots((1230, 768))[slot]
+        for ch in str(n):
+            paste(pic, sprite(int(ch)), x, y)
+            x += quickslots.ADV[int(ch)]
+    f = boxed(np.clip(pic, 0, 255), (2560, 1440), 127.459, 2305.071)
+    assert quickslots.Digits().read_all(f) == [want.get(s) for s in range(12)]
+
+
+def test_the_slots_hang_from_the_screens_middle():
+    """At 16:9 (1366 wide) the slots sit 69 px further right than at 1228: half the extra width. The
+    HUD is centred; the rows stay on the bottom (measured 2026-11-17, 2560 x 1440 full screen)."""
+    at = {s: (x, y) for s, x, y in quickslots.count_spots((1366, 768))}
+    assert at[4] == (871 + 69, 649) and at[9] == (906 + 69, 683)
+    assert quickslots.slot_origin((1366, 768), 0) == (870 + 69, 596)

@@ -305,10 +305,11 @@ class Corner:
         self.names = Names(names, self.font)
 
     def _place(self, frame):
-        nw, nh = native.native_size(*frame.size)
+        view = native.view_of(frame)          # the game's picture: between black bars in full screen
+        nw, nh = view.size
         xr, y0 = nw - (1228 - XR), nh - (768 - Y0)
         top = y0 - PITCH * (ROWS - 1) - 2
-        lum, (x0, y0n) = native.lum(frame, native.frame_box(frame.size, (xr - WIDE, top, nw, y0 + 17)))
+        lum, (x0, y0n) = view.lum((xr - WIDE, top, nw, y0 + 17))
         return lum, xr - x0, [y0 - PITCH * k - y0n for k in range(ROWS)]
 
     def read(self, frame):

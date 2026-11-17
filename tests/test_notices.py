@@ -160,3 +160,27 @@ def test_after_a_long_gap_the_lines_showing_are_the_new_baseline():
     c.set_names(NAMES)
     c.step(frame([]), now=1.0)
     assert c.step(frame(["You have gained mesos (+15)"]), now=30.0) == []
+
+
+def test_full_screen_with_side_bars_reads_the_same(corner):
+    """The lines end at the game picture's right edge, not the frame's: in full screen on a wider
+    monitor that's before the black bar (measured 2026-11-17)."""
+    from test_native import boxed
+    import native
+    native._views.clear()
+    font = notices.Font()
+    rng = np.random.default_rng(5)
+    small = rng.integers(60, 230, (48, 77, 3)).astype(np.uint8)
+    pic = np.asarray(Image.fromarray(small).resize((1230, 768), Image.BICUBIC), float)
+    pic[-40:] = 120 + 60 * (np.arange(1230) % 7 == 0)[None, :, None]
+    xr, y0 = 1230 - (1228 - notices.XR), notices.Y0
+    for k, text in enumerate(["You have gained mesos (+49)", "Orange Potion x1 earned. (Use)"]):
+        m = font.mask(text)
+        y, x = y0 - notices.PITCH * k, xr - m.shape[1]
+        shadow = np.zeros_like(m)
+        shadow[1:, 1:] = m[:-1, :-1]
+        shadow &= ~m
+        for mask, col in ((shadow, (10, 10, 10)), (m, WHITE)):
+            pic[y:y + m.shape[0], x:x + m.shape[1]][mask] = col
+    rows = corner.read(boxed(np.clip(pic, 0, 255), (2560, 1440), 127.459, 2305.071))
+    assert [(r.kind, r.n, r.name) for r in rows[:2]] == [("mesos", 49, None), ("item", 1, "Orange Potion")]
