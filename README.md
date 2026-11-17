@@ -62,7 +62,9 @@ in this mode:
   - **Grind**: EXP an hour, time to level, kills to level, grinding time, a chart of EXP per
     minute over the whole session (with the game's tombstone where you died), and your 5 best
     maps by EXP an hour in your last 5 levels. "All maps" opens every one, with kills and mesos
-    an hour.
+    an hour. "History" lists your past sessions, 8 to a page, newest first; click one to open it
+    in full, with its chart, loot, kills and deaths (sessions from before this update show their
+    totals only).
   - **This session**: how far the EXP bar moved (across a level-up too), deaths, the loot, and
     the mesos.
   - **This map**: its monsters (level, HP, EXP) with your kills, and "Worth picking up" for
