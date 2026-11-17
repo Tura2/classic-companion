@@ -129,6 +129,8 @@ DARK = 8            # a frame pixel no brighter than this is a bar's
 HUD_BAND = 0.04     # the bottom (and left) share of the frame the HUD's edge is measured on
 AREA = "game_area"  # frame.info key: (x0, w, y0, h), the game's picture in the frame (fractions too)
 _widths = {}        # (rounded area, frame size) -> the game's own width there
+_bars = {}          # frame size -> the bars last found there: live frames measure the same edge a few
+WOBBLE = 0.1        # thousandths of a pixel apart, and an edge moved less than this is the same one
 
 
 class View:
@@ -207,8 +209,13 @@ def trim_bars(frame):
     found = find_bars(frame)
     if found is None:
         return frame
-    x0, w, y0, h = found
     fw, fh = frame.size
+    known = _bars.get((fw, fh))
+    if known and abs(known[0] - found[0]) < WOBBLE and abs(known[2] - found[2]) < WOBBLE:
+        found = known                   # the same edge: keeps the un-stretch sums and the width known
+    else:
+        found = _bars[(fw, fh)] = tuple(float(v) for v in found)
+    x0, w, y0, h = found
     cx, cy = max(0, int(x0) - 1), max(0, int(y0) - 1)
     cut = frame.crop((cx, cy, min(fw, int(np.ceil(x0 + w)) + 1), min(fh, int(np.ceil(y0 + h)) + 1)))
     cut.info[AREA] = (x0 - cx, w, y0 - cy, h)

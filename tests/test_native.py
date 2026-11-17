@@ -136,3 +136,17 @@ def test_a_frame_without_bars_is_not_cut():
     frame = stretched(np.clip(nat_picture(1228, 768), 0, 255), (1920, 1200))
     assert native.trim_bars(frame) is frame
     assert native.trim_bars(Image.new("RGB", (1920, 1200))).size == (1920, 1200)     # all black: as it is
+
+
+def test_the_bars_edge_stays_put_while_it_only_wobbles():
+    """Live frames measure the same edge a few thousandths of a pixel apart (127.4646 then 127.4595,
+    2026-11-17). Each new edge is new un-stretch sums and a new width check, every look, all of it
+    heavy, so an edge that hardly moved is the one already known; a real move is taken."""
+    native._bars.clear()
+    nat = np.clip(nat_picture(1230, 768), 0, 255)
+    first = native.trim_bars(boxed(nat, (2560, 1440), 127.4646, 2305.0708)).info[native.AREA]
+    again = native.trim_bars(boxed(np.clip(nat_picture(1230, 768, seed=9), 0, 255), (2560, 1440),
+                                   127.4595, 2305.081)).info[native.AREA]
+    assert again == first
+    moved = native.trim_bars(boxed(np.clip(nat_picture(1228, 768), 0, 255), (2560, 1440), 240, 2080)).info[native.AREA]
+    assert abs(moved[0] - 1) < 0.05 and abs(moved[1] - 2080) < 0.1
