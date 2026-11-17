@@ -587,6 +587,61 @@ class Grind:
         cols = [c[0] for c in cur.description]
         return [dict(zip(cols, r)) for r in cur.fetchall()]
 
+    # ---- the history list and card
+    def _old_rule(self):
+        """The SQL for sessions from before the history began (walk-throughs and no-EXP ones left out)."""
+        row = self.db.execute("SELECT value FROM meta WHERE key='history_since'").fetchone()
+        return "start < ? AND active_s >= 120 AND exp_gained > 0", float(row[0]) if row else 0.0
+
+    def history_page(self, page, per=8):
+        """One page of the grind history, newest first: saved cards, with the old per-map sessions
+        mixed in by time. The running session isn't listed."""
+        rule, since = self._old_rule()
+        total = (self.db.execute("SELECT COUNT(*) FROM history WHERE open = 0").fetchone()[0]
+                 + self.db.execute(f"SELECT COUNT(*) FROM sessions WHERE {rule}", (since,)).fetchone()[0])
+        pages = max(1, -(-total // per))
+        page = max(0, min(int(page), pages - 1))
+        cur = self.db.execute(
+            "SELECT 'h' || id, 0, start, end, map, map_id, pq, character, level_start, level_end, active_s,"
+            " exp_gained, exp_hr FROM history WHERE open = 0 UNION ALL "
+            "SELECT 's' || id, 1, start, end, map, map_id, pq, NULL, level_start, level_end, active_s,"
+            f" exp_gained, CASE WHEN active_s >= 1 THEN exp_gained / active_s * 3600 END FROM sessions WHERE {rule} "
+            "ORDER BY start DESC, 2, 1 LIMIT ? OFFSET ?", (since, per, page * per))
+        keys = ("id", "old", "start", "end", "map", "map_id", "pq", "character", "level_start", "level_end",
+                "active_s", "exp_gained", "exp_hr")
+        rows = [dict(zip(keys, r)) for r in cur.fetchall()]
+        for r in rows:
+            r["old"] = bool(r["old"])
+        chars = self.db.execute("SELECT COUNT(DISTINCT character) FROM history WHERE open = 0").fetchone()[0]
+        return {"total": total, "page": page, "pages": pages, "multi_char": chars > 1, "rows": rows}
+
+    def history_card(self, key):
+        """One session's card by its row id ("h<id>" a saved card, "s<id>" an old per-map session), or
+        None. A saved card's data keys sit flat beside its row fields."""
+        kind, num = str(key)[:1], str(key)[1:]
+        if kind not in "hs" or not num.isdigit():
+            return None
+        if kind == "h":
+            cur = self.db.execute("SELECT start, end, map, map_id, pq, character, job, level_start, pct_start,"
+                                  " level_end, pct_end, exp_gained, active_s, exp_hr, data FROM history"
+                                  " WHERE id=? AND open = 0", (int(num),))
+            r = cur.fetchone()
+            if not r:
+                return None
+            card = dict(zip([c[0] for c in cur.description], r))
+            card.update(json.loads(card.pop("data") or "{}"))
+            card.update(id=key, old=False)
+            return card
+        cur = self.db.execute("SELECT start, end, map, map_id, pq, level_start, level_end, exp_gained, active_s,"
+                              " kills, mesos_picked, deaths, exp_lost FROM sessions WHERE id=?", (int(num),))
+        r = cur.fetchone()
+        if not r:
+            return None
+        card = dict(zip([c[0] for c in cur.description], r))
+        card.update(id=key, old=True, character=None, job=None,
+                    exp_hr=card["exp_gained"] / card["active_s"] * 3600 if (card["active_s"] or 0) >= 1 else None)
+        return card
+
     def _chart(self, now):
         """EXP per minute over the whole session (net of deaths), from its first minute to now."""
         if not self.minutes:

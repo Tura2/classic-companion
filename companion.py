@@ -289,6 +289,15 @@ def make_handler(data, state, cfg):
                 if url.path == "/api/allmaps":       # every map of your last 5 levels, for Now's pop-up
                     g = state.get("grind")
                     return self.send(200, g.all_maps(int(prof.get("level") or 1)) if g else [])
+                if url.path == "/api/history":       # the grind history, a page at a time
+                    g = state.get("grind")
+                    page = parse_qs(url.query).get("page", ["0"])[0]
+                    return self.send(200, g.history_page(int(page) if page.isdigit() else 0) if g else
+                                     {"total": 0, "page": 0, "pages": 1, "multi_char": False, "rows": []})
+                if url.path.startswith("/api/history/"):     # one session's card
+                    g = state.get("grind")
+                    card = g.history_card(url.path[len("/api/history/"):]) if g else None
+                    return self.send(200, card_view(card, data)) if card else self.send(404, {"error": "not found"})
                 if url.path == "/api/myshop":
                     return self.send(200, state.get("myshop") or {"watching": False, "sales": []})
                 if url.path == "/api/state":
@@ -546,6 +555,38 @@ class Server(ThreadingHTTPServer):
     allow_reuse_address = sys.platform != "win32"
 
 
+def loot_tiles(data, picked, used):
+    """One tile per item: picked up less drunk (potions drunk from the quick slots), most first,
+    then the ones down to zero or below, most drunk first; with what each item is and is worth."""
+    info = getattr(data, "item_info", {})
+    names = list(picked) + [n for n in used if n not in picked]
+    net = {n: picked.get(n, 0) - used.get(n, 0) for n in names}
+    names = [n for n in names if net[n] > 0] + sorted((n for n in names if net[n] <= 0), key=lambda n: net[n])
+    return [{"name": n, "count": net[n], "picked": picked.get(n, 0), "used": used.get(n, 0), "img": data.item_img(n),
+             "kind": (info.get(n) or {}).get("kind", ""), "desc": (info.get(n) or {}).get("desc", ""),
+             "msc": (data.market.items.get(n) or {}).get("p"), "npc": data.npc_price(n)}
+            for n in names]
+
+
+def card_view(card, data):
+    """A history card as the pop-up draws it: the card plus its loot tiles, its kills with each
+    monster's picture (None for names not on the map or unnamed), the best minute and the rates."""
+    mid = card.get("map_id")
+    here = data.here(mid) if mid in getattr(data, "maps", {}) else {"mobs": []}
+    imgs = {m["name"]: m.get("img") for m in here["mobs"]}
+    kills = [{**k, "img": imgs.get(k["name"])} for k in card.get("kills") or []]
+    vals = (card.get("minutes") or {}).get("vals") or []
+    mins = (card.get("active_s") or 0) / 60
+    kt = card.get("kills_total")
+    mp = card.get("mesos_picked")
+    return {**card, "kills": kills,
+            "loot": loot_tiles(data, {x["name"]: x["count"] for x in card.get("loot") or []},
+                               {x["name"]: x["count"] for x in card.get("used") or []}),
+            "best_minute": max(vals) if vals else None,
+            "kills_per_min": round(kt / mins, 1) if kt and mins >= 1 else None,
+            "mesos_per_min": round(mp / mins) if mp and mins >= 1 else None}
+
+
 def session_view(g, data, map_id, now):
     """This grind session as Now draws it: the map's monsters with your kills (and kills of monsters
     not on it, and unnamed ones), the loot with what each item is and is worth (for its tooltip),
@@ -558,17 +599,7 @@ def session_view(g, data, map_id, now):
               "level": m.get("level"), "hp": m.get("hp"), "exp": m.get("exp")} for m in here["mobs"]]
     kills += [{"name": n, "count": c, "party": party.get(n, 0), "img": None, "level": None, "hp": None, "exp": None}
               for n, c in counts.items()]          # killed elsewhere this session, or not named (None)
-    info = getattr(data, "item_info", {})
-    # one tile per item: picked up less drunk (potions drunk from the quick slots), most first,
-    # then the ones down to zero or below, most drunk first
-    picked, used = {x["name"]: x["count"] for x in s["loot"]}, {x["name"]: x["count"] for x in s.get("used", [])}
-    names = list(picked) + [n for n in used if n not in picked]
-    net = {n: picked.get(n, 0) - used.get(n, 0) for n in names}
-    names = [n for n in names if net[n] > 0] + sorted((n for n in names if net[n] <= 0), key=lambda n: net[n])
-    loot = [{"name": n, "count": net[n], "picked": picked.get(n, 0), "used": used.get(n, 0), "img": data.item_img(n),
-             "kind": (info.get(n) or {}).get("kind", ""), "desc": (info.get(n) or {}).get("desc", ""),
-             "msc": (data.market.items.get(n) or {}).get("p"), "npc": data.npc_price(n)}
-            for n in names]
+    loot = loot_tiles(data, {x["name"]: x["count"] for x in s["loot"]}, {x["name"]: x["count"] for x in s.get("used", [])})
     minutes = (now - s["since"]) / 60 if s.get("since") else 0
     return {"kills": kills, "kills_total": s["kills_total"], "loot": loot, "mesos_picked": s["mesos_picked"],
             "mesos_per_min": round(s["mesos_picked"] / minutes) if minutes >= 1 else None,

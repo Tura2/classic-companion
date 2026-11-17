@@ -1,5 +1,6 @@
 """The grind history: every session is saved in full (its card), while it runs and when it ends."""
 import json
+import time
 
 import grind
 from test_grind import NEED, feed, kpq_run, tracker
@@ -114,3 +115,70 @@ def test_close_saves_and_a_crash_is_closed_on_next_start(tmp_path):
     g2 = grind.Grind(tmp_path / "grind.sqlite")
     assert g2.db.execute("SELECT open, end FROM history").fetchall() == [(0, saved_end)]
     assert g2.db.execute("SELECT value FROM meta WHERE key='history_since'").fetchone() is not None
+
+
+def saved(g, n, who="Tura1", t0=None):
+    """n saved sessions (3 minutes on map k, then a new map), the last one left running."""
+    g.who = {"name": who, "job": "Hunter"}
+    t = time.time() + 10 if t0 is None else t0     # after the history began, like real sessions
+    for k in range(n):
+        t = feed(g, [50000 + 4000 * k + 100 * i for i in range(31)], t0=t, map_id=10 + k, name=f"Map {k}")
+    return t
+
+
+def test_the_list_pages_eight_newest_first_without_the_open_one(tmp_path):
+    g = tracker(tmp_path)
+    saved(g, 11)                                    # 10 closed, the 11th still running
+    p = g.history_page(0)
+    assert p["total"] == 10 and p["pages"] == 2 and len(p["rows"]) == 8 and p["page"] == 0
+    starts = [r["start"] for r in p["rows"]]
+    assert starts == sorted(starts, reverse=True)
+    open_id = g.db.execute("SELECT id FROM history WHERE open = 1").fetchone()[0]
+    ids = [r["id"] for r in p["rows"]] + [r["id"] for r in g.history_page(1)["rows"]]
+    assert f"h{open_id}" not in ids and len(set(ids)) == 10 and len(g.history_page(1)["rows"]) == 2
+
+
+def test_old_rows_mix_in_by_time_and_walk_throughs_are_hidden(tmp_path):
+    g = tracker(tmp_path)
+    t = saved(g, 3)                                 # 2 closed cards, one running
+    since = float(g.db.execute("SELECT value FROM meta WHERE key='history_since'").fetchone()[0])
+    for start, act, exp in ((since - 5000, 600, 9000), (since - 4000, 60, 500), (since - 3000, 600, 0)):
+        g.db.execute("INSERT INTO sessions (start, end, map_id, map, level_start, level_end, exp_gained, active_s)"
+                     " VALUES (?,?,?,?,?,?,?,?)", (start, start + act, 1, "Old Map", 30, 30, exp, act))
+    g.db.execute("UPDATE history SET start = ? WHERE id = (SELECT MIN(id) FROM history)", (since - 9000,))
+    g.db.commit()
+    p = g.history_page(0)
+    assert p["total"] == 3
+    assert [r["old"] for r in p["rows"]] == [False, True, False]      # the old one sits between by its start
+    old = p["rows"][1]
+    assert old["id"].startswith("s") and old["map"] == "Old Map" and old["exp_gained"] == 9000
+    seen = [r["id"] for n in range(2) for r in g.history_page(n, per=2)["rows"]]
+    assert sorted(seen) == sorted(r["id"] for r in p["rows"]) and len(seen) == 3
+
+
+def test_multi_char_only_with_two_characters(tmp_path):
+    g = tracker(tmp_path)
+    t = saved(g, 3)
+    assert g.history_page(0)["multi_char"] is False
+    t = saved(g, 2, who="Tura4", t0=t)
+    assert g.history_page(0)["multi_char"] is True
+
+
+def test_the_card_is_flat_and_missing_ones_are_none(tmp_path):
+    g = tracker(tmp_path)
+    saved(g, 2)
+    hid = g.db.execute("SELECT id FROM history WHERE open = 0").fetchone()[0]
+    c = g.history_card(f"h{hid}")
+    assert c["exp_gained"] == 3000 and c["minutes"]["vals"] and c["kills"] == [] and "data" not in c
+    assert g.history_card("h999") is None and g.history_card("x1") is None and g.history_card("hz") is None
+    open_id = g.db.execute("SELECT id FROM history WHERE open = 1").fetchone()[0]
+    assert g.history_card(f"h{open_id}") is None
+
+
+def test_an_old_session_card_has_its_segment_totals(tmp_path):
+    g = tracker(tmp_path)
+    g.db.execute("INSERT INTO sessions (start, end, map_id, map, level_start, level_end, exp_gained, active_s, kills,"
+                 " mesos_picked, deaths, exp_lost) VALUES (1,2,1,'Old Map',30,30,900,600,40,1234,2,50)")
+    g.db.commit()
+    c = g.history_card("s1")
+    assert (c["kills"], c["mesos_picked"], c["deaths"], c["exp_lost"], c["old"]) == (40, 1234, 2, 50, True)
