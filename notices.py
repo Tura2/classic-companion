@@ -37,6 +37,7 @@ LINE, SURE = 0.8, 0.95      # a row has a line at this quality; it's read for su
 NAME_OK = 0.85              # an item name agrees at least this well, or it's no known item
 FORGET = 3.0                # seconds between looks after which the lines showing start afresh
 CUTS = range(10, 21)        # the game shows a long item name's first this many characters, then "..."
+SHIFTS = (0, -1, 1)         # where a size's lines may end, off the width - 6 rule, until one reads for sure
 
 PREFIX = {"exp": "You received EXP (+", "party": "Bonus EXP for PARTY (+", "mesos": "You have gained mesos (+"}
 TABS = ("Etc", "Use", "Equip", "Setup", "Set-up", "Install", "Cash")
@@ -300,6 +301,7 @@ class Corner:
         self.names = Names([], self.font)
         self.lines = []           # the lines last seen, newest first: dicts with text, contrast, done
         self.last = None          # when the last look was
+        self.shift = {}           # the game's size -> how far its lines end off the width - 6 rule
 
     def set_names(self, names):
         self.names = Names(names, self.font)
@@ -309,13 +311,32 @@ class Corner:
         nw, nh = view.size
         xr, y0 = nw - (1228 - XR), nh - (768 - Y0)
         top = y0 - PITCH * (ROWS - 1) - 2
-        lum, (x0, y0n) = view.lum((xr - WIDE, top, nw, y0 + 17))
-        return lum, xr - x0, [y0 - PITCH * k - y0n for k in range(ROWS)]
+        lum, (x0, y0n) = view.lum((xr - WIDE - 1, top, nw, y0 + 17))
+        return lum, xr - x0, [y0 - PITCH * k - y0n for k in range(ROWS)], view.size
+
+    def _look(self, frame):
+        """The rows read where this size's lines end: (lum, xr, ys, lines). The lines end at the
+        game's width - 6 at 1228 and 1366 but at 1223 at 1230 (full screen between bars, measured
+        2026-11-17), so until a line reads for sure a size tries a pixel either way too, and keeps
+        to the place that read it."""
+        lum, xr, ys, size = self._place(frame)
+        known = self.shift.get(size)
+        best = None
+        for d in (known,) if known is not None else SHIFTS:
+            cur = [self._read(lum, y, xr + d) for y in ys]
+            sure = sum(1 for c in cur if c and c.quality >= SURE)
+            if best is None or sure > best[0]:
+                best = (sure, d, cur)
+            if known is None and d == 0 and (sure or not any(_Row(lum, y).busy(xr - 42, xr + 2) >= 25 for y in ys)):
+                break                         # read for sure where expected, or no line's end showing at all
+        sure, d, cur = best
+        if known is None and sure:
+            self.shift[size] = d
+        return lum, xr + d, ys, cur
 
     def read(self, frame):
         """Each row's line, newest (bottom) first: a Line, or None where none reads."""
-        lum, xr, ys = self._place(frame)
-        return [self._read(lum, y, xr) for y in ys]
+        return self._look(frame)[3]
 
     def _read(self, lum, y, xr):
         first = read_row(lum, y, self.font, self.names, xr)
@@ -328,8 +349,7 @@ class Corner:
     def step(self, frame, now, prefer=()):
         """The events from lines new since the last look, oldest first. At the first look (or after a
         long gap) the lines showing are only taken note of."""
-        lum, xr, ys = self._place(frame)
-        cur = [self._read(lum, y, xr) for y in ys]
+        lum, xr, ys, cur = self._look(frame)
         fresh = self.last is None or now - self.last > FORGET
         self.last = now
         if fresh:

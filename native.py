@@ -114,11 +114,21 @@ def rgb(frame, box):
 # ---- where the game's picture is. In full screen on a monitor of another shape the game keeps its
 # own (16:10 for 1920 x 1200) and the rest is black bars. Measured 2026-11-17, 1920 x 1200 full screen
 # on a 2560 x 1440 monitor: the picture covers x 127.46..2432.53 (bars of 127 px, the edge pixels half
-# covered), and the game draws 1230 x 768 there, not the 1229 its shape gives. So its width is told by
-# the picture (the width whose stretch rebuilds the HUD's sharp bottom bar best), not worked out.
+# covered, the picture centred to 0.01 px), and the game draws 1230 x 768 there, not the 1229 its shape
+# gives. So its width is told by the picture (the width whose stretch rebuilds the HUD's sharp bottom
+# best), not worked out.
+#
+# Bars are looked for only in full screen (the capture says so: the game covers its whole monitor).
+# In a window a small map leaves black at the screen's sides too, and that is the game's picture.
+# The picture's edge is measured on the HUD's bottom left (the status bar, drawn on every map at the
+# picture's very edge); the far side mirrors it. The capture cuts the bars off and puts where the
+# picture is in the frame's info, so every reader gets the game as in a window; a frame without it
+# (a window, a recording, a test) is the game's picture whole.
 
-DARK = 8            # a frame column (or row) no brighter than this anywhere is part of a bar
-_views = {}         # frame size -> the last area found there (x0, w, y0, h, nw, nh)
+DARK = 8            # a frame pixel no brighter than this is a bar's
+HUD_BAND = 0.04     # the bottom (and left) share of the frame the HUD's edge is measured on
+AREA = "game_area"  # frame.info key: (x0, w, y0, h), the game's picture in the frame (fractions too)
+_widths = {}        # (rounded area, frame size) -> the game's own width there
 
 
 class View:
@@ -154,24 +164,60 @@ class View:
         return _native(np.asarray(self.frame.crop(box).convert("RGB"), np.float32), self.frame.size, box, self.area)
 
 
-def _edges(peak, mean):
-    """Where the picture starts and ends along one side, from each frame line's brightest pixel (peak)
-    and its mean: (start, end) in frame pixels, fractions too, or None when it's all dark."""
-    lit = np.where(peak > DARK)[0]
+def _edge(line):
+    """Where a line of brightness (from the frame's edge inwards) stops being a bar: in pixels,
+    fractions too (a half-covered pixel is half as bright as the next), or None when it never does."""
+    lit = np.where(line > DARK)[0]
     if not len(lit):
         return None
-    a, b = int(lit[0]), int(lit[-1])
-    start, end = float(a), float(b + 1)
-    if a > 0 and a + 1 < len(mean) and mean[a + 1] > 0:
-        start = a + 1 - min(1.0, mean[a] / mean[a + 1])         # a half-covered edge pixel is half bright
-    if b + 1 < len(mean) and b > 0 and mean[b - 1] > 0:
-        end = b + min(1.0, mean[b] / mean[b - 1])
-    return start, end
+    a = int(lit[0])
+    if a == 0:
+        return 0.0
+    nxt = line[a + 1] if a + 1 < len(line) else 0
+    return a + 1 - min(1.0, line[a] / nxt) if nxt > 0 else float(a)
+
+
+def find_bars(frame):
+    """Full screen's bars round the game's picture: (x0, w, y0, h) of the picture in the frame, or
+    None when there are none. Measured on the HUD's bottom left; the far sides mirror it."""
+    fw, fh = frame.size
+    bh, bw = max(4, round(fh * HUD_BAND)), max(4, round(fw * HUD_BAND))
+
+    def strip(box):                     # only the strips the edges are measured on: the frame is big
+        return np.asarray(frame.crop(box).convert("L"), np.float32)
+    x0 = _edge(strip((0, fh - bh, fw, fh)).mean(0))                   # the bottom, from the left
+    if x0 is not None:                                                # bars at the sides (or none)
+        if x0 > fw * 0.3:
+            return None
+        y0 = _edge(strip((int(x0) + 2, 0, int(x0) + 2 + bw, fh)).mean(1)[::-1])    # the left, from the bottom
+    else:                                                             # the bottom is a bar: above and below
+        y0 = _edge(strip((0, 0, bw, fh)).mean(1)[::-1])
+        if y0 is None or y0 > fh * 0.3:
+            return None
+        hud = int(fh - y0) - 2                                         # the HUD's bottom, just above the bar
+        x0 = _edge(strip((0, hud - bh, fw, hud)).mean(0))
+    if x0 is None or y0 is None or y0 > fh * 0.3 or (x0 < 0.5 and y0 < 0.5):
+        return None
+    return x0, fw - 2 * x0, y0, fh - 2 * y0
+
+
+def trim_bars(frame):
+    """A full-screen frame without its black bars (one dark pixel kept each side) and the game's
+    picture's place in it in its info; the frame itself when it has none."""
+    found = find_bars(frame)
+    if found is None:
+        return frame
+    x0, w, y0, h = found
+    fw, fh = frame.size
+    cx, cy = max(0, int(x0) - 1), max(0, int(y0) - 1)
+    cut = frame.crop((cx, cy, min(fw, int(np.ceil(x0 + w)) + 1), min(fh, int(np.ceil(y0 + h)) + 1)))
+    cut.info[AREA] = (x0 - cx, w, y0 - cy, h)
+    return cut
 
 
 def _width(frame, x0, w, y0, h, nh):
     """The game's own width for its picture w x h at (x0, y0): the one whose stretch rebuilds the
-    HUD's bottom bar (sharp, always drawn) best, of the few its shape allows."""
+    HUD's bottom (sharp, always drawn) best, of the few its shape allows."""
     base = round(w * nh / h)
     rows = (int(y0 + h) - max(8, round(h / 14)), int(y0 + h) - 1)
     cols = (max(int(x0) + 1, int(x0 + w) - round(0.37 * w)), int(x0 + w) - 1)
@@ -188,54 +234,21 @@ def _width(frame, x0, w, y0, h, nh):
     return best[1]
 
 
-def _lines(frame):
-    """Each frame column's and row's brightest pixel and mean (every 4th row or column: a quarter of
-    the work): ((column peaks, column means), (row peaks, row means))."""
-    fw, fh = frame.size
-    by_col = np.asarray(frame.resize((fw, max(1, fh // 4)), Image.NEAREST).convert("L"), np.float32)
-    by_row = np.asarray(frame.resize((max(1, fw // 4), fh), Image.NEAREST).convert("L"), np.float32)
-    return (by_col.max(0), by_col.mean(0)), (by_row.max(1), by_row.mean(1))
-
-
-def trim_bars(frame):
-    """The frame without full screen's black bars (one dark pixel kept each side, so the picture's
-    edge can still be found to a fraction of a pixel); the frame itself when it has none, or is all
-    dark (a map loading)."""
-    fw, fh = frame.size
-    (cp, cm), (rp, rm) = _lines(frame)
-    cols, rows = _edges(cp, cm), _edges(rp, rm)
-    if cols is None or rows is None:
-        return frame
-    x0, x1 = max(0, int(cols[0]) - 1), min(fw, int(np.ceil(cols[1])) + 1)
-    y0, y1 = max(0, int(rows[0]) - 1), min(fh, int(np.ceil(rows[1])) + 1)
-    if x1 - x0 >= fw - 2 and y1 - y0 >= fh - 2:
-        return frame
-    return frame.crop((x0, y0, x1, y1))
-
-
 def view_of(frame):
     """A View of the frame, or the View itself when given one (worked out once a look, shared)."""
     return frame if isinstance(frame, View) else game_view(frame)
 
 
 def game_view(frame):
-    """Where the game's picture is in a frame and its own size, as a View: the whole frame in a
-    window, the part between the black bars in full screen on a monitor of another shape."""
+    """Where the game's picture is in a frame and its own size, as a View: what the capture put in
+    the frame's info (full screen, its bars cut), else the whole frame (a window)."""
     fw, fh = frame.size
-    (cp, cm), (rp, rm) = _lines(frame)
-    cols, rows = _edges(cp, cm), _edges(rp, rm)
-    last = _views.get((fw, fh))
-    if cols is None or rows is None:                      # all black (a map loading): as last time
-        return View(frame, last or (0.0, fw, 0.0, fh, *native_size(fw, fh)))
-    (x0, x1), (y0, y1) = cols, rows
-    if x0 < 0.5 and y0 < 0.5 and x1 > fw - 0.5 and y1 > fh - 0.5:     # no bars: the whole frame
-        area = (0.0, fw, 0.0, fh, *native_size(fw, fh))
-    elif last and abs(last[0] - x0) < 0.2 and abs(last[1] - (x1 - x0)) < 0.3 \
-            and abs(last[2] - y0) < 0.2 and abs(last[3] - (y1 - y0)) < 0.3:
-        area = last                                       # the same place as before: its width is known
-    else:
-        w, h = x1 - x0, y1 - y0
-        nh = NATIVE_H if h > NATIVE_H else round(h)
-        area = (x0, w, y0, h, _width(frame, x0, w, y0, h, nh), nh)
-    _views[(fw, fh)] = area
-    return View(frame, area)
+    area = frame.info.get(AREA)
+    if area is None:
+        return View(frame, (0.0, fw, 0.0, fh, *native_size(fw, fh)))
+    x0, w, y0, h = area
+    key = (round(x0, 1), round(w, 1), round(y0, 1), round(h, 1), fw, fh)
+    nh = NATIVE_H if h > NATIVE_H else round(h)
+    if key not in _widths:
+        _widths[key] = _width(frame, x0, w, y0, h, nh)
+    return View(frame, (x0, w, y0, h, _widths[key], nh))

@@ -96,8 +96,8 @@ def test_a_window_without_bars_is_the_whole_frame():
 def test_full_screen_side_bars_are_found_to_a_fraction_of_a_pixel():
     nat = np.clip(nat_picture(1230, 768), 0, 255)
     frame = boxed(nat, (2560, 1440), 127.459, 2305.071)        # measured 2026-11-17, 1920 x 1200 full screen
-    v = native.game_view(frame)
-    assert abs(v.x0 - 127.459) < 0.05 and abs(v.w - 2305.071) < 0.1 and (v.y0, v.h) == (0, 1440)
+    v = native.game_view(native.trim_bars(frame))                # cut at x 126: the picture from 1.459
+    assert abs(v.x0 - 1.459) < 0.05 and abs(v.w - 2305.071) < 0.1 and (v.y0, v.h) == (0, 1440)
     assert v.size == (1230, 768)                                 # not 1229: told by the picture, not by the ratio
     lum, (x, y) = v.lum((900, 600, 1220, 760))
     want = (nat @ native.LUM)[y:y + lum.shape[0], x:x + lum.shape[1]]
@@ -107,22 +107,23 @@ def test_full_screen_side_bars_are_found_to_a_fraction_of_a_pixel():
 def test_bars_above_and_below_are_found_too():
     nat = np.clip(nat_picture(1228, 768), 0, 255)
     frame = boxed(nat, (1920, 1440), 0, 1920, 119.6, 1200.8)
-    v = native.game_view(frame)
-    assert abs(v.y0 - 119.6) < 0.05 and abs(v.h - 1200.8) < 0.1 and v.size == (1228, 768)
+    v = native.game_view(native.trim_bars(frame))                # cut at y 118: the picture from 1.6
+    assert abs(v.y0 - 1.6) < 0.05 and abs(v.h - 1200.8) < 0.1 and v.size == (1228, 768)
 
 
-def test_a_black_frame_keeps_the_last_view():
-    nat = np.clip(nat_picture(1230, 768), 0, 255)
-    v = native.game_view(boxed(nat, (2560, 1440), 127.459, 2305.071))
-    again = native.game_view(Image.new("RGB", (2560, 1440)))          # a map loading: all black
-    assert (again.x0, again.size) == (v.x0, v.size)
+def test_a_frame_the_capture_left_whole_is_the_game_picture_whole():
+    """A window (or a recording, a test frame): its black sides are the game's (a small map), not bars."""
+    nat = np.clip(nat_picture(1228, 768), 0, 255)
+    nat[:, :60] = 0                                                   # a small map: black at its sides
+    nat[:, -60:] = 0
+    v = native.game_view(stretched(nat, (1920, 1200)))
+    assert (v.x0, v.w, v.size) == (0, 1920, (1228, 768))
 
 
 def test_trimming_the_bars_leaves_the_game_picture_for_every_reader():
     """The capture cuts full screen's bars off, so readers that work on frame pixels (the HUD, the
     mini map, windows) see the game's picture as in a window. A dark pixel is kept each side so the
     precise readers still find the picture's edge to a fraction of a pixel."""
-    native._views.clear()
     nat = np.clip(nat_picture(1230, 768), 0, 255)
     frame = boxed(nat, (2560, 1440), 127.459, 2305.071)
     cut = native.trim_bars(frame)

@@ -342,7 +342,6 @@ def test_full_screen_with_side_bars_reads_the_same():
     """1920 x 1200 full screen on a 2560 x 1440 monitor: the game draws 1230 x 768 between black bars
     (measured 2026-11-17), so every place is taken from the picture, not the frame."""
     from test_native import boxed
-    native._views.clear()
     rng = np.random.default_rng(7)
     small = rng.integers(60, 230, (48, 77, 3)).astype(np.uint8)
     pic = np.asarray(Image.fromarray(small).resize((1230, 768), Image.BICUBIC), float)
@@ -353,7 +352,7 @@ def test_full_screen_with_side_bars_reads_the_same():
         for ch in str(n):
             paste(pic, sprite(int(ch)), x, y)
             x += quickslots.ADV[int(ch)]
-    f = boxed(np.clip(pic, 0, 255), (2560, 1440), 127.459, 2305.071)
+    f = native.trim_bars(boxed(np.clip(pic, 0, 255), (2560, 1440), 127.459, 2305.071))   # as the capture does
     assert quickslots.Digits().read_all(f) == [want.get(s) for s in range(12)]
 
 
