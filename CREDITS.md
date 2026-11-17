@@ -33,6 +33,9 @@ MapleCompass and Maple Classic Exp Overlay.
 [RapidFuzz](https://github.com/rapidfuzz/RapidFuzz), [winocr](https://github.com/GitHub30/winocr),
 [windows-capture](https://github.com/NiiightmareXD/windows-capture), [NumPy](https://numpy.org),
 [PyInstaller](https://pyinstaller.org), [pytest](https://pytest.org).
+The installer is built with [Inno Setup](https://jrsoftware.org/isinfo.php) and uses the
+[DotGothic16](https://github.com/fontworks-fonts/DotGothic16) font by Fontworks (SIL Open Font
+License 1.1, `installer/art/OFL.txt`), cut down to its Latin letters.
 
 ## What the MIT license doesn't cover
 The [MIT license](LICENSE) covers Companion's own source code and documentation. It does not cover:

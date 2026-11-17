@@ -39,7 +39,7 @@ go in it.
 **From source:** install Python 3.10+ from python.org, then double-click `run.bat`
 (or `pip install -r requirements.txt` and `python companion.py`).
 
-**Build the installer yourself:** install [Inno Setup 6](https://jrsoftware.org/isinfo.php) once
+**Build the installer yourself:** install [Inno Setup 6.7 or newer](https://jrsoftware.org/isinfo.php) once
 (`winget install JRSoftware.InnoSetup`), then double-click `build.bat`. Output:
 `dist\CompanionSetup.exe`.
 
