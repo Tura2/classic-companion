@@ -163,12 +163,14 @@ class Icons:
         if slot in self.last and np.abs(self.last[slot][0] - top).mean() < SAME:
             return self.last[slot][1]
         self.work += 1
-        best = self._fit(win, 0, 0, slice(None))                 # every icon at its place, then
-        short = np.argsort(-best)[:SHORT]                         # the best few a pixel either way too
+        # every icon at its place and a row up and down (each has its own anchor: Warrior Potion sits
+        # a row higher than the rule, and a thin icon a row off hardly fits), then the best few at
+        # every place a pixel either way
+        best = np.max([self._fit(win, dy, 0, slice(None)) for dy in (-1, 0, 1)], axis=0)
+        short = np.argsort(-best)[:SHORT]
         for dy in (-1, 0, 1):
-            for dx in (-1, 0, 1):
-                if dy or dx:
-                    best[short] = np.maximum(best[short], self._fit(win, dy, dx, short))
+            for dx in (-1, 1):
+                best[short] = np.maximum(best[short], self._fit(win, dy, dx, short))
         by_name = {}
         for n, v in zip(self.names, best):
             by_name[n] = max(v, by_name.get(n, 0))
