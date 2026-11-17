@@ -763,12 +763,12 @@ input.sw:disabled{cursor:not-allowed}
 .lb td{background:var(--cell);padding:4px 8px}.lb td:first-child{border-radius:6px 0 0 6px}.lb td:last-child{border-radius:0 6px 6px 0}
 .lb tr.here td{background:var(--goodbg)}.lb .eh{color:var(--good);font-weight:900}
 /* Grind history (2026-11-17 design): 8 sessions a page; a row's chevron opens it into the whole card */
-.popwin.hpop{width:min(1000px,94vw);max-height:94vh}
-.hpop:has(.hr.open:not(.old)){height:min(820px,94vh)}
+.popwin.hpop{width:min(1000px,94vw);max-height:min(820px,94vh)}     /* as tall as its content, up to this */
 .hpop > .body{flex:1;padding:8px 12px 10px}
 .hpg{display:flex;align-items:center;gap:10px}.hpg small{font:800 .8rem "Nunito",sans-serif;color:var(--muted)}
 .hlist{flex:1;min-height:428px;display:flex;flex-direction:column;gap:4px;overflow:hidden}
 .hlist.has-open .hr:not(.open),.hlist.has-open + .pager{display:none}
+.hlist.has-open{min-height:0}     /* an open card is as tall as its content */
 .hr{background:var(--cell);border-radius:7px;border:1px solid transparent;flex:none}
 .hr.open{border-color:var(--amber);flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
 .hrow{all:unset;box-sizing:border-box;width:100%;min-height:48px;display:grid;grid-template-columns:minmax(0,1fr) 92px 84px 104px 88px 24px;align-items:center;gap:10px;padding:5px 10px;cursor:pointer;border-radius:7px}
@@ -781,20 +781,20 @@ input.sw:disabled{cursor:not-allowed}
 .xbody{flex:1;min-height:0;display:flex;flex-direction:column;gap:8px;padding:2px 10px 10px}
 .xtop{display:flex;gap:10px;align-items:stretch}
 .hthumb{width:200px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--rim);flex:none}
-.xtop .gstrip{flex:1}.hs{grid-template-columns:repeat(4,1fr)}.hs b{font-size:1.25rem}.hs div:first-child b{color:var(--good)}
+.xtop .gstrip{flex:1}.hs{grid-template-columns:repeat(4,1fr)}.hs b{font-size:1.25rem}.hs b.best{color:var(--good)}
 .hr .gstrip div,.hr .lvrow,.hr .krow{background:var(--win)}
-.hr .gchart{flex:none;height:150px;min-height:0;margin-top:0}
+.hr .gchart{flex:1 0 150px;min-height:150px;margin-top:0}     /* the chart takes any spare height */
 .lvrow{display:flex;align-items:center;gap:8px;border-radius:6px;padding:6px 10px}
 .lvrow .xbar{flex:1;min-width:24px}
 .lvrow .lvl{font:400 .95rem "DotGothic16",sans-serif;white-space:nowrap}.lvrow .lvl b{color:var(--amber);font-weight:400}
 .lvrow .plus{color:var(--good);font-size:1.05rem}.lvrow .plus.neg{color:var(--bad)}
 .lvup-chip{font:400 .72rem "DotGothic16",sans-serif;color:var(--gold-ink);background:var(--amber);border-radius:4px;padding:1px 6px;white-space:nowrap}
-.hsplit{flex:1;min-height:0;display:grid;grid-template-columns:1.1fr 1fr;gap:10px}
+.hsplit{flex:0 1 auto;min-height:0;display:grid;grid-template-columns:1.1fr 1fr;gap:10px}
 .hcol{display:flex;flex-direction:column;min-height:0}.hcol .dhead{margin-top:0}
 .hr .lgrid{grid-template-columns:repeat(6,minmax(0,1fr))}
 .hcol .net{margin-top:auto}.hcol .hnote{flex:1}
 .kl{flex:1;display:flex;flex-direction:column;gap:5px}
-.krow{display:grid;grid-template-columns:40px minmax(0,1fr) auto;align-items:center;gap:10px;border-radius:6px;padding:4px 10px;flex:none}
+.krow{display:grid;grid-template-columns:40px minmax(0,1fr) auto;align-items:center;gap:10px;border-radius:6px;padding:4px 10px;flex:none;min-height:48px}   /* one height, with a picture or not: pageFit counts rows by the first */
 .krow img{width:38px;height:38px;object-fit:contain;image-rendering:pixelated}.krow .kn{font-size:1.3rem}
 .krow b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kbar{height:5px;border-radius:3px;background:var(--rim-soft);margin-top:3px;overflow:hidden}.kbar i{display:block;height:100%;background:var(--blue)}
@@ -1250,7 +1250,7 @@ function lootItems(sv){
   return out;
 }
 // an item: picked up less drunk from the quick slots; below zero it's red, "−11"
-const lootTile = (x, i) => `<div class="lt${x.meso ? " meso" : x.count < 0 ? " used" : x.count === 0 && x.used ? " zero" : ""}" data-lk="${i}"><img src="${esc(x.img)}" alt="${esc(x.name)}" width="32" height="32"><i>${x.meso ? shortN(x.count) : x.count < 0 ? `−${fmt(-x.count)}` : fmt(x.count)}</i></div>`;
+const lootTile = (x, i) => `<div class="lt${x.meso ? " meso" : x.count < 0 ? " used" : x.count === 0 && x.used ? " zero" : ""}" data-lk="${i}">${x.img ? `<img src="${esc(x.img)}" alt="${esc(x.name)}" width="32" height="32" onerror="this.remove()">` : ""}<i>${x.meso ? shortN(x.count) : x.count < 0 ? `−${fmt(-x.count)}` : fmt(x.count)}</i></div>`;
 function lootTip(x){
   if (x.meso) return `<div class="tname"><i></i>Mesos</div><p class="tdesc">${fmt(x.count)} picked up this session${x.per != null ? `, ${fmt(x.per)} a minute` : ""}.</p>`;
   const have = x.count != null;
@@ -1259,7 +1259,7 @@ function lootTip(x){
       ${have && x.count > 0 ? `<div><span>Yours worth</span><b class="msc">${fmt((x.msc || x.npc) * x.count)}</b></div>` : ""}</div>`
     : `<div class="tprice none">Not traded on the market yet</div>`;
   return `<div class="tname"><i></i>${pretty(x.name)}</div>
-    <div class="ttop"><div class="timg"><img src="${esc(x.img)}" alt=""></div><div><div class="tkind">${esc(x.kind || "")}</div>${x.used ? `<div class="thave">Picked up <b>${fmt(x.picked || 0)}</b> · used <b>${fmt(x.used)}</b></div>` : have ? `<div class="thave">You picked up <b>${fmt(x.count)}</b></div>` : ""}</div></div>
+    <div class="ttop"><div class="timg">${x.img ? `<img src="${esc(x.img)}" alt="" onerror="this.remove()">` : ""}</div><div><div class="tkind">${esc(x.kind || "")}</div>${x.used ? `<div class="thave">Picked up <b>${fmt(x.picked || 0)}</b> · used <b>${fmt(x.used)}</b></div>` : have ? `<div class="thave">You picked up <b>${fmt(x.count)}</b></div>` : ""}</div></div>
     ${x.desc ? `<p class="tdesc">${esc(x.desc)}</p>` : ""}${worth}`;
 }
 function sessionCard(gr){
@@ -1382,7 +1382,7 @@ function histBody(c){
   const net = c.mesos_picked ?? c.mesos_change, nd = c.deaths_count || 0, kt = c.kills_total || 0;
   const netS = net == null ? "—" : net < 0 ? `−${fmt(-net)}` : `+${fmt(net)}`;
   const top = `<div class="xtop">${c.map_id ? `<img class="hthumb" src="/api/mapimg?id=${c.map_id}" alt="" onerror="this.remove()">` : ""}<div class="gstrip hs">
-      <div><b>${c.best_minute != null ? fmt(c.best_minute) : "—"}</b><span>best minute</span></div>
+      <div><b${c.best_minute != null ? ` class="best">${fmt(c.best_minute)}` : ">—"}</b><span>best minute</span></div>
       <div><b>${fmt(kt)}</b><span>killed${c.kills_per_min != null ? ` · ${c.kills_per_min} a minute` : ""}</span></div>
       <div><b>${netS}</b><span>net mesos</span></div>
       <div><b>${nd}</b><span>${nd === 1 ? "death" : "deaths"}${nd ? ` · −${fmt(c.exp_lost || 0)} EXP` : ""}</span></div></div></div>`;
@@ -1412,14 +1412,23 @@ async function toggleHist(hr){
   histCards[id] = c;
   hr.classList.add("open"); list.classList.add("has-open"); hr.firstElementChild.setAttribute("aria-expanded", "true");
   hr.insertAdjacentHTML("beforeend", histBody(c));
-  const lg = hr.querySelector("#hlgrid");
+  const lg = hr.querySelector("#hlgrid"), kl = hr.querySelector("#hkl"), items = lootItems(c);
+  const krow = killRow(Math.max(1, ...c.kills.map(k => k.count)));
+  // loot | kills as tall as all of it, so a short list leaves no empty band (the chart takes the rest);
+  // when that's more than the pop-up holds, it shrinks and the lists page inside it
+  const hs = hr.querySelector(".hsplit"), pop = hr.closest(".popwin");
+  if (hs){                       // none on an older card
+    if (lg) lg.innerHTML = items.map(lootTile).join("");
+    if (kl) kl.innerHTML = c.kills.map(krow).join("");
+    hs.style.flex = "none"; pop.style.maxHeight = "none";
+    const need = hs.offsetHeight;
+    hs.style.flex = pop.style.maxHeight = ""; hs.style.height = need + "px";
+  }
   if (lg){
-    const items = lootItems(c);
     lg.addEventListener("paged", () => wireTips(lg, "[data-lk]", items, e => +e.dataset.lk));
     pageFit(lg, items, lootTile, hr.querySelector("#hlpager"), Math.max(1, getComputedStyle(lg).gridTemplateColumns.split(" ").length));
   }
-  const kl = hr.querySelector("#hkl");
-  if (kl) pageFit(kl, c.kills, killRow(Math.max(1, ...c.kills.map(k => k.count))), hr.querySelector("#hkpager"));
+  if (kl) pageFit(kl, c.kills, krow, hr.querySelector("#hkpager"));
 }
 async function historyModal(page = 0){
   const h = await api("/api/history?page=" + page).catch(() => null);
@@ -1516,7 +1525,7 @@ const sessionKey = sv => [sv.kills_total, (sv.kills || []).map(k => k.count + "/
 function wireNow(gr, h){
   const ab = $("#allmaps-btn"); if (ab) ab.addEventListener("click", allMapsModal);
   const hb = $("#history-btn"); if (hb) hb.addEventListener("click", () => historyModal());
-  const db =$("#drops-btn"); if (db) db.addEventListener("click", () => dropsModal(h));
+  const db = $("#drops-btn"); if (db) db.addEventListener("click", () => dropsModal(h));
   const pe = $("#npcs");
   if (pe && h && h.npcs){
     pe.dataset.page = npcPage[h.id] || 0;
