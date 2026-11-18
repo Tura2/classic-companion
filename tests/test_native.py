@@ -128,6 +128,7 @@ def test_trimming_the_bars_leaves_the_game_picture_for_every_reader():
     frame = boxed(nat, (2560, 1440), 127.459, 2305.071)
     cut = native.trim_bars(frame)
     assert cut.size == (2308, 1440)
+    assert cut.info[native.CUT] == (126, 0)      # where it was cut: what's drawn on screen adds it back
     v = native.game_view(cut)
     assert abs(v.x0 - 1.459) < 0.05 and abs(v.w - 2305.071) < 0.1 and v.size == (1230, 768)
 

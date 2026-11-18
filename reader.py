@@ -131,9 +131,10 @@ def _looks_like_zero(img):
 def read_small_number(frame, box, s=1.0):
     """A short number in a box (skill level, SP). None if the box is empty."""
     l, t, r, b = (int(v) for v in box)
-    crop = frame.crop((max(0, l), max(0, t), min(frame.width, r), min(frame.height, b)))
-    if crop.width < 4 or crop.height < 4:
+    l, t, r, b = max(0, l), max(0, t), min(frame.width, r), min(frame.height, b)
+    if r - l < 4 or b - t < 4:        # off the frame (a window dragged past its edge), or nearly
         return None
+    crop = frame.crop((l, t, r, b))
     g = ImageOps.grayscale(crop)
     g = g.resize((round(g.width * 3 / s), round(g.height * 3 / s)), Image.LANCZOS)
     # a word in front makes the OCR treat a lone digit as text it should read
@@ -519,11 +520,18 @@ def join_digits(text):
 
 
 def stat_number(text):
-    """(total, base) of a stat row: "152 (142+10)" is 152 in all, 142 of it from AP, the rest from gear."""
+    """(total, base) of a stat row: "152 (142+10)" is 152 in all, 142 of it from AP, the rest from gear.
+    No bracket: no gear on it, the base is the total. A bracket that doesn't read as two numbers
+    adding up to the total: the base isn't known (None), never the total."""
     text = join_digits(text)
     total = to_int(text.split("(")[0])
-    m = re.search(r"\(\s*(\d+)\s*\+", text)
-    return total, int(m.group(1)) if m else total
+    if "(" not in text:
+        # just a number: no gear on it. Anything else after it ("152 c") is a bracket that didn't read
+        return total, total if re.fullmatch(r"[\d,\s]*", text) else None
+    m = re.search(r"\(\s*(\d+)\s*\+\s*(\d+)", text)
+    if not m or total is None or int(m.group(1)) + int(m.group(2)) != total:
+        return total, None
+    return total, int(m.group(1))
 
 
 def fix_one_vs_l(text, crop):
@@ -562,6 +570,10 @@ def read_stat(frame, t, s, job_names):
     from rapidfuzz import fuzz, process
     x, y = t[1], t[2]     # values start right of the colored label cells, whose edge can read as a "1"
     vals = read_box(frame, (x + 76 * s, y + 30 * s, x + 230 * s, y + 415 * s), s)
+    # the window dragged past the frame's right edge: a value reaching the edge may be cut short
+    # ("152" read "15"), and a stat with no bracket may have one past the edge
+    cut = x + 230 * s > frame.width
+    vals = [ln for ln in vals if ln[1] + ln[3] < frame.width - 3 * s]
     v = nearest_row(vals, STAT_ROWS, y, s)
     # JOB shows the class ("BOWMAN") with the job under it ("ARCHER"); the second is the game data's name
     job = None
@@ -583,11 +595,15 @@ def read_stat(frame, t, s, job_names):
         out["exp"], out["exp_pct"] = to_int(m.group(1)), int(m.group(2))
     for k in ("str", "dex", "int", "luk"):
         total, base = stat_number(v.get(k, ""))
+        if cut and "(" not in v.get(k, ""):
+            base = None
         if total is not None:
             out[k], out[k + "_base"] = total, base
     # unspent AP: a lone number in a box, which the values column reads as its border's "1"
     out["ap"] = read_small_number(frame, (x + 122 * s, y + 388 * s, x + 170 * s, y + 410 * s), s)
-    detail = read_box(frame, (x + 388 * s, y + 85 * s, x + 550 * s, y + 375 * s), s)
+    # a blank margin round it: Windows OCR gave nothing at all for this box at one left edge and
+    # all of it a pixel either side (real 1920 x 1080, 2026-11-18: ACCURACY 74 never read)
+    detail = read_box(frame, (x + 388 * s, y + 85 * s, x + 550 * s, y + 375 * s), s, pad=8)
     d = nearest_row(detail, DETAIL_ROWS, y, s)
     if d:
         m = re.match(r"\s*(\d{1,3})(?!\d)", d.get("acc", ""))     # just the number, nothing read beside it
@@ -885,6 +901,16 @@ def _text_box(lines, s, left=24, right=40, below=5):
 
 
 MISSED = {"text": None}   # the last mini map title read close up that named no map (for the log)
+
+
+def known_street(text, streets):
+    """The game's street a mini map title's street line names, or None. OCR splits and garbles it
+    at some sizes ("Victoyia Road", "War ning Stl eet"); too little of it ("Road") names none."""
+    from rapidfuzz import fuzz, process
+    if not text:
+        return None
+    hit = process.extractOne(text.strip(" [](){}|"), streets, scorer=fuzz.ratio, score_cutoff=80)
+    return hit[0] if hit else None
 
 
 def title_map(street, last, map_names, streets=None):
@@ -1338,6 +1364,7 @@ class Reader:
                                    for g in groups if isinstance(g, dict) for s in g.get("skills", [])})
         self.map_names = sorted({m["name"].strip() for m in data.maps.values() if m.get("name")})
         streets = {m["street_name"].strip() for m in data.maps.values() if m.get("street_name")}
+        self.streets = sorted(streets)
         # map names that are also streets, with each one's own street (title_map)
         self.street_names = {m["name"].strip(): (m.get("street_name") or "").strip() for m in data.maps.values()
                              if m.get("name") and m["name"].strip() in streets}
@@ -1402,6 +1429,11 @@ class Reader:
         for k, line in hints.items():
             clean = re.sub(r"[^A-Za-z ]", "", line[0]).strip().upper()
             want = self.titles.boxes[k]["text"].rstrip(" (")
+            if k not in found and line[1] + line[3] >= frame.width - 3 * s:
+                # its title runs off the frame ("CHARACTER ST", "CHARACTER STF"): OCR's box for a cut
+                # line is off by rows, so every field would be read from the wrong row. Not placed
+                del wins[k]
+                continue
             if k not in found and fuzz.ratio(clean[:len(want)], want) >= 90 and clean.startswith(want[:3])                     and not (self.titles.learned / str(frame.height) / f"{k}.png").exists():
                 self.titles.learn(frame, k, line)
 
@@ -1514,7 +1546,7 @@ class Reader:
         if not name and MISSED["text"]:
             seen["map_missed"] = MISSED["text"]
         if name:
-            seen["map"] = {"street": street, "name": name, "title": title, "collapsed": collapsed,
+            seen["map"] = {"street": known_street(street, self.streets), "name": name, "title": title, "collapsed": collapsed,
                            "window": None if collapsed else minimap_window(frame, title, s)}
 
     def read_map_only(self, frame):

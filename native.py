@@ -128,6 +128,7 @@ def rgb(frame, box):
 DARK = 8            # a frame pixel no brighter than this is a bar's
 HUD_BAND = 0.04     # the bottom (and left) share of the frame the HUD's edge is measured on
 AREA = "game_area"  # frame.info key: (x0, w, y0, h), the game's picture in the frame (fractions too)
+CUT = "cut_at"      # frame.info key: (x, y), where the bars were cut off the window's picture
 _widths = {}        # (rounded area, frame size) -> the game's own width there
 _bars = {}          # frame size -> the bars last found there: live frames measure the same edge a few
 WOBBLE = 0.1        # thousandths of a pixel apart, and an edge moved less than this is the same one
@@ -219,6 +220,7 @@ def trim_bars(frame):
     cx, cy = max(0, int(x0) - 1), max(0, int(y0) - 1)
     cut = frame.crop((cx, cy, min(fw, int(np.ceil(x0 + w)) + 1), min(fh, int(np.ceil(y0 + h)) + 1)))
     cut.info[AREA] = (x0 - cx, w, y0 - cy, h)
+    cut.info[CUT] = (cx, cy)
     return cut
 
 

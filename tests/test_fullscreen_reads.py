@@ -58,7 +58,7 @@ def test_the_capture_gives_back_the_games_picture(layout):
 # (case, layout) -> the finding that makes it read otherwise, until fixed
 # R: the redraw only (it loses the mini map even at 1200; real pictures read mesos well)
 KNOWN = {("fm_quest_window", "letterbox"): "R: the mini map lost", ("fm_quest_window", "pillarbox"): "R: mesos blank",
-         ("skills_1st", "pillarbox"): "F6: the street misread", ("hunt_moved_a", "letterbox"): "F7: a Quest Helper line dropped",
+         ("hunt_moved_a", "letterbox"): "F7: a Quest Helper line dropped",
          ("player_shop", "letterbox"): "F4: the seller misread", ("player_shop", "pillarbox"): "F4: the seller lost"}
 
 
@@ -81,7 +81,6 @@ def test_full_screen_reads_what_the_window_does(game_reader, case, layout):
 
 # ---- what's drawn on the game: the tooltip prices and the route strip are placed in screen pixels
 
-@pytest.mark.xfail(strict=True, reason="F1: overlays ignore the bars cut off in full screen")
 def test_a_tooltip_in_full_screen_is_placed_over_the_game(monkeypatch):
     """A tooltip read at x 500 of the cut frame is at 127 + 500 on a 2560 x 1440 monitor showing a
     1920 x 1200 game between bars of 128.75 px (the capture keeps one dark pixel)."""
@@ -101,15 +100,15 @@ def test_a_tooltip_in_full_screen_is_placed_over_the_game(monkeypatch):
 # ---- windows at the frame's edge
 
 @have
-@pytest.mark.xfail(strict=True, reason="F2: with its (base+gear) cut off, a stat's total is taken for its base")
-def test_a_window_mostly_past_the_right_edge_reads_nothing_wrong(game_reader):
-    """CHARACTER STAT dragged so only its first 130 px show: no error, and every field it gives is
-    the true one (or none)."""
+@pytest.mark.parametrize("shown", [130, 118, 112, 106])
+def test_a_window_mostly_past_the_right_edge_reads_nothing_wrong(game_reader, shown):
+    """CHARACTER STAT dragged so only its first `shown` px show (its values cut at the edge, the
+    "(base+gear)" gone or half there): no error, and every field it gives is the true one (or none)."""
     src = Image.open(CASES / "fm_quest_window.png").convert("RGB")
     want = read3(game_reader, src, "Hunter").get("stat") or {}
     x = 778 - 3                                   # the window's left edge, about
     frame = Image.new("RGB", src.size, (128, 128, 128))
-    frame.paste(src.crop((x, 600, x + 130, 1200)), (src.width - 130, 600))
+    frame.paste(src.crop((x, 600, x + shown, 1200)), (src.width - shown, 600))
     got = read3(game_reader, frame, "Hunter").get("stat") or {}
     wrong = {k: v for k, v in got.items() if v is not None and k in want and v != want[k]}
     assert not wrong

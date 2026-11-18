@@ -86,8 +86,6 @@ KNOWN = {
     ("fm_tooltip", "quicklook.tooltips", 1600): "F9",
     ("hunt_moved_a", "helper.list", 1080): "F7",
     ("hunt_moved_a", "helper.list", 1600): "F7",
-    ("minimap_light_bg", "map.street", 1050): "F6",
-    ("minimap_light_bg", "map.street", 1440): "F6",
     ("player_shop", "shop.seller", 1050): "F4",
     ("player_shop", "shop.seller", 1440): "F4",
     ("player_shop", "shop.seller", 1600): "F4",
@@ -101,8 +99,7 @@ KNOWN = {
     ("player_shop_soldout", "shop.kind", 1600): "F4",
     ("skills_1st", "skills.levels", 1050): "F9",
     ("skills_1st", "skills.levels", 1600): "F9",
-    ("skills_1st", "map.street", 1080): "F6",
-    ("skills_1st", "map.street", 1440): "F6",
+    ("skills_1st", "map.street", 1080): "F6",     # read "Road": too little to name the street
     ("skills_hunter", "skills.levels", 1600): "F9",
 }
 
