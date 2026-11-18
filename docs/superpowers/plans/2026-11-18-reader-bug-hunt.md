@@ -263,3 +263,6 @@ The dashboard was run alone on copies of the data (no screen reading), browsed a
 | P1 | `build.bat` bundles `discord.json` whenever it's in the folder (it is now); the release rule says public builds never do | `if exist discord.json set DISCORD=...`; `Companion.spec` (git-ignored, unused) also lists it | release risk |
 
 Checked and fine: the API answers this PC only (Host and Origin checked, JSON-only POSTs); every name shown on the dashboard is escaped; the update is checked against the release's size and SHA-256; the problem report leaves out the profile, pictures and Discord identity; no script errors and no page scroll on any tab at the three sizes.
+
+### Fixed (2026-11-18)
+Reader PR (`fix/reader-bug-hunt`): F1, F2 (and two more found fixing it: a crash when the AP box is wholly off the frame, and a title cut by the frame's edge placing the window a row off), F6 street, F12 (new: ACCURACY never read at real 1080, Windows OCR blank at one box edge; real case `stat_1080_real`). App PR (`fix/app-routes-and-copies`): U1, U2 (+ monster names on hover), P1, and Go to's town-to-town routes always taking the cab (now walking, the cab a button away; Beginners ride first). Still open, waiting for pictures: F3, F4, F7, F8, F9 skill rows, F10, F11.
