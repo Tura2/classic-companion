@@ -229,3 +229,37 @@ Ranked by how often a player meets it x how wrong it is (a wrong value shown as 
 | F8 | A tooltip over the stat window's name: "ura" read as your name at 1440 | the name takes a partial read | medium: a wrong name (check what a name change does to profiles) | small | xfail |
 | F9 | Other blanks: mesos at 1080, AP at 1440, a skill row at 1050/1600, a tooltip at 1600 | OCR at those sizes | low: blank | varies | xfail |
 | F11 | Your store can be taken for someone else's (or the reverse) at 1440+ | `reader.py:199` distances 400 / 700 px aren't scaled | low | tiny | no test yet |
+
+### False-positive check (2026-11-18)
+The size and full-screen tests redraw a 1200 px case; the redraw itself was then put on trial:
+
+- **Redrawn at its own 1200 px**, every case should read as the original. Most do (mean pixel error 0.1-0.2 levels), but the mini map title of `fm_quest_window` is lost and a Quest Helper line of `fm_tooltip` dropped: the un-stretch is off by up to ~70 levels on a few sharp text edges there. `myshop_ui73` breaks entirely: at UI Size 73 % the frame is no plain stretch of a 768 px picture (error p99 45 levels), so the redraw can't model it. The size test now skips any field the redraw already reads otherwise at 1200.
+- **Real pictures at other sizes** (`samples/raw/grind/`, 4 at 1920 x 1080 windowed and 1 at 2560 x 1440 windowed; 4 full-screen 2560 x 1440 in `samples/raw/`): CHARACTER STAT found and read at 1080 and 1440, mesos read at 1080, AP read at 1440.
+- **`myshop_ui73` is the game's UI Size setting at 73 %** (`reader.py`, own store: "measured on two UI sizes, u = 1.0 and 0.73"), not a different draw mode.
+
+| F# | verdict | evidence |
+|---|---|---|
+| F1 | **real** | 4 real full-screen pictures: bars cut at x 126, the game from 127.46; the overlays never add it (code) |
+| F2 | **real, worse than thought** | real 1080 (`grind/163859`): DEX "157 (147+10)" read as base 157 with nothing covering it; base + AP = 195 ≠ 5 x 33 + 20 = 185 |
+| F3 | unconfirmed | the redraw only; no real player shop at 1080/1440 |
+| F4 | unconfirmed | as F3 |
+| F5 | **false positive (R)** | real 1080 pictures find and read CHARACTER STAT; the redraw's extra blur stops OCR reading its title |
+| F6 street | **real** | real 1080 x4: "Victoyia Road"; real 2560 x 1440: "Victor ia Road", "War ning Stl eet"; the same street at 1200 reads right |
+| F6 map lost | **false positive** | the redraw loses it at 1200 too |
+| F7 | unconfirmed | `fm_tooltip`: false positive (redraw at 1200); `hunt_moved_a` 1080/1600: the redraw only, while real `res_1080` reads the helper |
+| F8 | unconfirmed | the redraw only |
+| F9 mesos 1080, AP 1440 | **false positive (R)** | real pictures read both |
+| F9 skill rows | unconfirmed | the redraw only |
+| F10 | plausible, reframed | UI Size below 100 %: the own-store reader takes its scale from the fee notice; the stat window, inventory, mini map and quick look use h/1200 |
+| F11 | real (code), low | unchanged |
+
+### Beyond the reader (2026-11-18)
+The dashboard was run alone on copies of the data (no screen reading), browsed at 1366 x 640, 1280 x 800 and 960 x 1000; the server, updater, problem report and build were read.
+
+| # | what | evidence | severity |
+|---|---|---|---|
+| U1 | Opening Companion twice runs two full copies: two overlays on the game, two grind trackers writing one `grind.sqlite`, the second dashboard on port 8766 (Discord connect then refused there) | `hold_single_instance` makes the mutex and never checks `ERROR_ALREADY_EXISTS`; `start_server` moves to the next port | medium: double labels, a split grind log |
+| U2 | Go to's town buttons cut their names at half-screen width ("Kerning Cit", "Sleepywoo") | seen at 960 px | low |
+| P1 | `build.bat` bundles `discord.json` whenever it's in the folder (it is now); the release rule says public builds never do | `if exist discord.json set DISCORD=...`; `Companion.spec` (git-ignored, unused) also lists it | release risk |
+
+Checked and fine: the API answers this PC only (Host and Origin checked, JSON-only POSTs); every name shown on the dashboard is escaped; the update is checked against the release's size and SHA-256; the problem report leaves out the profile, pictures and Discord identity; no script errors and no page scroll on any tab at the three sizes.

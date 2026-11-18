@@ -56,7 +56,8 @@ def test_the_capture_gives_back_the_games_picture(layout):
 
 
 # (case, layout) -> the finding that makes it read otherwise, until fixed
-KNOWN = {("fm_quest_window", "letterbox"): "F6: the mini map lost", ("fm_quest_window", "pillarbox"): "F9: mesos blank",
+# R: the redraw only (it loses the mini map even at 1200; real pictures read mesos well)
+KNOWN = {("fm_quest_window", "letterbox"): "R: the mini map lost", ("fm_quest_window", "pillarbox"): "R: mesos blank",
          ("skills_1st", "pillarbox"): "F6: the street misread", ("hunt_moved_a", "letterbox"): "F7: a Quest Helper line dropped",
          ("player_shop", "letterbox"): "F4: the seller misread", ("player_shop", "pillarbox"): "F4: the seller lost"}
 
