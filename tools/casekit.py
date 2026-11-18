@@ -64,6 +64,37 @@ def field(seen, name):
     return v
 
 
+def native_picture(frame):
+    """The game's own picture (768 px tall) under a whole window frame, as a (rows, columns, 3) float
+    array: native.rgb's sums over the whole frame, one tap at a time (at once they'd take gigabytes)."""
+    import numpy as np
+    import native
+    w, h = frame.size
+    nw, nh = native.native_size(w, h)
+    a = np.asarray(frame.convert("RGB"), np.float32)
+    if (nw, nh) == (w, h):
+        return a
+    ix, wx, _ = native._undo(0, w, w, nw, 0.0)
+    iy, wy, _ = native._undo(0, h, h, nh, 0.0)
+    cols = np.zeros((h, nw, 3), np.float32)
+    for k in range(ix.shape[1]):
+        cols += a[:, ix[:, k]] * wx[:, k, None]
+    out = np.zeros((nh, nw, 3), np.float32)
+    for k in range(iy.shape[1]):
+        out += cols[iy[:, k]] * wy[:, k, None, None]
+    return out
+
+
+def resample(frame, height):
+    """The same game picture as Windows would show it in a window `height` px tall (the shape kept):
+    the frame un-stretched to the game's own 768 px tall picture (native.py's model), then stretched
+    smoothly to the new size, as Windows does. For testing the reader at sizes there's no case of."""
+    import numpy as np
+    w, h = frame.size
+    game = Image.fromarray(np.clip(np.rint(native_picture(frame)), 0, 255).astype(np.uint8))
+    return game.resize((round(w * height / h), height), Image.BILINEAR)
+
+
 def load_cases():
     """{name: case} for every case JSON in samples/cases/."""
     return {p.stem: json.loads(p.read_text("utf-8")) for p in sorted(CASES.glob("*.json"))}
