@@ -1,12 +1,23 @@
 @echo off
 rem Build Companion's installer (Windows, Python 3.10+, Inno Setup 6). Output: dist\CompanionSetup.exe
+rem   build.bat [--no-pause] [--with-discord]
 rem Inno Setup, once: winget install JRSoftware.InnoSetup
 cd /d "%~dp0"
 python -m pip install -q -r requirements.txt pyinstaller || goto :failed
 
-rem discord.json (the #shop-sales webhook and the app's client ID) goes in only when it's there
+rem discord.json (the #shop-sales webhook and the app's client ID) goes in only when asked for with
+rem --with-discord: a public build never has it, even when the file sits in this folder
 set DISCORD=
-if exist discord.json set DISCORD=--add-data "discord.json;."
+set PAUSE=1
+for %%a in (%*) do (
+  if /i "%%a"=="--with-discord" set DISCORD=--add-data "discord.json;."
+  if /i "%%a"=="--no-pause" set PAUSE=
+)
+if defined DISCORD if not exist discord.json (
+  echo --with-discord was given, but there's no discord.json here.
+  goto :failed
+)
+if defined DISCORD (echo Building WITH discord.json: a private build, never a release.) else (echo Building without discord.json.)
 
 rem One folder (Companion.exe + _internal\): starts faster than a one-file exe and unpacks nothing
 rem into %TEMP%. The installer puts it in place.
@@ -27,11 +38,11 @@ if not exist "%ISCC%" (
 echo.
 echo Done: dist\CompanionSetup.exe (Companion %VERSION%)
 echo Upload it to the release as CompanionSetup.exe: the website's Download buttons point at that name.
-if not "%1"=="--no-pause" pause
+if defined PAUSE pause
 exit /b 0
 
 :failed
 echo.
 echo The build failed (see above).
-if not "%1"=="--no-pause" pause
+if defined PAUSE pause
 exit /b 1

@@ -11,6 +11,7 @@ Screen reading and on-game drawing are optional and switched on in the Settings 
   --report     prices you've seen yourself, per item (needs screen reading)
   --refresh    re-download game data now
   --no-browser don't open the dashboard automatically
+  --second-copy start even while Companion is already running (a new build's smoke test)
 """
 import os
 
@@ -64,6 +65,38 @@ def on_island(data, prof):
     return data.on_maple_island(int(prof["level"]), prof.get("current_map"), prof.get("island"))
 
 
+def plan(data, prof, start, goal, came_from=None, taxi=None):
+    """A route for state["nav"]: {"steps", "i", "taxi": by cab, "cab": a cab could take part of it}.
+    A Regular Cab costs mesos, so the route walks unless `taxi` (None: a Beginner rides, 90 % off).
+    None when there's no way at all."""
+    if taxi is None:
+        taxi = prof.get("job") == "Beginner"
+    walk = data.route(start, goal, came_from=came_from)
+    if not walk:
+        return None
+    ride = data.route(start, goal, came_from=came_from, taxi=True)
+    cab = bool(ride) and any(s.get("taxi") for s in ride) and not any(s.get("taxi") for s in walk)
+    return {"steps": ride if taxi and cab else walk, "i": 0, "taxi": bool(taxi and cab), "cab": cab}
+
+
+def _replan(data, state, start, came_from=None, taxi=None):
+    """The active route again from `start`, the same place and the NPC there kept."""
+    nav = state["nav"]
+    got = plan(data, state["profile"], start, nav["to"]["id"], came_from, nav.get("taxi") if taxi is None else taxi)
+    if got:
+        if nav["steps"][-1].get("npc"):     # keep the NPC circled on the last map
+            got["steps"][-1]["npc"] = nav["steps"][-1]["npc"]
+        nav.update(got)
+
+
+def choose_taxi(data, state, on):
+    """Go to's "Take the cab" / "Walk instead": the route again from the step you're on."""
+    nav = state.get("nav")
+    if nav:
+        _replan(data, state, nav["steps"][nav["i"]]["id"], taxi=bool(on))
+        state["queue"].put(("nav",))
+
+
 def set_current(data, state, mid):
     """Record the map you're on and move the active route to it."""
     came_from = state["profile"].get("current_map")
@@ -74,12 +107,8 @@ def set_current(data, state, mid):
         ids = [s["id"] for s in nav["steps"]]
         if mid in ids:
             nav["i"] = ids.index(mid)
-        else:   # wandered off the route: re-plan from here
-            steps = data.route(mid, nav["to"]["id"], came_from=came_from)
-            if steps:
-                if nav["steps"][-1].get("npc"):     # keep the NPC circled on the last map
-                    steps[-1]["npc"] = nav["steps"][-1]["npc"]
-                nav["steps"], nav["i"] = steps, 0
+        else:   # wandered off the route: re-plan from here, by cab or not as chosen
+            _replan(data, state, mid, came_from)
     state["queue"].put(("nav",))
 
 
@@ -119,11 +148,11 @@ def guide_plan(data, state):
     # card on the game shows that step, not the route and step before it
     dest = target or cur_map
     if dest and cur_map in data.maps and (not nav or nav.get("guide_to") != dest):
-        route = data.route(cur_map, dest)
-        if route:
+        got = plan(data, prof, cur_map, dest)
+        if got:
             if cur.get("npc") and target:
-                route[-1]["npc"] = cur["npc"]
-            state["nav"] = {"steps": route, "i": 0, "to": data.map_info(dest), "guide_to": dest}
+                got["steps"][-1]["npc"] = cur["npc"]
+            state["nav"] = {**got, "to": data.map_info(dest), "guide_to": dest}
     if state.get("nav") and state["nav"].get("guide_to") == dest:
         state["nav"]["quest"] = info
     state["queue"].put(("nav",))
@@ -503,14 +532,15 @@ def make_handler(data, state, cfg):
                 start, goal = int(body.get("from") or state["profile"].get("current_map") or 0), int(body["to"])
                 if start not in data.maps:
                     return self.send(400, {"error": "Set where you are first, under Go to → Change where you are."})
-                steps = data.route(start, goal)
-                if not steps:
+                got = plan(data, state["profile"], start, goal, taxi=body.get("taxi"))
+                if not got:
                     return self.send(404, {"error": "No route between these maps. You may need a boat or a quest portal."})
+                steps = got["steps"]
                 if body.get("npc_id") is not None:
                     place = data.npc_place(int(body["npc_id"]))
                     if place and place["id"] == steps[-1]["id"]:
                         steps[-1]["npc"] = {"x": place["x"], "y": place["y"], "name": body.get("npc_name", "")}
-                state["nav"] = {"steps": steps, "i": 0, "to": data.map_info(goal)}
+                state["nav"] = {**got, "to": data.map_info(goal)}
                 state["guide"] = None          # a route you picked replaces the quest guide
                 remember_recent(state["profile"], goal)
                 set_current(data, state, start)
@@ -521,6 +551,9 @@ def make_handler(data, state, cfg):
                     state["profile"]["current_map"] = state["nav"]["steps"][state["nav"]["i"]]["id"]
                     save_profile(state)
                     state["queue"].put(("nav",))
+                return self.send(200, state["nav"] or {})
+            if path == "/api/nav/taxi":       # "Take the cab" / "Walk instead"
+                choose_taxi(data, state, bool(body.get("on")))
                 return self.send(200, state["nav"] or {})
             if path == "/api/nav/stop":
                 state["nav"], state["guide"] = None, None
@@ -647,12 +680,14 @@ def main():
         from sniper import report
         report()
         return
+    if not hold_single_instance() and "--second-copy" not in sys.argv:   # running: its dashboard, not a 2nd copy
+        show_running()
+        return
     moved = paths.migrate()               # data files older versions left loose go into data/
     applog.setup(LOGS_DIR)
     applog.log(f"Companion {VERSION} starting in {APP_DIR}")
     if moved:
         applog.log("Moved into data/: " + ", ".join(moved))
-    hold_single_instance()
     try:   # Companion's own window, with its logo, open from the first second
         from window import Window
         win = Window()
@@ -678,17 +713,48 @@ def close_grind(started):
             applog.log(f"Couldn't save the grind session on exit: {e}")
 
 
-def hold_single_instance():
+ALREADY_EXISTS = 183      # Windows' ERROR_ALREADY_EXISTS: the mutex was there before us
+
+
+def hold_single_instance(create=None):
     """A named mutex for as long as Companion runs: the installer waits on it (AppMutex) to close
-    Companion before an update or an uninstall."""
-    if sys.platform != "win32":
-        return
+    Companion before an update or an uninstall. False when another copy already holds it: two
+    copies would draw every label on the game twice and track one grind from two places.
+    `create`: () -> (handle, last error), for tests."""
+    if create is None:
+        if sys.platform != "win32":
+            return True
+
+        def create():
+            import ctypes
+            k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+            return k32.CreateMutexW(None, False, "Tura2.Companion"), ctypes.get_last_error()
     try:
-        import ctypes
         global _MUTEX
-        _MUTEX = ctypes.windll.kernel32.CreateMutexW(None, False, "Tura2.Companion")
+        _MUTEX, err = create()
+        return err != ALREADY_EXISTS
     except Exception as e:
         applog.log(f"No single-instance mutex: {e}")
+        return True
+
+
+def _dashboard_up(port):
+    import urllib.request
+    try:
+        with urllib.request.urlopen(f"http://localhost:{port}/api/state", timeout=1) as r:
+            return r.status == 200
+    except Exception:
+        return False
+
+
+def show_running(alive=_dashboard_up):
+    """Companion is already running: open its dashboard (on the first of its ports that answers)."""
+    for port in range(PORT, PORT + 10):
+        if alive(port):
+            url = f"http://localhost:{port}"
+            webbrowser.open(url)
+            return url
+    return None
 
 
 def update_then_serve(win, started):
