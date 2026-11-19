@@ -103,6 +103,10 @@ def set_current(data, state, mid):
     state["profile"]["current_map"] = mid
     save_profile(state)
     nav = state.get("nav")
+    if nav and mid != came_from and nav["steps"][nav["i"]].get("arrived") and not nav.get("guide_to"):
+        # you got there: walking on ends the route. It used to re-plan back to the destination (or
+        # step back along the route) the moment you left it, so Go to never stopped
+        state["nav"] = nav = None
     if nav:
         ids = [s["id"] for s in nav["steps"]]
         if mid in ids:
