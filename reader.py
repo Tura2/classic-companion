@@ -1246,7 +1246,8 @@ NAVY_SHRINK = 4           # the quick looks see the frame at a quarter of its si
 def navy_mask(frame):
     """The frame at a quarter of its size, white where it's tooltip navy: how the quick looks see a
     tooltip come up without reading anything."""
-    small = frame.resize((frame.width // NAVY_SHRINK, frame.height // NAVY_SHRINK), Image.BOX)
+    # (a minimized game hands over a frame a few pixels big: at least 1 x 1)
+    small = frame.resize((max(1, frame.width // NAVY_SHRINK), max(1, frame.height // NAVY_SHRINK)), Image.BOX)
     r, g, b = small.split()
     on = lambda img, test: img.point(lambda v: 255 if test(v) else 0)
     return ImageChops.multiply(ImageChops.multiply(on(ImageChops.subtract(b, r), lambda v: v >= 25),
@@ -1517,8 +1518,16 @@ class Reader:
                 # line is off by rows, so every field would be read from the wrong row. Not placed
                 del wins[k]
                 continue
-            if k not in found and fuzz.ratio(clean[:len(want)], want) >= 90 and clean.startswith(want[:3])                     and not self.titles.learned_path(k, s).exists():
+            if k not in found and fuzz.ratio(clean[:len(want)], want) >= 90 and clean.startswith(want[:3])                     and not self.titles.learned_path(k, s).exists() and self.may_learn(s):
                 self.titles.learn(frame, k, line, s)
+        self.last_s = s
+
+    def may_learn(self, s):
+        """Whether a title may be learned at scale s: only when the last read had the same scale. A
+        frame measured wrong once would otherwise keep a wrongly sized title for good (it's never
+        learned again once kept)."""
+        last = getattr(self, "last_s", None)
+        return last is not None and abs(s - last) < 0.005
 
     def read(self, frame):
         """Everything visible in one frame of the game area, plus where each window is."""

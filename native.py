@@ -284,6 +284,7 @@ FIT_MAX = 3.0       # a smooth stretch from height n rebuilds the band with less
 FIT_GAP = 0.7       # ...and less than this share of the next best height's
 FIT_COLS = 240      # the fit is worked out on strips this wide...
 FIT_TRIES = 4       # ...the most detailed few of them
+HUD_MID = (0.31, 0.69)   # the share of the width the status bar always covers (UI Size ideal: 0.29-0.71)
 FLAT = 4            # a band this flat (std of brightness) has nothing to measure: a loading screen
 
 
@@ -344,8 +345,11 @@ def _measure(frame):
         return usual
     # the fit on strips of the band, the most detailed first; the first that clearly picks a height
     # decides. A flat strip says nothing (every height rebuilds it), so it's never asked
+    # only the band's middle, which is always the status bar: at UI Size ideal the world beside it is
+    # still drawn at 768 and stretched, and only the UI isn't (live, 2026-11-19)
     lo, hi = int(x0) + 1, int(x0 + w) - 1
-    strips = [(c, c + FIT_COLS) for c in range(lo, hi - FIT_COLS + 1, FIT_COLS)] or [(lo, hi)]
+    mid_lo, mid_hi = int(x0 + HUD_MID[0] * w), int(x0 + HUD_MID[1] * w)
+    strips = [(c, c + FIT_COLS) for c in range(mid_lo, mid_hi - FIT_COLS + 1, FIT_COLS)] or [(mid_lo, mid_hi)]
     subs = sorted(((band[:, a - lo:b - lo], (a, b)) for a, b in strips), key=lambda t: -t[0].std())
     tried = 0
     for sub, cols in subs:

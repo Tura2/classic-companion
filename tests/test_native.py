@@ -224,3 +224,9 @@ def test_measure_reuses_an_answer_for_the_same_band(monkeypatch):
     assert len(calls) == 1
     assert native.measure(case_frame("map_ant1200")) == native.Stretch(768, False)     # same size, other band
     assert len(calls) == 2
+
+
+def test_measure_ui_ideal_where_the_world_beside_the_hud_is_stretched():
+    # at UI Size ideal the world is still drawn at 768 and stretched; only the UI isn't. The ground
+    # beside the status bar fits 768, so only the bar's middle is measured (live, 2026-11-19)
+    assert native.measure(case_frame("ui_ideal_skills")) == native.Stretch(1200, False)

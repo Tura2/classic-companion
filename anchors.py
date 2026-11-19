@@ -25,6 +25,9 @@ NEAR = 40            # how far around a window's last place (or where OCR saw it
 # around the PEAKS best spots of that at full size. ~300 ms a title over a 1920 x 1200 game before.
 COARSE = 3
 PEAKS = 5
+# titles alike enough to be each other's runner-up over the whole frame (at UI 0.64 by far): a spot
+# the other one matches better is that window, not a reason to doubt this one
+RIVALS = {"skills": ("inventory",), "inventory": ("skills",)}
 BIG = 300_000        # an area of more pixels than this is searched rough first
 
 
@@ -122,13 +125,13 @@ class Titles:
         return self._sized[key]
 
     @staticmethod
-    def _search(g, tpl, box, cache=None):
+    def _search(g, tpl, box, cache=None, rivals=()):
         """(x, y, score) of the best match inside box (left, top, right, bottom), or None. It has to
         match MIN_SCORE well, and MIN_GAP better than anywhere else more than FAR px away."""
         l, t, r, b = (int(round(v)) for v in box)
         l, t, r, b = max(0, l), max(0, t), min(g.shape[1], r), min(g.shape[0], b)
         if (r - l) * (b - t) > BIG and min(tpl.shape) >= 2 * COARSE:
-            return Titles._rough_first(g, tpl, (l, t, r, b), cache)
+            return Titles._rough_first(g, tpl, (l, t, r, b), cache, rivals)
         score = ncc(g[t:b, l:r], tpl, cache.setdefault(("area", l, t, r, b), {}) if cache is not None else None)
         if score.size == 0:
             return None
@@ -142,41 +145,55 @@ class Titles:
         return l + int(x), t + int(y), best
 
     @staticmethod
-    def _rough_first(g, tpl, box, cache=None):
+    def _rough_first(g, tpl, box, cache=None, rivals=()):
         """_search over a big area: the PEAKS best spots on both pictures shrunk COARSE times, each
         then matched at full size around it. The runner-up the gap is measured against is the best
         of the other spots (a window's title has no near twin elsewhere that the rough look misses)."""
         l, t, r, b = box
-        k = COARSE
-        if cache is not None:
-            key = ("rough", l, t, r, b)
-            if key not in cache:
-                cache[key] = (_shrink(g[t:b, l:r], k), {})
-            small, small_cache = cache[key]
-        else:
-            small, small_cache = _shrink(g[t:b, l:r], k), None
-        score = ncc(small, _shrink(tpl, k), small_cache)
-        if score.size == 0:
-            return None
-        spots, score = [], score.copy()
-        gap = FAR // k + 1
-        for _ in range(PEAKS):
-            y, x = np.unravel_index(int(np.argmax(score)), score.shape)
-            if score[y, x] <= 0:
-                break
-            spots.append((t + y * k, l + x * k))
-            score[max(0, y - gap):y + gap + 1, max(0, x - gap):x + gap + 1] = -2
+        # a small title (the UI at 0.64: 10 px tall) shrunk 3 times can smear to nothing, and 2 times
+        # too, depending on how the shrink meets its pixels (ITEM INVENTORY found only at 3, SKILL
+        # INVENTORY only at 2, UI Size ideal, live 2026-11-19): it's looked for at both
         th, tw = tpl.shape
         fine = []
-        for y0, x0 in spots:
-            sub = ncc(g[max(0, y0 - k - 1):y0 + th + k + 1, max(0, x0 - k - 1):x0 + tw + k + 1], tpl)
-            if sub.size:
-                yy, xx = np.unravel_index(int(np.argmax(sub)), sub.shape)
-                fine.append((float(sub[yy, xx]), max(0, x0 - k - 1) + int(xx), max(0, y0 - k - 1) + int(yy)))
+        for k in ((COARSE,) if min(tpl.shape) >= 4 * COARSE else (2, COARSE)):
+            if cache is not None:
+                key = ("rough", k, l, t, r, b)
+                if key not in cache:
+                    cache[key] = (_shrink(g[t:b, l:r], k), {})
+                small, small_cache = cache[key]
+            else:
+                small, small_cache = _shrink(g[t:b, l:r], k), None
+            score = ncc(small, _shrink(tpl, k), small_cache)
+            if score.size == 0:
+                continue
+            score = score.copy()
+            gap = FAR // k + 1
+            for _ in range(PEAKS):
+                y, x = np.unravel_index(int(np.argmax(score)), score.shape)
+                if score[y, x] <= 0:
+                    break
+                score[max(0, y - gap):y + gap + 1, max(0, x - gap):x + gap + 1] = -2
+                y0, x0 = t + y * k, l + x * k
+                sub = ncc(g[max(0, y0 - k - 1):y0 + th + k + 1, max(0, x0 - k - 1):x0 + tw + k + 1], tpl)
+                if sub.size:
+                    yy, xx = np.unravel_index(int(np.argmax(sub)), sub.shape)
+                    spot = (float(sub[yy, xx]), max(0, x0 - k - 1) + int(xx), max(0, y0 - k - 1) + int(yy))
+                    if all(abs(spot[1] - f[1]) > FAR or abs(spot[2] - f[2]) > FAR for f in fine):
+                        fine.append(spot)
         if not fine:
             return None
         best, x, y = max(fine)
-        second = max((f[0] for f in fine if abs(f[1] - x) > FAR or abs(f[2] - y) > FAR), default=-1.0)
+
+        def rivals_spot(fx, fy, score):
+            """Another window's title matches this spot better: it's that title, not a near twin of ours."""
+            for r in rivals:
+                rh, rw = r.shape
+                patch = g[max(0, fy - 8):fy + rh + 8, max(0, fx - 8):fx + rw + 8]     # the two corners differ a few px
+                if patch.shape[0] >= rh and patch.shape[1] >= rw and float(ncc(patch, r).max()) > score:
+                    return True
+            return False
+        second = max((f[0] for f in fine if (abs(f[1] - x) > FAR or abs(f[2] - y) > FAR) and not rivals_spot(f[1], f[2], f[0])),
+                     default=-1.0)
         if best < MIN_SCORE or best - second < MIN_GAP:
             return None
         return x, y, best
@@ -204,7 +221,8 @@ class Titles:
                 if hit:
                     break
             if hit is None and (full is None or name in full):
-                hit = self._search(g, tpl, (0, 0, g.shape[1], g.shape[0]), shared)
+                rivals = [self.template(k, s) for k in RIVALS.get(name, ()) if k in self.boxes]
+                hit = self._search(g, tpl, (0, 0, g.shape[1], g.shape[0]), shared, rivals)
             if hit is None:
                 self.last.pop(name, None)
                 continue

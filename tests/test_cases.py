@@ -100,3 +100,11 @@ def test_tooltip_bottom_doesnt_run_into_lines_below(game_reader):
     tips = reader.read_tooltips(lines, f, native.ui_scale(f), game_reader.item_names)
     blue = next(t for t in tips if t["name"] == "Blue Jean Shorts")
     assert abs(blue["box"][3] - 822) <= 6, blue["box"]
+
+
+# no window of any kind is invented by the whole-frame search on pictures that have none (review)
+@pytest.mark.parametrize("name", [n for n in ("map_ant1200", "fs600_hud") if n in CASE_LIST])
+def test_whole_frame_search_adds_no_window_of_any_kind(seen_case, name):
+    seen = seen_case(name)
+    assert not any(seen.get(k) for k in ("stat", "inventory", "skills", "quest"))
+    assert not (seen.get("helper") or {}).get("quests")
