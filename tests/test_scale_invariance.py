@@ -64,8 +64,6 @@ KNOWN = {
     ("fm_quest_window", "stat.exp", 1080): "R",
     ("fm_quest_window", "inventory.mesos", 1080): "R",
     ("fm_title_glued", "stat.level", 1080): "R",
-    ("fm_tooltip", "stat.name", 1050): "F8",
-    ("fm_tooltip", "stat.name", 1440): "F8",
     ("fm_tooltip", "stat.level", 1080): "R",
     ("fm_tooltip", "stat.str_base", 1080): "R",
     ("fm_tooltip", "stat.dex_base", 1080): "R",

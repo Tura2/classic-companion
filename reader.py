@@ -569,6 +569,26 @@ def fix_one_vs_l(text, crop):
     return "".join(out)
 
 
+# How much of a value cell an item tooltip covers before its value is left out. A number shows
+# through the see-through navy (a level cell half covered read right); one wholly under the tooltip
+# reads the tooltip's own text (AP read "REQ DEX: 60" at 87 % covered, live round 2026-11-19). A
+# name partly covered reads short ("ura"), and a different name means another character to trust.py
+COVERED_NUMBER = 0.7
+COVERED_NAME = 0.2
+
+
+def covered(frame, box, share=COVERED_NUMBER):
+    """Whether an item tooltip lies over the box (a window's value cell, light where it's bare): at
+    least `share` of its pixels are tooltip navy."""
+    l, t, r, b = (int(v) for v in box)
+    l, t, r, b = max(0, l), max(0, t), min(frame.width, r), min(frame.height, b)
+    if r - l < 2 or b - t < 2:
+        return False
+    a = np.asarray(frame.crop((l, t, r, b)).convert("RGB"), int)
+    red, green, blue = a[..., 0], a[..., 1], a[..., 2]
+    return float(((red < 130) & (blue - red >= 25) & (blue - green >= 20)).mean()) >= share
+
+
 DETAIL_LABEL_END = 384.5     # the Detail panel's blue label cells end here, from the title (game px)
 
 
@@ -626,6 +646,15 @@ def read_stat(frame, t, s, job_names):
     out["ap"] = read_small_number(frame, (x + 122 * s, y + 390 * s, x + 170 * s, y + 412 * s), s)   # below the line over the box (1080)
     # a blank margin round it: Windows OCR gave nothing at all for this box at one left edge and
     # all of it a pixel either side (real 1920 x 1080, 2026-11-18: ACCURACY 74 never read)
+    # a value under an item tooltip is the tooltip's text, not yours: left out
+    under = lambda x0, x1, row, share=COVERED_NUMBER: covered(frame, (x0, y + (row - 9) * s, x1, y + (row + 9) * s), share)
+    for k, keys in (("name", ("name",)), ("level", ("level",)), ("exp", ("exp", "exp_pct")), ("str", ("str", "str_base")),
+                    ("dex", ("dex", "dex_base")), ("int", ("int", "int_base")), ("luk", ("luk", "luk_base"))):
+        if under(x + 76 * s, x + 230 * s, STAT_ROWS[k], COVERED_NAME if k == "name" else COVERED_NUMBER):
+            for key in keys:
+                out.pop(key, None) if key not in ("name", "level") else out.__setitem__(key, None)
+    if out.get("ap") is not None and under(x + 122 * s, x + 170 * s, 401):
+        out["ap"] = None
     dx = detail_shift(frame, x, y, s)
     detail = read_box(frame, (x + 388 * s + dx, y + 85 * s, x + 550 * s + dx, y + 375 * s), s, pad=8)
     d = nearest_row(detail, DETAIL_ROWS, y, s)
@@ -633,6 +662,9 @@ def read_stat(frame, t, s, job_names):
         m = re.match(r"\s*(\d{1,3})(?!\d)", d.get("acc", ""))     # just the number, nothing read beside it
         out["acc"] = int(m.group(1)) if m else None
         out["attack"] = d.get("attack")
+        for k in ("acc", "attack"):
+            if under(x + 388 * s + dx, x + 550 * s + dx, DETAIL_ROWS[k]):
+                out[k] = None
     return out
 
 
