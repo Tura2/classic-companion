@@ -264,5 +264,24 @@ The dashboard was run alone on copies of the data (no screen reading), browsed a
 
 Checked and fine: the API answers this PC only (Host and Origin checked, JSON-only POSTs); every name shown on the dashboard is escaped; the update is checked against the release's size and SHA-256; the problem report leaves out the profile, pictures and Discord identity; no script errors and no page scroll on any tab at the three sizes.
 
+### Live round (2026-11-19, capture desk)
+22 shots in `samples/raw/desk/` (sessions 1-6 and 8; session 7, small window, not taken). Read with the reader on `fix/reader-bug-hunt`, three reads like the app. Labels were drawn by the installed v1.4.2, so without PR #56.
+
+| F# | verdict | evidence |
+|---|---|---|
+| F5 | **real** (reverses the false-positive verdict) | 1920 x 1080 window, stat window with Detail open and inventory beside it: OCR reads its title as "OHRRROTER STAT" (ratio < 78), so `find_windows` drops it and `place_by_picture` only searches around OCR's hints. The same layout at 2560 x 1440 reads in full. All stat fields blank. |
+| F3 | **false positive** | real player shop at 1080 and 1440: all four prices read right (5 digits) |
+| F4 seller | **real** | the seller's name loses a letter at 1080 and is `None` at 1440 |
+| F4b (new) | real, low | the two grayed rows (sold) aren't listed at all at 1080 or 1440; the banded retry only runs when no row read |
+| F1 | **real, live** (fix in PR #56, not installed) | full screen 1920 x 1200 on 2560 x 1440: price cards ~125 px left of their tooltip, route strip in the black bar |
+| F10 | **real: blank, not wrong** | UI Size "ideal" (UI drawn unscaled at 1200): only the mini map reads; stat, inventory mesos and skills blank |
+| F13 (new) | **real: wrong numbers** | full screen 1280 x 720 on a 1440 monitor: the frame is 2560 x 1440, so s = 1.2, but the game's picture is 720 tall (< 768), so the UI is 1440/720 x 0.64 = 1.28. Rows shift by one: LV **138**, DEX **37** (base 32), INT **181** (base 170). At 800 x 600 full screen nothing in the stat window reads. 1024 x 768 and up read right. Needs s from the game's own picture height (`native`), not the frame's. |
+| F14 (new) | **real: wrong numbers** | a tooltip over the stat window's lower rows (full screen 1920 x 1080): AP read **60** (the tooltip's "REQ DEX: 60"), LUK **3**. Like F8. The H9 rule (base + AP = 5 x level + 20) would catch it. |
+| F15 (new) | real: wrong number, rare | full screen 1920 x 1200, nothing covering: ACCURACY 83 read as **33**. No rule checks ACC. |
+| F16 (new) | real, medium | windowed at 100 / 125 / 150 %: the price card's x is right, but over the compare tooltip (and both at 100 %) it's drawn inside the tooltip, over its REQ or stat lines, not under it |
+| H5 DPI | **holds** | windowed on the 125 % monitor, the 150 % laptop and the main at 100 %: cards on the tooltips' left edges, route strip under the mini map |
+| F6 street | fixed holds | Victoria Road, Hidden Street, Ant Tunnel I (Dungeon) read right; one 1024 x 768 full-screen read lost the street (None, not wrong) |
+| F7, F8, F9 skill rows, F11 | still open | no skill window or covered name in a shot that tests them |
+
 ### Fixed (2026-11-18)
 Reader PR (`fix/reader-bug-hunt`): F1, F2 (and two more found fixing it: a crash when the AP box is wholly off the frame, and a title cut by the frame's edge placing the window a row off), F6 street, F12 (new: ACCURACY never read at real 1080, Windows OCR blank at one box edge; real case `stat_1080_real`). App PR (`fix/app-routes-and-copies`): U1, U2 (+ monster names on hover), P1, and Go to's town-to-town routes always taking the cab (now walking, the cab a button away; Beginners ride first). Still open, waiting for pictures: F3, F4, F7, F8, F9 skill rows, F10, F11.
