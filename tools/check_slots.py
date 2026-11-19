@@ -15,6 +15,7 @@ from PIL import Image
 
 APP = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(APP))
+sys.path.insert(0, str(APP / "app"))
 import gamedata  # noqa: E402
 import quickslots  # noqa: E402
 

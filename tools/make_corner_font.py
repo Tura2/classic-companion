@@ -111,6 +111,7 @@ def check(g, font):
 
 if __name__ == "__main__":
     sys.path.insert(0, str(APP))
+    sys.path.insert(0, str(APP / "app"))
     gd, font = build()
     OUT.write_text(json.dumps(font, ensure_ascii=False, separators=(",", ":")), "utf-8")
     bad, n = check(gd, font)

@@ -18,6 +18,7 @@ from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "app"))
 
 # On a screen scaled above 100%, Windows otherwise reports the game window in scaled pixels, and
 # the picture comes out as the window's top-left corner, title bar and all, instead of the whole

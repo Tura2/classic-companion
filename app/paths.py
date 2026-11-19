@@ -9,7 +9,7 @@ if getattr(sys, "frozen", False):                 # PyInstaller build
     APP_DIR = Path(sys.executable).resolve().parent   # writable: settings, cache, your data
     RES_DIR = Path(getattr(sys, "_MEIPASS", APP_DIR))  # bundled read-only files (web/)
 else:
-    APP_DIR = RES_DIR = Path(__file__).resolve().parent
+    APP_DIR = RES_DIR = Path(__file__).resolve().parent.parent     # app/'s parent: the repo folder
 
 # Everything Companion writes stays in its own folder, each kind in its own subfolder.
 DATA_DIR = APP_DIR / "data"          # your profile, settings, histories: kept on uninstall if you say so
