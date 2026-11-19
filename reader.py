@@ -1152,7 +1152,8 @@ def read_tooltips(lines, frame, s, item_names, skip=()):
         if any(t["box"][0] <= x <= t["box"][2] and t["title"][1] + 10 * s < y <= t["box"][3] for t in tips):
             continue        # inside a tooltip already found: a shop row's name, seen through its navy
         # side by side, one tooltip starts right where the other ends, in the same navy
-        stop = min([nx - 4 * s for _, (_, nx, ny, _, _) in titles if nx > x and abs(ny - y) < 10 * s] + [frame.width - 1])
+        # (the next one's edge is 13 game px left of its title: measured on a real pair, 2026-11-19)
+        stop = min([nx - 13 * s for _, (_, nx, ny, _, _) in titles if nx > x and abs(ny - y) < 10 * s] + [frame.width - 1])
         floor = max([t["box"][2] + 1 for t in tips if abs(t["title"][1] - y) < 10 * s] + [0])
         left = int(x)
         while left > floor and _tip_navy(px[left - 1, row]):
@@ -1175,6 +1176,15 @@ def read_tooltips(lines, frame, s, item_names, skip=()):
                      if left <= c <= right)
         if right - left < 120 * s or bottom - row < 20 * s:
             continue                            # no tooltip box around it
+        # its text goes on to its last line: the navy can't be told from blue sky behind it, and a light
+        # row (the job names, a chat bubble behind) breaks it. Lines follow each other within 40 game px,
+        # and the box ends 8 below the last (a real pair at 1920 x 1080 full screen, 2026-11-19)
+        end = y + h
+        for _, lx, ly, lw, lh in sorted((ln for ln in lines if left <= ln[1] <= right and ln[2] > y), key=lambda ln: ln[2]):
+            if ly - end > 40 * s:
+                break
+            end = max(end, ly + lh)
+        bottom = max(bottom, int(end + 8 * s))
         # "Untradable", in orange just under the title: no market price can apply
         untradable = any(fuzz.partial_ratio("untradable", t.lower()) >= 85 and left <= tx <= right and y < ty < y + h + 30 * s
                          for t, tx, ty, _, _ in lines)

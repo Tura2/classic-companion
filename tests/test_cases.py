@@ -57,3 +57,15 @@ NO_STAT = ["map_ant1200", "fs600_hud"] + [n for n, c in CASE_LIST.items()
 @pytest.mark.parametrize("name", [n for n in dict.fromkeys(NO_STAT) if n in CASE_LIST])
 def test_whole_frame_search_adds_no_window(seen_case, name):
     assert not seen_case(name).get("stat")
+
+
+# tooltip boxes measured by eye on real pictures (case "tips"): a price card goes under the box
+@pytest.mark.parametrize("name", [n for n, c in CASE_LIST.items() if c.get("tips")])
+def test_tooltip_boxes(game_reader, name):
+    case = CASE_LIST[name]
+    f = Image.open(CASES / case["frame"]).convert("RGB")
+    got = {t["name"]: t["box"] for t in game_reader.look_for_tooltips(f, [0, 0, f.width, f.height])}
+    for want in case["tips"]:
+        assert want["name"] in got, got
+        assert abs(got[want["name"]][0] - want["left"]) <= 4, (want, got[want["name"]])
+        assert abs(got[want["name"]][3] - want["bottom"]) <= 6, (want, got[want["name"]])
