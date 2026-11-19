@@ -18,12 +18,15 @@ import asyncio
 import json
 import re
 
+import numpy as np
+
 from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont, ImageOps, ImageStat
 
 from paths import APP_DIR, CACHE_DIR, RES_DIR
 from anchors import Titles
 from hudexp import ExpDigits, exp_glyphs
 import hudnative
+import native
 from gamedata import fix_numeral, match_place
 
 DIGITS_FILE = CACHE_DIR / "hud_digits.json"   # level digit shapes learned from CHARACTER STAT
@@ -161,7 +164,7 @@ TITLES = {   # window -> its title, as written in the game
 SHOP_BUTTONS = {"LEAVE STORE": 0, "BUY ITEM": 31, "SELLER INFO": 80}
 
 
-def find_windows(lines, height):
+def find_windows(lines, height, s=None):
     """{window: its title line}. Titles are matched loosely, since the 1x pass misreads a letter or
     two, and the closest title wins ("SKILL INVENTORY" also looks a lot like "ITEM INVENTORY")."""
     from rapidfuzz import fuzz
@@ -191,8 +194,10 @@ def find_windows(lines, height):
         for button, above in SHOP_BUTTONS.items():
             score = fuzz.ratio(button, letters)
             if score >= 75 and score - above / 10 > best.get("shop", 0):   # LEAVE STORE wins a tie
-                s = ln[4] / 12        # the buttons' text is 12 px tall at the 1200 px UI size
-                found["shop"] = (button, ln[1], ln[2] + above * s, ln[3], ln[4])
+                # the UI's scale when the reader knows it; else the text's (12 px tall at the 1200 size),
+                # which OCR's box misjudges: 17 px at 1440 put LEAVE STORE 17 px low, the seller lost
+                u = s if s else ln[4] / 12
+                found["shop"] = (button, ln[1], ln[2] + above * u, ln[3], ln[4])
                 best["shop"] = score - above / 10
     if "myshop" in found and "shop" in found:
         # someone else's shop shows the same fee notice under it: a LEAVE STORE above it is theirs
@@ -566,6 +571,46 @@ def fix_one_vs_l(text, crop):
     return "".join(out)
 
 
+# How much of a value cell an item tooltip covers before its value is left out. A number shows
+# through the see-through navy (a level cell half covered read right); one wholly under the tooltip
+# reads the tooltip's own text (AP read "REQ DEX: 60" at 87 % covered, live round 2026-11-19). A
+# name partly covered reads short ("ura"), and a different name means another character to trust.py
+COVERED_NUMBER = 0.7
+COVERED_NAME = 0.2
+
+
+def covered(frame, box, share=COVERED_NUMBER):
+    """Whether an item tooltip lies over the box (a window's value cell, light where it's bare): at
+    least `share` of its pixels are tooltip navy."""
+    l, t, r, b = (int(v) for v in box)
+    l, t, r, b = max(0, l), max(0, t), min(frame.width, r), min(frame.height, b)
+    if r - l < 2 or b - t < 2:
+        return False
+    a = np.asarray(frame.crop((l, t, r, b)).convert("RGB"), int)
+    red, green, blue = a[..., 0], a[..., 1], a[..., 2]
+    return float(((red < 130) & (blue - red >= 25) & (blue - green >= 20)).mean()) >= share
+
+
+DETAIL_LABEL_END = 384.5     # the Detail panel's blue label cells end here, from the title (game px)
+
+
+def detail_shift(frame, x, y, s):
+    """How far (frame px) the Detail panel sits from where it usually does. It isn't always at the
+    same place beside the stat window: 9 game px nearer in a full-screen 1920 x 1200 picture
+    (live round 2026-11-19), where the fixed box cut ACCURACY's first digit (83 read 33). Told by
+    where its blue label cells end on the ACCURACY row; 0 when they aren't seen."""
+    row_y = int(y + DETAIL_ROWS["acc"] * s)
+    l, r = int(x + 330 * s), int(x + 420 * s)
+    if row_y >= frame.height or l < 0 or r > frame.width:
+        return 0.0
+    row = np.asarray(frame.crop((l, row_y, r, row_y + 1)).convert("RGB"), int)[0]
+    blue = np.flatnonzero(row[:, 2] - row[:, 0] > 40)
+    if not len(blue):
+        return 0.0
+    shift = l + blue.max() + 1 - (x + DETAIL_LABEL_END * s)
+    return shift if abs(shift) <= 20 * s else 0.0
+
+
 def read_stat(frame, t, s, job_names):
     from rapidfuzz import fuzz, process
     x, y = t[1], t[2]     # values start right of the colored label cells, whose edge can read as a "1"
@@ -600,15 +645,28 @@ def read_stat(frame, t, s, job_names):
         if total is not None:
             out[k], out[k + "_base"] = total, base
     # unspent AP: a lone number in a box, which the values column reads as its border's "1"
-    out["ap"] = read_small_number(frame, (x + 122 * s, y + 388 * s, x + 170 * s, y + 410 * s), s)
+    out["ap"] = read_small_number(frame, (x + 122 * s, y + 390 * s, x + 170 * s, y + 412 * s), s)   # below the line over the box (1080)
     # a blank margin round it: Windows OCR gave nothing at all for this box at one left edge and
     # all of it a pixel either side (real 1920 x 1080, 2026-11-18: ACCURACY 74 never read)
-    detail = read_box(frame, (x + 388 * s, y + 85 * s, x + 550 * s, y + 375 * s), s, pad=8)
+    # a value under an item tooltip is the tooltip's text, not yours: left out
+    under = lambda x0, x1, row, share=COVERED_NUMBER: covered(frame, (x0, y + (row - 9) * s, x1, y + (row + 9) * s), share)
+    for k, keys in (("name", ("name",)), ("level", ("level",)), ("exp", ("exp", "exp_pct")), ("str", ("str", "str_base")),
+                    ("dex", ("dex", "dex_base")), ("int", ("int", "int_base")), ("luk", ("luk", "luk_base"))):
+        if under(x + 76 * s, x + 230 * s, STAT_ROWS[k], COVERED_NAME if k == "name" else COVERED_NUMBER):
+            for key in keys:
+                out.pop(key, None) if key not in ("name", "level") else out.__setitem__(key, None)
+    if out.get("ap") is not None and under(x + 122 * s, x + 170 * s, 401):
+        out["ap"] = None
+    dx = detail_shift(frame, x, y, s)
+    detail = read_box(frame, (x + 388 * s + dx, y + 85 * s, x + 550 * s + dx, y + 375 * s), s, pad=8)
     d = nearest_row(detail, DETAIL_ROWS, y, s)
     if d:
         m = re.match(r"\s*(\d{1,3})(?!\d)", d.get("acc", ""))     # just the number, nothing read beside it
         out["acc"] = int(m.group(1)) if m else None
         out["attack"] = d.get("attack")
+        for k in ("acc", "attack"):
+            if under(x + 388 * s + dx, x + 550 * s + dx, DETAIL_ROWS[k]):
+                out[k] = None
     return out
 
 
@@ -1091,6 +1149,14 @@ def _tip_navy(p):
     return r < 130 and b - r >= 25 and b - g >= 20
 
 
+def _tip_tint(p):
+    """The tooltip's tint itself: blue above red and green, and green not far above red, which blue
+    sky and a window's blue label cells are (sky 90,136,182; the tooltip over it 68,74,124, over
+    dark wood 42,58,75)."""
+    r, g, b = p[:3]
+    return r < 130 and b - r >= 15 and b - g >= 12 and g - r <= 20
+
+
 def read_tooltips(lines, frame, s, item_names, skip=()):
     """The item tooltips on screen, as [{"name", "box", "title", "untradable"}], left to right.
     Usually one, the item under the mouse; for an equip the game adds a second beside it, the item
@@ -1128,7 +1194,8 @@ def read_tooltips(lines, frame, s, item_names, skip=()):
         if any(t["box"][0] <= x <= t["box"][2] and t["title"][1] + 10 * s < y <= t["box"][3] for t in tips):
             continue        # inside a tooltip already found: a shop row's name, seen through its navy
         # side by side, one tooltip starts right where the other ends, in the same navy
-        stop = min([nx - 4 * s for _, (_, nx, ny, _, _) in titles if nx > x and abs(ny - y) < 10 * s] + [frame.width - 1])
+        # (the next one's edge is 13 game px left of its title: measured on a real pair, 2026-11-19)
+        stop = min([nx - 13 * s for _, (_, nx, ny, _, _) in titles if nx > x and abs(ny - y) < 10 * s] + [frame.width - 1])
         floor = max([t["box"][2] + 1 for t in tips if abs(t["title"][1] - y) < 10 * s] + [0])
         left = int(x)
         while left > floor and _tip_navy(px[left - 1, row]):
@@ -1151,6 +1218,18 @@ def read_tooltips(lines, frame, s, item_names, skip=()):
                      if left <= c <= right)
         if right - left < 120 * s or bottom - row < 20 * s:
             continue                            # no tooltip box around it
+        # its text goes on to its last line: the navy can't be told from blue sky behind it, and a light
+        # row (the job names, a chat bubble behind) breaks it. Lines follow each other within 40 game px,
+        # and the box ends 8 below the last (a real pair at 1920 x 1080 full screen, 2026-11-19)
+        end = y + h
+        on_tip = lambda lx, ly, lh: any(_tip_tint(px[max(0, int(lx - d * s)), min(frame.height - 1, int(ly + lh / 2))])
+                                        for d in (4, 8, 12))    # past a box's border (the job names)
+        for _, lx, ly, lw, lh in sorted((ln for ln in lines if left <= ln[1] <= right and ln[2] > y), key=lambda ln: ln[2]):
+            if ly - end > 40 * s:
+                break
+            if on_tip(lx, ly, lh):          # only its own lines: one on the tooltip's tint
+                end = max(end, ly + lh)
+        bottom = max(bottom, int(end + 8 * s))
         # "Untradable", in orange just under the title: no market price can apply
         untradable = any(fuzz.partial_ratio("untradable", t.lower()) >= 85 and left <= tx <= right and y < ty < y + h + 30 * s
                          for t, tx, ty, _, _ in lines)
@@ -1194,7 +1273,7 @@ def look_for_tooltips(frame, region, item_names, skip=()):
     l, t, r, b = max(0, l - 20), max(0, t - 20), min(frame.width, r + 20), min(frame.height, b + 20)
     if r - l < 40 or b - t < 20:
         return []
-    return read_tooltips(ocr(frame.crop((l, t, r, b)), 1, l, t), frame, frame.height / REF_HEIGHT, item_names, skip)
+    return read_tooltips(ocr(frame.crop((l, t, r, b)), 1, l, t), frame, native.ui_scale(frame), item_names, skip)
 
 
 # where the windows that list items you don't hover sit, measured from their title, at the 1200 px UI
@@ -1374,7 +1453,7 @@ class Reader:
 
     def tip_skip(self, frame):
         """The Quest Helper's and Quest window's areas, as last seen: item names in them aren't tooltips."""
-        s = frame.height / REF_HEIGHT
+        s = native.ui_scale(frame)
         out = []
         for k, (a, b, c, d) in NOT_TIPS.items():
             if not (ln := (self.kept.get(k) or {}).get("line")):
@@ -1423,6 +1502,10 @@ class Reader:
         self.reads += 1
         hints = {k: v for k, v in wins.items() if k in self.titles.boxes}
         full = {n for n in ("minimap", "minibar") if n not in self.titles.last} if self.reads % 3 == 1 else set()
+        if self.reads % 3 == 1:
+            # a window whose title OCR misread ("OHRRROTER STAT" at 1920 x 1080), or can't read at all
+            # (UI Size ideal: the UI at 0.64), is found by its title's picture too
+            full |= {k for k in KEPT if k in self.titles.boxes and k not in wins and k not in self.titles.last}
         found = self.titles.find(frame, s, hints, full)
         self.map_titles = {k: found.pop(k) for k in ("minimap", "minibar") if k in found}
         wins.update(found)
@@ -1434,15 +1517,15 @@ class Reader:
                 # line is off by rows, so every field would be read from the wrong row. Not placed
                 del wins[k]
                 continue
-            if k not in found and fuzz.ratio(clean[:len(want)], want) >= 90 and clean.startswith(want[:3])                     and not (self.titles.learned / str(frame.height) / f"{k}.png").exists():
-                self.titles.learn(frame, k, line)
+            if k not in found and fuzz.ratio(clean[:len(want)], want) >= 90 and clean.startswith(want[:3])                     and not self.titles.learned_path(k, s).exists():
+                self.titles.learn(frame, k, line, s)
 
     def read(self, frame):
         """Everything visible in one frame of the game area, plus where each window is."""
-        s = frame.height / REF_HEIGHT
+        s = native.ui_scale(frame)
         self.start_read()
         lines = ocr(frame)
-        wins = find_windows(lines, frame.height)
+        wins = find_windows(lines, frame.height, s)
         self.place_by_picture(frame, s, wins)
         # windows move whenever you drag them, so each read looks for them again. When a title didn't
         # read this time, a window whose title is still pixel for pixel where it was is still open
@@ -1487,7 +1570,8 @@ class Reader:
         if "stat" in wins:
             seen["stat"] = read_stat(frame, wins["stat"], s, self.job_names)
             lv = seen["stat"].get("level")
-            if glyphs and lv and len(str(lv)) == len(glyphs):    # both agree on the digit count
+            # both agree on the digit count; never over the HUD's own sprites, which are exact
+            if glyphs and lv and not nat_lv and len(str(lv)) == len(glyphs):
                 seen["hud"].update(level=lv, level_exact=True)
             st = seen["stat"]
             if exp_g and st.get("exp") is not None and seen["hud"].get("exp") in (None, st["exp"]):
@@ -1555,7 +1639,7 @@ class Reader:
         place isn't known: the next full read looks for it."""
         if not {"minimap", "minibar"} & set(self.titles.last):
             return None
-        s = frame.height / REF_HEIGHT
+        s = native.ui_scale(frame)
         mt = self.titles.find(frame, s, None, set(), names=("minimap", "minibar"))
         seen = {"scale": round(s, 3), "quick": True, "map_only": True, "windows": {}}
         if mt:
@@ -1582,7 +1666,7 @@ class Reader:
             panel = panel if any(my_shop_line(t) == "mysales" for t, *_ in near) else None
         if not panel:
             panel = find_sales_panel(frame, anchor)     # opened since, or moved down a row after a sale
-        s = frame.height / REF_HEIGHT
+        s = native.ui_scale(frame)
         mine = self.read_my_shop_at(frame, tuple(anchor), tuple(panel) if panel else None)
         # windows the last full read saw, still where they were: one over the store hides it
         open_now = {k: v["line"] for k, v in self.kept.items() if still_there(frame, v)}
@@ -1595,7 +1679,7 @@ class Reader:
 
     def read_shop_only(self, frame, anchor):
         """The quick look while a shop is open: just its item list, about a fifth of a full read."""
-        s = frame.height / REF_HEIGHT
+        s = native.ui_scale(frame)
         if not shop_still_open(frame, anchor, s):
             return None
         shop = read_shop(frame, anchor, s, self.item_names)

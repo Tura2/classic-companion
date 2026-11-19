@@ -1063,7 +1063,7 @@ class App:
             for t in tips:
                 # it moved or went: look around where it was too, the next item's comes up beside it
                 l, tp, r, b = t["box"]
-                pad = round(160 * frame.height / reader.REF_HEIGHT)
+                pad = round(160 * native.ui_scale(frame))
                 near = [l - pad, tp - pad, r + pad, b + pad]
                 region = near if region is None else [min(region[0], near[0]), min(region[1], near[1]),
                                                       max(region[2], near[2]), max(region[3], near[3])]

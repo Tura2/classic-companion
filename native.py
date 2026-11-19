@@ -13,6 +13,7 @@ On the game's own pixels its fonts and digits are exact little pictures again, d
 every time, so they're told apart by matching, not by guessing like OCR.
 """
 from functools import lru_cache
+from typing import NamedTuple
 
 import numpy as np
 from PIL import Image
@@ -78,10 +79,20 @@ def frame_box(size, nbox, margin=2):
             min(w, int(np.ceil(x1 * sx)) + margin), min(h, int(np.ceil(y1 * sy)) + margin))
 
 
-def _native(a, size, box, area=None):
+def _pick(lo, hi, frame_len, native_len, off):
+    """A picture stretched by repeating pixels, along one side: (the frame pixel at the centre of each
+    game pixel whose centre lies in lo..hi-1, counted from lo; the first game pixel)."""
+    k = frame_len / native_len
+    i0 = max(0, int(np.ceil((lo - off) / k - 0.5)))
+    i1 = min(native_len, int(np.floor((hi - off) / k - 0.5)) + 1)
+    idx = np.floor(off + (np.arange(i0, i1) + 0.5) * k).astype(int) - lo
+    return np.clip(idx, 0, hi - lo - 1), i0
+
+
+def _native(a, size, box, area=None, nearest=False):
     """Frame pixels a (rows, columns[, channels]) under box, back to the game's own: (array, (x, y)).
     area: where the game's picture is in the frame and its own size, (x0, w, y0, h, nw, nh); the
-    whole frame when None."""
+    whole frame when None. nearest: the picture was stretched by repeating pixels (no blending)."""
     w, h = size
     x0, y0, x1, y1 = box
     if area is None:
@@ -89,6 +100,10 @@ def _native(a, size, box, area=None):
     ax, aw, ay, ah, nw, nh = area
     if (nw, nh) == (w, h) and (ax, ay, aw, ah) == (0, 0, w, h):
         return a, (x0, y0)
+    if nearest:
+        ix, fx = _pick(x0, x1, aw, nw, ax)
+        iy, fy = _pick(y0, y1, ah, nh, ay)
+        return a[iy][:, ix], (fx, fy)
     ix, wx, fx = _undo(x0, x1, aw, nw, ax)
     iy, wy, fy = _undo(y0, y1, ah, nh, ay)
     if a.ndim == 3:
@@ -138,9 +153,10 @@ class View:
     """The game's picture in one frame: its place (x0, w, y0, h, in frame pixels, fractions too) and
     its own size (nw, nh), and the game's own pixels under any of its areas."""
 
-    def __init__(self, frame, area):
+    def __init__(self, frame, area, nearest=False):
         self.frame = frame
         self.area = area
+        self.nearest = nearest      # stretched by repeating pixels (full screen 1280 x 720 on 1440)
         self.x0, self.w, self.y0, self.h, self.nw, self.nh = area
 
     @property
@@ -159,12 +175,13 @@ class View:
         """The game's own brightness under nbox (game pixels): (array, (game x, game y) of its corner)."""
         box = self.box(nbox)
         a = np.asarray(self.frame.crop(box).convert("RGB"), np.float32) @ LUM
-        return _native(a, self.frame.size, box, self.area)
+        return _native(a, self.frame.size, box, self.area, self.nearest)
 
     def rgb(self, nbox):
         """The game's own colours under nbox, like lum."""
         box = self.box(nbox)
-        return _native(np.asarray(self.frame.crop(box).convert("RGB"), np.float32), self.frame.size, box, self.area)
+        return _native(np.asarray(self.frame.crop(box).convert("RGB"), np.float32), self.frame.size, box, self.area,
+                       self.nearest)
 
 
 def _edge(line):
@@ -243,6 +260,112 @@ def _width(frame, x0, w, y0, h, nh):
     return best[1]
 
 
+# ---- how tall the game's own picture is (live round 2026-11-19). Its UI is drawn 1:1 on that picture,
+# so this is what the UI's size in the frame follows:
+#   768, stretched smoothly to the window: the usual (every window over 768 tall, full screen at 768+);
+#   720 or 600, stretched by the monitor in full screen (1280 x 720 on a 1440 monitor: each pixel
+#     doubled, no blending; 800 x 600 on it: smooth, by the monitor's own filter);
+#   not stretched at all: UI Size "ideal", or a window 768 tall or less.
+# Told from the HUD's bottom band, the status bar, drawn on every map at the picture's bottom edge.
+# Measured on that band (rebuild error of the smooth stretch, mean levels): stretched from 768,
+# 0.06-0.09 (1.0 in full screen 1024 x 768); 800 x 600 full screen 2.0 at 600 against 3.8+; UI Size
+# ideal 16+ at every height. Pixel-doubled 720: half the band's rows repeat the one above.
+
+
+class Stretch(NamedTuple):
+    nh: int             # the game's own picture height
+    nearest: bool       # stretched by repeating pixels (no blending)
+
+
+CANDIDATES = (600, 720, 768)
+REPEATS = 0.9       # under this share of the band's rows differing from the one above: pixels repeat
+SNAP = 0.03         # a repeat-measured height within 3 % of a candidate is that candidate
+FIT_MAX = 3.0       # a smooth stretch from height n rebuilds the band with less error than this...
+FIT_GAP = 0.7       # ...and less than this share of the next best height's
+FIT_COLS = 240      # the fit is worked out on strips this wide...
+FIT_TRIES = 4       # ...the most detailed few of them
+FLAT = 4            # a band this flat (std of brightness) has nothing to measure: a loading screen
+
+
+def _area(frame):
+    """(x0, w, y0, h) of the game's picture in the frame: the capture's when it cut bars off, else all."""
+    area = frame.info.get(AREA) if hasattr(frame, "info") else None
+    return area if area is not None else (0.0, frame.width, 0.0, frame.height)
+
+
+@lru_cache(maxsize=256)
+def _fit(lo, hi, frame_len, native_len, off):
+    """The stretch along one side and its pseudo-inverse, for the band's fit."""
+    a, _ = _stretch(lo, hi, frame_len, native_len, off)
+    return a, np.linalg.pinv(a)
+
+
+STRETCH = "game_stretch"     # frame.info key: the frame's own Stretch, measured once per frame
+
+
+def measure(frame):
+    """The game's own picture height, and whether it's stretched by repeating pixels, as a Stretch.
+    Kept on the frame itself (never by size: the same size can show another mode a moment later)."""
+    known = frame.info.get(STRETCH) if hasattr(frame, "info") else None
+    if known is not None and known[0] == frame.size:     # PIL copies info into crops and resizes
+        return known[1]
+    got = _measure(frame)
+    if hasattr(frame, "info"):
+        frame.info[STRETCH] = (frame.size, got)
+    return got
+
+
+def _measure(frame):
+    x0, w, y0, h = _area(frame)
+    usual = Stretch(NATIVE_H if h > NATIVE_H else round(h), False)
+    bh = max(4, round(h * HUD_BAND))
+    rows = (int(y0 + h) - bh, int(y0 + h) - 1)
+    band = np.asarray(frame.crop((int(x0) + 1, rows[0], int(x0 + w) - 1, rows[1])).convert("RGB"), np.float32) @ LUM
+    if band.std() < FLAT:
+        return usual
+    # the fit on strips of the band, the most detailed first; the first that clearly picks a height
+    # decides. A flat strip says nothing (every height rebuilds it), so it's never asked
+    lo, hi = int(x0) + 1, int(x0 + w) - 1
+    strips = [(c, c + FIT_COLS) for c in range(lo, hi - FIT_COLS + 1, FIT_COLS)] or [(lo, hi)]
+    subs = sorted(((band[:, a - lo:b - lo], (a, b)) for a, b in strips), key=lambda t: -t[0].std())
+    tried = 0
+    for sub, cols in subs:
+        if sub.std() < FLAT or tried == FIT_TRIES:
+            break
+        tried += 1
+        errs = {}
+        for n in CANDIDATES:
+            if n >= h:
+                continue
+            nw = 2 * round(w * n / h / 2)
+            ay, iay = _fit(*rows, h, n, y0)
+            ax, iax = _fit(*cols, w, nw, x0)
+            back = ay @ (iay @ sub @ iax.T) @ ax.T
+            errs[n] = float(np.abs(back - sub)[2:-2, 2:-2].mean())
+        if errs:
+            best = min(errs, key=errs.get)
+            others = [e for n, e in errs.items() if n != best]
+            if errs[best] < FIT_MAX and (not others or errs[best] < FIT_GAP * min(others)):
+                return Stretch(best, False)
+    if not tried:
+        return usual
+    # no smooth stretch fits: repeated pixels? (a flat band repeats rows in a smooth stretch too, so
+    # this is asked only now)
+    share = float((np.abs(np.diff(band, axis=0)) > 0).any(1).mean())
+    if share < REPEATS:
+        near = [c for c in CANDIDATES if abs(c - h * share) <= SNAP * c]
+        if near:
+            return Stretch(near[0], True)
+    return Stretch(round(h), False)
+
+
+def ui_scale(frame):
+    """The UI's size in the frame against the 1920 x 1200 window the readers' offsets were measured
+    in (1.0 there): the frame pixels per game pixel, times 768 / 1200."""
+    _, _, _, h = _area(frame)
+    return h / measure(frame).nh * NATIVE_H / 1200
+
+
 def view_of(frame):
     """A View of the frame, or the View itself when given one (worked out once a look, shared)."""
     return frame if isinstance(frame, View) else game_view(frame)
@@ -252,12 +375,15 @@ def game_view(frame):
     """Where the game's picture is in a frame and its own size, as a View: what the capture put in
     the frame's info (full screen, its bars cut), else the whole frame (a window)."""
     fw, fh = frame.size
+    nh, nearest = measure(frame)            # 768 the usual; 720/600 in full screen; unstretched
     area = frame.info.get(AREA)
     if area is None:
-        return View(frame, (0.0, fw, 0.0, fh, *native_size(fw, fh)))
+        nw = fw if nh >= fh else 2 * round(fw * nh / fh / 2)
+        return View(frame, (0.0, fw, 0.0, fh, nw, nh), nearest)
     x0, w, y0, h = area
-    key = (round(x0, 1), round(w, 1), round(y0, 1), round(h, 1), fw, fh)
-    nh = NATIVE_H if h > NATIVE_H else round(h)
+    if nh >= round(h) or nearest:
+        return View(frame, (x0, w, y0, h, round(w) if nh >= round(h) else 2 * round(w * nh / h / 2), nh), nearest)
+    key = (round(x0, 1), round(w, 1), round(y0, 1), round(h, 1), fw, fh, nh)
     if key not in _widths:
         _widths[key] = _width(frame, x0, w, y0, h, nh)
     return View(frame, (x0, w, y0, h, _widths[key], nh))

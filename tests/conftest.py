@@ -5,6 +5,9 @@ from pathlib import Path
 
 for _var in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS"):    # as the app (companion.py)
     os.environ.setdefault(_var, "1")
+if sys.platform == "win32":     # below normal: the player's game comes first while the suite runs
+    import ctypes
+    ctypes.windll.kernel32.SetPriorityClass(ctypes.windll.kernel32.GetCurrentProcess(), 0x4000)
 
 import pytest
 
@@ -35,3 +38,12 @@ def game_reader(tmp_path_factory):
         return r
     finally:
         gamedata.fetch_json = real_fetch
+
+
+def case_frame(name):
+    """A reader case's picture (samples/cases/, git-ignored) as RGB; the test is skipped without it."""
+    from PIL import Image
+    path = APP / "samples" / "cases" / f"{name}.png"
+    if not path.exists():
+        pytest.skip(f"no case {name} (samples/cases is local)")
+    return Image.open(path).convert("RGB")
