@@ -1065,9 +1065,10 @@ class GameData:
                 return q["x"], q["y"]
         return self._middle(b)
 
-    def _ways(self, a):
+    def _ways(self, a, taxi=True):
         """Every way off map a: [(to map, portal or ride, cost on top of the walk)]. Of a map's
-        portals to the same map, the visible ones (type 2) when there are any."""
+        portals to the same map, the visible ones (type 2) when there are any. taxi: the Regular
+        Cabs between towns too."""
         out = []
         for b, best in self.graph.get(a, {}).items():
             if best.get("npc"):
@@ -1077,17 +1078,22 @@ class GameData:
             shown = [p for p in ps if p.get("type") == 2]
             for p in (shown or ps or [best]):
                 out.append((b, p, PORTAL_COST))
-        for b, cab in (getattr(self, "taxis", None) or {}).get(a, {}).items():
+        for b, cab in (getattr(self, "taxis", None) or {}).get(a, {}).items() if taxi else ():
             out.append((b, cab, RIDE_COST))
         return out
 
-    def route(self, start, goal, came_from=None):
+    def route(self, start, goal, came_from=None, taxi=False):
         """The steps from start to goal that take the least time: walking across each map (from where
         you came in to the way out), each portal, and each ride (Pason, a Regular Cab between towns).
-        came_from: the map you just left, so the walk on start begins at the portal you came out of."""
-        import heapq
+        came_from: the map you just left, so the walk on start begins at the portal you came out of.
+        taxi: a Regular Cab may be taken. It costs mesos (a Beginner rides 90 % off), so without it
+        the route walks, and takes a cab only when nothing else gets there."""
         if start not in self.maps or goal not in self.maps:
             return None
+        return self._route(start, goal, came_from, taxi) or (None if taxi else self._route(start, goal, came_from, True))
+
+    def _route(self, start, goal, came_from, taxi):
+        import heapq
         at = self._middle(start)
         back = next((p for b, p, _c in self._ways(came_from) if b == start), None) if came_from in self.maps else None
         if back is not None:
@@ -1101,7 +1107,7 @@ class GameData:
             if a == goal:
                 end = (a, pos)
                 break
-            for b, p, extra in self._ways(a):
+            for b, p, extra in self._ways(a, taxi):
                 if b == a:
                     continue
                 if "x" in p:

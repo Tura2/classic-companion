@@ -60,7 +60,8 @@ def test_a_cab_between_towns_far_apart():
     road = {H: [portal("r", 0, 0, A, "h")], A: [portal("h", 0, 0, H, "r"), portal("p", 30000, 0, P, "a")],
             P: [portal("a", 0, 0, A, "p")]}
     g = bare({H: {"npc_positions": [{"id": 200, "x": 700, "y": 800}]}, A: {}, P: {}, K: {}}, road, {200: "Regular Cab"})
-    steps = g.route(H, P)
+    assert [s["id"] for s in g.route(H, P)] == [H, A, P]            # a cab costs mesos: it walks unless asked
+    steps = g.route(H, P, taxi=True)
     assert [s["id"] for s in steps] == [H, P]
     cab = steps[0]
     assert cab["talk"] and cab["taxi"] and cab["npc"] == {"x": 700, "y": 800, "name": "Regular Cab"}
@@ -75,12 +76,19 @@ def test_no_cab_without_one_on_the_map():
 def test_a_short_walk_beats_the_cab():
     g = bare({H: {"npc_positions": [{"id": 200, "x": 0, "y": 0}]}, P: {}},
              {H: [portal("p", 300, 0, P, "h")], P: [portal("h", 0, 0, H, "p")]}, {200: "Regular Cab"})
-    assert not g.route(H, P)[0].get("talk")
+    assert not g.route(H, P, taxi=True)[0].get("talk")
+
+
+def test_the_cab_when_nothing_else_gets_there():
+    g = bare({H: {"npc_positions": [{"id": 200, "x": 0, "y": 0}]}, K: {}}, {}, {200: "Regular Cab"})
+    assert g.route(H, K)[0].get("taxi")
 
 
 def test_real_data_rides_a_cab_far_and_walks_near(game_reader):
     data = game_reader.data
-    to_perion = data.route(H, P)
+    to_perion = data.route(H, P, taxi=True)
     assert [(s["name"], bool(s.get("taxi"))) for s in to_perion] == [("Henesys", True), ("Perion", False)]
-    near = data.route(H, data.match_map_name("Henesys Hunting Ground I"))
+    walk = data.route(H, P)                                         # town to town walks unless the cab is asked for
+    assert len(walk) > 2 and not any(s.get("taxi") for s in walk) and walk[-1]["name"] == "Perion"
+    near = data.route(H, data.match_map_name("Henesys Hunting Ground I"), taxi=True)
     assert not any(s.get("talk") for s in near)

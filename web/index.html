@@ -536,8 +536,9 @@ body[data-full] .tabs{margin-bottom:8px}
 .go .colL .grow{flex:1;min-height:0;display:flex;flex-direction:column}
 .scrolly{flex:1;min-height:0;overflow-y:auto}
 .qh{font:400 .85rem "DotGothic16",sans-serif;color:var(--muted);margin:10px 0 4px}
-.qgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin-top:6px}
-.qb{display:flex;align-items:center;gap:6px;background:var(--strip);border:1px solid var(--rim);border-radius:6px;padding:4px 8px;font-weight:800;font-size:.86rem;cursor:pointer;color:var(--ink);box-shadow:0 1px 0 var(--rim-soft);white-space:nowrap;overflow:hidden}
+.qgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin-top:6px;container-type:inline-size}
+@container (max-width:380px){.qgrid .qb{font-size:.76rem;padding:4px 5px;gap:4px}}   /* half a screen wide: "Sleepywood" still whole */
+.qb{display:flex;align-items:center;gap:6px;background:var(--strip);border:1px solid var(--rim);border-radius:6px;padding:4px 8px;font-weight:800;font-size:.86rem;cursor:pointer;color:var(--ink);box-shadow:0 1px 0 var(--rim-soft);line-height:1.1;text-align:start;overflow:hidden}
 .qb:hover{border-color:var(--blue)}
 .qlist{display:grid;gap:4px}
 .qr{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;background:var(--cell);border:0;border-radius:6px;padding:4px 8px;text-align:left;cursor:pointer;color:var(--ink)}
@@ -1287,7 +1288,7 @@ function mapCard(h, sv){
   const guess = !named && sv && sv.kills_total ? sv.kills_total : 0;
   const mobs = [...h.mobs].sort((a, b) => (counts[b.name] || 0) - (counts[a.name] || 0) || (b.count || 0) - (a.count || 0));
   const boxes = mobs.map(m => `<div class="mbox"><div class="mpic">${m.img ? `<img src="${esc(m.img)}" alt="">` : ""}</div>
-      <div class="mst"><b>${pretty(m.name)}</b><span>${IC_LV}Lv ${m.level ?? "?"}</span><span>${IC_HP}${m.hp != null ? fmt(m.hp) : "?"} HP</span><span>${IC_EXP}${m.exp != null ? fmt(m.exp) : "?"} EXP</span></div>
+      <div class="mst"><b title="${pretty(m.name)}">${pretty(m.name)}</b><span>${IC_LV}Lv ${m.level ?? "?"}</span><span>${IC_HP}${m.hp != null ? fmt(m.hp) : "?"} HP</span><span>${IC_EXP}${m.exp != null ? fmt(m.exp) : "?"} EXP</span></div>
       <div class="kc"><b>${named ? fmt(counts[m.name] || 0) : "—"}</b><small>killed</small>${byParty[m.name] ? `<small class="pk">+${fmt(byParty[m.name])} by party</small>` : ""}</div></div>`).join("");
   const other = ((sv && sv.kills) || []).filter(k => k.count && !h.mobs.some(m => m.name === k.name)).reduce((a, k) => a + k.count, 0);
   const dropsBtn = h.drops_ok && h.drops.length ? `<button class="btn mini" id="drops-btn">${itemIcon(2028000, 16)} Worth picking up ›</button>`
@@ -1889,7 +1890,7 @@ async function renderNav(force){
   await loadState();
   if (tab !== "nav") return;
   const nav = state.nav, gd = state.guide, cur = state.current && state.current.id;
-  const key = JSON.stringify([nav && nav.i, nav && nav.steps.length, nav && nav.to.id, cur, gd, navNpc, navWrong]);
+  const key = JSON.stringify([nav && nav.i, nav && nav.steps.length, nav && nav.to.id, nav && nav.taxi, cur, gd, navNpc, navWrong]);
   if (!force && key === navKey) return;
   navKey = key;
   if (portalMeta === null) portalMeta = await api("/api/portal").then(j => j && j.anchor ? j : false).catch(() => false);
@@ -1911,6 +1912,7 @@ async function renderNav(force){
       <div class="body">${head}${mapBox(st.id, st.render, st.name, target, extras)}
         <div class="rbtns">${st.arrived ? "" : `<button class="btn primary" data-step="${nav.i + 1}">${st.talk ? `I’m in ${pretty(st.to.name)}` : "I went through"}</button>`}
           <button class="btn" id="stop">Stop route</button>
+          ${nav.cab ? `<button class="btn" id="cab" title="${nav.taxi ? "Walk the whole way: no fare" : "The Regular Cab drives you between towns for a fare"}">${nav.taxi ? "Walk instead" : "Take the cab (costs mesos)"}</button>` : ""}
           ${state.screen.drawing ? `<button class="btn" data-cmd="nav_corner">Move the card on the game</button>` : ""}
           <div class="steps2">${nav.steps.map((s, i) => `<button class="st${i === nav.i ? " cur" : i < nav.i ? " done" : ""}" data-step="${i}">${i + 1}. ${pretty(s.name)}</button>`).join("")}</div></div>
       </div></section>`;
@@ -1936,6 +1938,7 @@ async function renderNav(force){
     await api("/api/guide", {id: state.guide.id, check: b.dataset.check, on: !!b.dataset.on}); renderNav(true); }));
   document.querySelectorAll("#view [data-step]").forEach(b => b.addEventListener("click", async () => { await api("/api/nav/step", {i:+b.dataset.step}); renderNav(true); }));
   const stop = $("#stop"); if (stop) stop.addEventListener("click", async () => { await api("/api/nav/stop", {}); renderNav(true); });
+  const cab = $("#cab"); if (cab) cab.addEventListener("click", async () => { await api("/api/nav/taxi", {on: !nav.taxi}); renderNav(true); });
   document.querySelectorAll("#view [data-cmd]").forEach(b => b.addEventListener("click", () => api("/api/" + b.dataset.cmd, {})));
   wireMaps();
   if (nav){ const next = nav.steps[nav.i + 1]; if (next) preloadMap(next.id); }
