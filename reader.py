@@ -1149,6 +1149,14 @@ def _tip_navy(p):
     return r < 130 and b - r >= 25 and b - g >= 20
 
 
+def _tip_tint(p):
+    """The tooltip's tint itself: blue above red and green, and green not far above red, which blue
+    sky and a window's blue label cells are (sky 90,136,182; the tooltip over it 68,74,124, over
+    dark wood 42,58,75)."""
+    r, g, b = p[:3]
+    return r < 130 and b - r >= 15 and b - g >= 12 and g - r <= 20
+
+
 def read_tooltips(lines, frame, s, item_names, skip=()):
     """The item tooltips on screen, as [{"name", "box", "title", "untradable"}], left to right.
     Usually one, the item under the mouse; for an equip the game adds a second beside it, the item
@@ -1214,10 +1222,13 @@ def read_tooltips(lines, frame, s, item_names, skip=()):
         # row (the job names, a chat bubble behind) breaks it. Lines follow each other within 40 game px,
         # and the box ends 8 below the last (a real pair at 1920 x 1080 full screen, 2026-11-19)
         end = y + h
+        on_tip = lambda lx, ly, lh: any(_tip_tint(px[max(0, int(lx - d * s)), min(frame.height - 1, int(ly + lh / 2))])
+                                        for d in (4, 8, 12))    # past a box's border (the job names)
         for _, lx, ly, lw, lh in sorted((ln for ln in lines if left <= ln[1] <= right and ln[2] > y), key=lambda ln: ln[2]):
             if ly - end > 40 * s:
                 break
-            end = max(end, ly + lh)
+            if on_tip(lx, ly, lh):          # only its own lines: one on the tooltip's tint
+                end = max(end, ly + lh)
         bottom = max(bottom, int(end + 8 * s))
         # "Untradable", in orange just under the title: no market price can apply
         untradable = any(fuzz.partial_ratio("untradable", t.lower()) >= 85 and left <= tx <= right and y < ty < y + h + 30 * s

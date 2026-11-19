@@ -84,3 +84,19 @@ def test_hud_sprite_level_isnt_overwritten_by_the_stat_window(game_reader, monke
     for _ in range(3):
         seen = game_reader.read(f)
     assert seen["stat"]["level"] == 33 and seen["hud"]["level"] == 38
+
+
+def test_tooltip_bottom_doesnt_run_into_lines_below(game_reader):
+    # lines under a tooltip that aren't on its navy (a window's rows below it, 22 px apart) don't
+    # carry its bottom down with them (final review, 2026-11-19)
+    import native
+    import reader
+    if "tips_fs1080" not in CASE_LIST:
+        pytest.skip("no case")
+    f = Image.open(CASES / "tips_fs1080.png").convert("RGB")
+    l, t, r, b = 1130, 450, 2100, 920
+    lines = reader.ocr(f.crop((l, t, r, b)), 1, l, t)
+    lines += [("Row of a window below", 1220.0, 836.0 + 22 * k, 160.0, 16.0) for k in range(3)]
+    tips = reader.read_tooltips(lines, f, native.ui_scale(f), game_reader.item_names)
+    blue = next(t for t in tips if t["name"] == "Blue Jean Shorts")
+    assert abs(blue["box"][3] - 822) <= 6, blue["box"]
