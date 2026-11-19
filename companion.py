@@ -103,14 +103,18 @@ def set_current(data, state, mid):
     state["profile"]["current_map"] = mid
     save_profile(state)
     nav = state.get("nav")
-    if nav and mid != came_from and nav["steps"][nav["i"]].get("arrived") and not nav.get("guide_to"):
+    if nav and mid != came_from and came_from == nav.get("reached") and not nav.get("guide_to"):
         # you got there: walking on ends the route. It used to re-plan back to the destination (or
-        # step back along the route) the moment you left it, so Go to never stopped
+        # step back along the route) the moment you left it, so Go to never stopped. Only a map
+        # read on screen counts as there: "I went through" on the last step isn't (the screen may
+        # still show the map before)
         state["nav"] = nav = None
     if nav:
         ids = [s["id"] for s in nav["steps"]]
         if mid in ids:
             nav["i"] = ids.index(mid)
+            if nav["steps"][nav["i"]].get("arrived"):
+                nav["reached"] = mid
         else:   # wandered off the route: re-plan from here, by cab or not as chosen
             _replan(data, state, mid, came_from)
     state["queue"].put(("nav",))

@@ -73,3 +73,18 @@ def test_a_quest_guide_still_replans_after_arriving(tmp_path, monkeypatch):
     companion.set_current(g, state, P)
     companion.set_current(g, state, A)
     assert state["nav"] is not None and state["nav"]["steps"][state["nav"]["i"]]["id"] == A
+
+
+def test_a_click_on_the_last_step_doesnt_end_the_route(tmp_path, monkeypatch):
+    # "I went through" moves the route to its last step before the game shows the map: the screen
+    # still reading the map before isn't walking on from the destination (final review, 2026-11-19)
+    g, state = towns(), state_for("Hunter", tmp_path, monkeypatch)
+    state["nav"] = {**companion.plan(g, state["profile"], H, P, taxi=False), "to": {"id": P}}
+    companion.set_current(g, state, A)
+    state["nav"]["i"] = 2                                    # what /api/nav/step does
+    state["profile"]["current_map"] = P
+    companion.set_current(g, state, A)                      # the screen still on the map before
+    assert state["nav"] is not None
+    companion.set_current(g, state, P)                      # then really there
+    companion.set_current(g, state, A)                      # and walking on ends it
+    assert state["nav"] is None
