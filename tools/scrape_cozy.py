@@ -13,6 +13,7 @@ from pathlib import Path
 
 APP_DIR = Path(__file__).resolve().parent.parent   # companion/, when run from tools/
 sys.path.insert(0, str(APP_DIR))
+sys.path.insert(0, str(APP_DIR / "app"))
 import cozy  # noqa: E402
 from paths import CACHE_DIR  # noqa: E402
 

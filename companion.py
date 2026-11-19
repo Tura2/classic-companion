@@ -13,6 +13,11 @@ Screen reading and on-game drawing are optional and switched on in the Settings 
   --no-browser don't open the dashboard automatically
   --second-copy start even while Companion is already running (a new build's smoke test)
 """
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parent / "app"))   # the app's modules
+
 import os
 
 # The matrix library's own threads, before numpy loads: one. Its many threads fight over the cores and

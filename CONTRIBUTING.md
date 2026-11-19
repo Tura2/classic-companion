@@ -36,22 +36,27 @@ It has its own AppId, folder and shortcut names, so it never touches a real inst
 `tools/make_installer_art.py` (run it again after changing `web/logo.png`).
 
 ## Where things live
+`companion.py` in the root is the entry point; the app's modules are in `app/`.
+
 | File | What it does |
 |---|---|
 | `companion.py` | Entry point, the small app window |
-| `sniper.py` | The dashboard server and API, ties everything together |
+| `app/sniper.py` | The dashboard server and API, ties everything together |
 | `web/index.html` | The whole dashboard (one page) |
-| `gamedata.py` | Downloads and indexes game data |
-| `advisor.py`, `trust.py` | Training/gear advice, price verdicts |
-| `capture.py`, `window.py` | Finding and capturing the game window |
-| `reader.py`, `anchors.py`, `hudexp.py` | Reading the game's windows from the picture, and the HUD's EXP |
-| `invgrid.py`, `notices.py` | Inventory items told by their picture; the corner's pickup lines |
-| `overlay_art.py` | Drawing labels over the game |
-| `grind.py`, `party.py` | EXP an hour, sessions and deaths (`grind.sqlite`); a kill's EXP split in a party |
-| `shopwatch.py`, `cozy.py`, `discord_link.py` | Your shop's sales, Cozy prices, Discord |
-| `paths.py` | Companion's folder and its subfolders (data, cache, logs, debug, reports) |
-| `applog.py`, `window.py`, `report.py` | What the small window says, the daily log files, Report a problem |
-| `version.py`, `installer/companion.iss`, `build.bat` | The version, the Inno Setup installer and the build |
+| `app/gamedata.py` | Downloads and indexes game data |
+| `app/advisor.py` | Training and gear advice |
+| `app/trust.py` | What a read may save to your profile, checked against the game's rules |
+| `app/capture.py`, `app/window.py` | Finding and capturing the game window |
+| `app/native.py` | The game's own pixels and how big it drew its UI (the reader's scale) |
+| `app/reader.py`, `app/anchors.py` | Reading the game's windows from the picture; finding them by their titles |
+| `app/hudnative.py`, `app/hudexp.py` | The HUD's level and EXP |
+| `app/invgrid.py`, `app/quickslots.py`, `app/notices.py` | Inventory items and quick slots told by their picture; the corner's pickup lines |
+| `app/overlay_art.py` | Drawing labels over the game |
+| `app/grind.py`, `app/party.py` | EXP an hour, sessions and deaths (`grind.sqlite`); a kill's EXP split in a party |
+| `app/shopwatch.py`, `app/cozy.py`, `app/discord_link.py` | Your shop's sales, Cozy prices, Discord |
+| `app/paths.py` | Companion's folder and its subfolders (data, cache, logs, debug, reports) |
+| `app/applog.py`, `app/report.py`, `app/updater.py` | What the small window says and the daily logs, Report a problem, self-update |
+| `app/version.py`, `installer/companion.iss`, `build.bat` | The version, the Inno Setup installer and the build |
 | `tools/` | One-off scripts (building `builds.json`, scraping Cozy, the icon, reader test cases) |
 | `tests/` | pytest suite |
 

@@ -21,12 +21,12 @@ if defined DISCORD (echo Building WITH discord.json: a private build, never a re
 
 rem One folder (Companion.exe + _internal\): starts faster than a one-file exe and unpacks nothing
 rem into %TEMP%. The installer puts it in place.
-pyinstaller --noconfirm --onedir --noconsole --name Companion --icon web\logo.ico ^
+pyinstaller --noconfirm --onedir --noconsole --name Companion --icon web\logo.ico --paths app ^
   --add-data "web;web" --add-data "builds.json;." --add-data "assets;assets" %DISCORD% ^
   --collect-all winocr --collect-submodules winrt --collect-all windows_capture ^
   companion.py || goto :failed
 
-for /f %%v in ('python -c "from version import VERSION; print(VERSION)"') do set VERSION=%%v
+for /f %%v in ('python -c "import sys; sys.path.insert(0, 'app'); from version import VERSION; print(VERSION)"') do set VERSION=%%v
 set "ISCC=%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe"
 if not exist "%ISCC%" set "ISCC=%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe"
 if not exist "%ISCC%" (

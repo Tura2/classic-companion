@@ -13,6 +13,7 @@ import pytest
 
 APP = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(APP))
+sys.path.insert(0, str(APP / "app"))
 sys.path.insert(0, str(APP / "tools"))
 
 
