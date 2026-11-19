@@ -135,3 +135,12 @@ STREETS = ["Victoria Road", "Warning Street", "Hidden Street", "Dungeon", "Free 
 ])
 def test_known_street(text, expected):
     assert reader.known_street(text, STREETS) == expected
+
+
+def test_shop_buttons_placed_by_ui_scale():
+    # real 2560 x 1440 shop (live round 2026-11-19): only SELLER INFO read, its text 17 px tall. LEAVE
+    # STORE is 80 game px under it at the UI's scale (1.2), not at the text's (17 / 12): 96, not 113
+    import reader
+    found = reader.find_windows([("SELLER INFO", 1062.0, 409.0, 140.0, 17.0)], 1440, 1.2)
+    assert found["shop"][0] == "SELLER INFO"
+    assert found["shop"][2] == pytest.approx(409 + 80 * 1.2, abs=0.5)

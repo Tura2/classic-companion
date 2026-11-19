@@ -194,8 +194,10 @@ def find_windows(lines, height, s=None):
         for button, above in SHOP_BUTTONS.items():
             score = fuzz.ratio(button, letters)
             if score >= 75 and score - above / 10 > best.get("shop", 0):   # LEAVE STORE wins a tie
-                s = ln[4] / 12        # the buttons' text is 12 px tall at the 1200 px UI size
-                found["shop"] = (button, ln[1], ln[2] + above * s, ln[3], ln[4])
+                # the UI's scale when the reader knows it; else the text's (12 px tall at the 1200 size),
+                # which OCR's box misjudges: 17 px at 1440 put LEAVE STORE 17 px low, the seller lost
+                u = s if s else ln[4] / 12
+                found["shop"] = (button, ln[1], ln[2] + above * u, ln[3], ln[4])
                 best["shop"] = score - above / 10
     if "myshop" in found and "shop" in found:
         # someone else's shop shows the same fee notice under it: a LEAVE STORE above it is theirs
