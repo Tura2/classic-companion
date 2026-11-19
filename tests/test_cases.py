@@ -47,3 +47,13 @@ def test_case_field(seen_case, case, name):
     if got != want and name in known:
         pytest.xfail(known[name])        # a known limit, said why in the case; a pass shows as a pass
     assert got == want
+
+
+# the whole-frame title search (live round, F5) never invents a stat window: cases with none
+NO_STAT = ["map_ant1200", "fs600_hud"] + [n for n, c in CASE_LIST.items()
+                                          if "stat.level" in c["expect"] and c["expect"]["stat.level"] is None]
+
+
+@pytest.mark.parametrize("name", [n for n in dict.fromkeys(NO_STAT) if n in CASE_LIST])
+def test_whole_frame_search_adds_no_window(seen_case, name):
+    assert not seen_case(name).get("stat")

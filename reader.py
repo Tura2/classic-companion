@@ -601,7 +601,7 @@ def read_stat(frame, t, s, job_names):
         if total is not None:
             out[k], out[k + "_base"] = total, base
     # unspent AP: a lone number in a box, which the values column reads as its border's "1"
-    out["ap"] = read_small_number(frame, (x + 122 * s, y + 388 * s, x + 170 * s, y + 410 * s), s)
+    out["ap"] = read_small_number(frame, (x + 122 * s, y + 390 * s, x + 170 * s, y + 412 * s), s)   # below the line over the box (1080)
     # a blank margin round it: Windows OCR gave nothing at all for this box at one left edge and
     # all of it a pixel either side (real 1920 x 1080, 2026-11-18: ACCURACY 74 never read)
     detail = read_box(frame, (x + 388 * s, y + 85 * s, x + 550 * s, y + 375 * s), s, pad=8)
@@ -1424,6 +1424,10 @@ class Reader:
         self.reads += 1
         hints = {k: v for k, v in wins.items() if k in self.titles.boxes}
         full = {n for n in ("minimap", "minibar") if n not in self.titles.last} if self.reads % 3 == 1 else set()
+        if self.reads % 3 == 1:
+            # a window whose title OCR misread ("OHRRROTER STAT" at 1920 x 1080), or can't read at all
+            # (UI Size ideal: the UI at 0.64), is found by its title's picture too
+            full |= {k for k in KEPT if k in self.titles.boxes and k not in wins and k not in self.titles.last}
         found = self.titles.find(frame, s, hints, full)
         self.map_titles = {k: found.pop(k) for k in ("minimap", "minibar") if k in found}
         wins.update(found)
