@@ -130,3 +130,14 @@ def test_learn_level_ignores_digits_from_an_older_read(tmp_path, monkeypatch):
     r.start_read()                       # a new read that doesn't see the HUD
     r.learn_level(33)
     assert r.digits.known == {}
+
+
+def test_exact_hud_level_beats_stat_window():
+    # a stat window read a row off (full screen 1280 x 720, live round 2026-11-19: LV 138) repeats on
+    # every read, so the repeat rule alone lets it in; the HUD's level, read off the game's own
+    # sprites, is exact
+    g, prof = gate(), profile(level=37)
+    seen = {**stat(level=138), "hud": {"level": 38, "level_exact": True}}
+    outs = [g.check(prof, seen) for _ in range(10)]
+    assert all(o.get("level") in (None, 38) for o in outs)
+    assert any(o.get("level") == 38 for o in outs)

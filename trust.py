@@ -93,6 +93,9 @@ class Gate:
 
     def _level(self, prof, stat, hud):
         read = stat.get("level") or (hud.get("level") if hud.get("level_exact") else None)
+        if hud.get("level_exact") and hud.get("level") and read != hud["level"]:
+            read = hud["level"]     # the HUD's sprites are exact; a stat window read a row off isn't
+            # (full screen 1280 x 720, live round 2026-11-19: LV 138 on every read)
         if read is None or read == prof.get("level"):
             return None
         if prof.get("level") and read == prof["level"] + 1:
