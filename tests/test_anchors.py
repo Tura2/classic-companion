@@ -67,10 +67,10 @@ def test_plain_frame_finds_nothing(titles):
 
 
 @pytest.mark.skipif(not CASES.exists(), reason="no cases on this PC")
-def test_learned_title_for_a_new_height(tmp_path):
+def test_learned_title_for_a_new_scale(tmp_path):
     img = frame("res_1080")
-    anchors.Titles(tmp_path, res_dir=APP).learn(img, "stat", ("CHARACTER STAT", 821, 40, 113, 8))
-    assert (tmp_path / "cache" / "titles" / "1080" / "stat.png").exists()
+    anchors.Titles(tmp_path, res_dir=APP).learn(img, "stat", ("CHARACTER STAT", 821, 40, 113, 8), 0.9)
+    assert (tmp_path / "cache" / "titles" / "s900" / "stat.png").exists()
     again = anchors.Titles(tmp_path, res_dir=APP)
     found = again.find(img, 1080 / 1200)
     assert (round(found["stat"][1]), round(found["stat"][2])) == (821, 40)
@@ -94,9 +94,24 @@ def test_rough_first_finds_what_the_exact_search_does(case, tmp_path, monkeypatc
 
 
 def test_two_copies_of_a_title_find_neither(titles):
-    tpl = titles.template("inventory", 1200, 1.0).astype(np.uint8)
+    tpl = titles.template("inventory", 1.0).astype(np.uint8)
     g = Image.new("L", (1920, 1200), 128)
     pic = Image.fromarray(tpl)
     g.paste(pic, (300, 200))
     g.paste(pic, (1200, 900))                               # the same title twice: no telling which
-    assert titles._search(np.asarray(g, dtype=np.float32), titles.template("inventory", 1200, 1.0), (0, 0, 1920, 1200)) is None
+    assert titles._search(np.asarray(g, dtype=np.float32), titles.template("inventory", 1.0), (0, 0, 1920, 1200)) is None
+
+
+def test_learned_title_keyed_by_scale(tmp_path):
+    # a title learned by height before the update is never used; one learned at a scale only there
+    from conftest import case_frame
+    t = anchors.Titles(tmp_path, res_dir=APP)
+    old = tmp_path / "cache" / "titles" / "1200" / "stat.png"
+    old.parent.mkdir(parents=True)
+    Image.new("L", (10, 3)).save(old)
+    assert t.template("stat", 1.0).shape != (3, 10)
+    f = case_frame("stat_1080_glued")
+    line = t.find(f, 0.9, full={"stat"}, names={"stat"})["stat"]
+    t.learn(f, "stat", line, 0.9)
+    assert (tmp_path / "cache" / "titles" / "s900" / "stat.png").exists()
+    assert t.template("stat", 1.0).shape != t.template("stat", 0.9).shape

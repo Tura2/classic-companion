@@ -57,9 +57,8 @@ def test_the_capture_gives_back_the_games_picture(layout):
 
 # (case, layout) -> the finding that makes it read otherwise, until fixed
 # R: the redraw only (it loses the mini map even at 1200; real pictures read mesos well)
-KNOWN = {("fm_quest_window", "letterbox"): "R: the mini map lost", ("fm_quest_window", "pillarbox"): "R: mesos blank",
-         ("hunt_moved_a", "letterbox"): "F7: a Quest Helper line dropped",
-         ("player_shop", "letterbox"): "F4: the seller misread", ("player_shop", "pillarbox"): "F4: the seller lost"}
+# letterbox reads right since s comes from the game's picture (1200), not the cut frame (1202)
+KNOWN = {("fm_quest_window", "pillarbox"): "R: mesos blank", ("player_shop", "pillarbox"): "F4: the seller lost"}
 
 
 @have

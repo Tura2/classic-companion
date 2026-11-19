@@ -88,7 +88,7 @@ class Titles:
         self.learned = Path(app_dir) / "cache" / "titles"
         self.last = {}        # title -> its picture's top-left corner, when last found
         self.scores = {}      # title -> how well it matched, in the last find
-        self._sized = {}      # (title, game height) -> the picture to look for
+        self._sized = {}      # (title, UI scale in thousandths) -> the picture to look for
 
     def _offsets(self, name, s):
         """(dx, dy) from the title picture's corner to the OCR line's, and the line's (w, h)."""
@@ -96,10 +96,15 @@ class Titles:
         (lx, ly, lw, lh), (cl, ct, _, _) = b["line"], b["cut"]
         return (lx - cl) * s, (ly - ct) * s, lw * s, lh * s
 
-    def template(self, name, height, s):
-        key = (name, height)
+    def learned_path(self, name, s):
+        """Where a title learned at UI scale s is kept: by scale, not by the frame's height (the same
+        height can show the UI at two sizes: UI Size, full screen below 768)."""
+        return self.learned / f"s{round(s * 1000)}" / f"{name}.png"
+
+    def template(self, name, s):
+        key = (name, round(s * 1000))
         if key not in self._sized:
-            path = self.learned / str(height) / f"{name}.png"
+            path = self.learned_path(name, s)
             if path.exists():
                 pic = Image.open(path).convert("L")
             else:
@@ -171,7 +176,7 @@ class Titles:
         for name, b in self.boxes.items():
             if names is not None and name not in names:
                 continue
-            tpl = self.template(name, frame.height, s)
+            tpl = self.template(name, s)
             th, tw = tpl.shape
             dx, dy, lw, lh = self._offsets(name, s)
             spots = [self.last[name]] if name in self.last else []
@@ -192,16 +197,15 @@ class Titles:
             out[name] = (b["text"], x + dx, y + dy, lw, lh)
         return out
 
-    def learn(self, frame, name, line):
-        """Keep the title as the game draws it at this frame's height, cut around an OCR line that
-        read it cleanly; from now on it's what's looked for at this height."""
-        s = frame.height / 1200
+    def learn(self, frame, name, line, s):
+        """Keep the title as the game draws it at UI scale s, cut around an OCR line that read it
+        cleanly; from now on it's what's looked for at this scale."""
         dx, dy, _, _ = self._offsets(name, s)
         cl, ct, cr, cb = self.boxes[name]["cut"]
         left, top = round(line[1] - dx), round(line[2] - dy)
         box = (left, top, left + round((cr - cl) * s), top + round((cb - ct) * s))
-        path = self.learned / str(frame.height) / f"{name}.png"
+        path = self.learned_path(name, s)
         path.parent.mkdir(parents=True, exist_ok=True)
         frame.convert("L").crop(box).save(path)
-        self._sized.pop((name, frame.height), None)
+        self._sized.pop((name, round(s * 1000)), None)
         return path

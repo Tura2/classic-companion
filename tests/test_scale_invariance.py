@@ -53,6 +53,8 @@ CASE_LIST = {k: c for k, c in load_cases().items()
 #   F7 Quest Helper lines dropped   F8 a part of a covered name read as the name   F9 other fields left blank
 #   R  the redraw only: real pictures at that size read it (CHARACTER STAT at 1080, mesos, AP)
 KNOWN = {
+    ("map_ant1200", "map.name", 1080): "R",      # the redraw is lossy on the mini map title
+    ("map_ant1200", "map.street", 1080): "R",
     ("fm_quest_window", "stat.name", 1050): "R",
     ("fm_quest_window", "stat.name", 1080): "R",
     ("fm_quest_window", "stat.level", 1050): "R",

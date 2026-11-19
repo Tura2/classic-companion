@@ -24,6 +24,7 @@ from paths import APP_DIR, CACHE_DIR, RES_DIR
 from anchors import Titles
 from hudexp import ExpDigits, exp_glyphs
 import hudnative
+import native
 from gamedata import fix_numeral, match_place
 
 DIGITS_FILE = CACHE_DIR / "hud_digits.json"   # level digit shapes learned from CHARACTER STAT
@@ -161,7 +162,7 @@ TITLES = {   # window -> its title, as written in the game
 SHOP_BUTTONS = {"LEAVE STORE": 0, "BUY ITEM": 31, "SELLER INFO": 80}
 
 
-def find_windows(lines, height):
+def find_windows(lines, height, s=None):
     """{window: its title line}. Titles are matched loosely, since the 1x pass misreads a letter or
     two, and the closest title wins ("SKILL INVENTORY" also looks a lot like "ITEM INVENTORY")."""
     from rapidfuzz import fuzz
@@ -1194,7 +1195,7 @@ def look_for_tooltips(frame, region, item_names, skip=()):
     l, t, r, b = max(0, l - 20), max(0, t - 20), min(frame.width, r + 20), min(frame.height, b + 20)
     if r - l < 40 or b - t < 20:
         return []
-    return read_tooltips(ocr(frame.crop((l, t, r, b)), 1, l, t), frame, frame.height / REF_HEIGHT, item_names, skip)
+    return read_tooltips(ocr(frame.crop((l, t, r, b)), 1, l, t), frame, native.ui_scale(frame), item_names, skip)
 
 
 # where the windows that list items you don't hover sit, measured from their title, at the 1200 px UI
@@ -1374,7 +1375,7 @@ class Reader:
 
     def tip_skip(self, frame):
         """The Quest Helper's and Quest window's areas, as last seen: item names in them aren't tooltips."""
-        s = frame.height / REF_HEIGHT
+        s = native.ui_scale(frame)
         out = []
         for k, (a, b, c, d) in NOT_TIPS.items():
             if not (ln := (self.kept.get(k) or {}).get("line")):
@@ -1434,15 +1435,15 @@ class Reader:
                 # line is off by rows, so every field would be read from the wrong row. Not placed
                 del wins[k]
                 continue
-            if k not in found and fuzz.ratio(clean[:len(want)], want) >= 90 and clean.startswith(want[:3])                     and not (self.titles.learned / str(frame.height) / f"{k}.png").exists():
-                self.titles.learn(frame, k, line)
+            if k not in found and fuzz.ratio(clean[:len(want)], want) >= 90 and clean.startswith(want[:3])                     and not self.titles.learned_path(k, s).exists():
+                self.titles.learn(frame, k, line, s)
 
     def read(self, frame):
         """Everything visible in one frame of the game area, plus where each window is."""
-        s = frame.height / REF_HEIGHT
+        s = native.ui_scale(frame)
         self.start_read()
         lines = ocr(frame)
-        wins = find_windows(lines, frame.height)
+        wins = find_windows(lines, frame.height, s)
         self.place_by_picture(frame, s, wins)
         # windows move whenever you drag them, so each read looks for them again. When a title didn't
         # read this time, a window whose title is still pixel for pixel where it was is still open
@@ -1555,7 +1556,7 @@ class Reader:
         place isn't known: the next full read looks for it."""
         if not {"minimap", "minibar"} & set(self.titles.last):
             return None
-        s = frame.height / REF_HEIGHT
+        s = native.ui_scale(frame)
         mt = self.titles.find(frame, s, None, set(), names=("minimap", "minibar"))
         seen = {"scale": round(s, 3), "quick": True, "map_only": True, "windows": {}}
         if mt:
@@ -1582,7 +1583,7 @@ class Reader:
             panel = panel if any(my_shop_line(t) == "mysales" for t, *_ in near) else None
         if not panel:
             panel = find_sales_panel(frame, anchor)     # opened since, or moved down a row after a sale
-        s = frame.height / REF_HEIGHT
+        s = native.ui_scale(frame)
         mine = self.read_my_shop_at(frame, tuple(anchor), tuple(panel) if panel else None)
         # windows the last full read saw, still where they were: one over the store hides it
         open_now = {k: v["line"] for k, v in self.kept.items() if still_there(frame, v)}
@@ -1595,7 +1596,7 @@ class Reader:
 
     def read_shop_only(self, frame, anchor):
         """The quick look while a shop is open: just its item list, about a fifth of a full read."""
-        s = frame.height / REF_HEIGHT
+        s = native.ui_scale(frame)
         if not shop_still_open(frame, anchor, s):
             return None
         shop = read_shop(frame, anchor, s, self.item_names)

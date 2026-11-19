@@ -282,7 +282,8 @@ REPEATS = 0.9       # under this share of the band's rows differing from the one
 SNAP = 0.03         # a repeat-measured height within 3 % of a candidate is that candidate
 FIT_MAX = 3.0       # a smooth stretch from height n rebuilds the band with less error than this...
 FIT_GAP = 0.7       # ...and less than this share of the next best height's
-FIT_COLS = 240      # the fit is worked out on a strip this wide, from 63 % of the picture's width
+FIT_COLS = 240      # the fit is worked out on strips this wide...
+FIT_TRIES = 4       # ...the most detailed few of them
 FLAT = 4            # a band this flat (std of brightness) has nothing to measure: a loading screen
 
 
@@ -292,15 +293,29 @@ def _area(frame):
     return area if area is not None else (0.0, frame.width, 0.0, frame.height)
 
 
-@lru_cache(maxsize=32)
+@lru_cache(maxsize=256)
 def _fit(lo, hi, frame_len, native_len, off):
     """The stretch along one side and its pseudo-inverse, for the band's fit."""
     a, _ = _stretch(lo, hi, frame_len, native_len, off)
     return a, np.linalg.pinv(a)
 
 
+STRETCH = "game_stretch"     # frame.info key: the frame's own Stretch, measured once per frame
+
+
 def measure(frame):
-    """The game's own picture height, and whether it's stretched by repeating pixels, as a Stretch."""
+    """The game's own picture height, and whether it's stretched by repeating pixels, as a Stretch.
+    Kept on the frame itself (never by size: the same size can show another mode a moment later)."""
+    known = frame.info.get(STRETCH) if hasattr(frame, "info") else None
+    if known is not None and known[0] == frame.size:     # PIL copies info into crops and resizes
+        return known[1]
+    got = _measure(frame)
+    if hasattr(frame, "info"):
+        frame.info[STRETCH] = (frame.size, got)
+    return got
+
+
+def _measure(frame):
     x0, w, y0, h = _area(frame)
     usual = Stretch(NATIVE_H if h > NATIVE_H else round(h), False)
     bh = max(4, round(h * HUD_BAND))
@@ -308,23 +323,32 @@ def measure(frame):
     band = np.asarray(frame.crop((int(x0) + 1, rows[0], int(x0 + w) - 1, rows[1])).convert("RGB"), np.float32) @ LUM
     if band.std() < FLAT:
         return usual
-    errs = {}
-    cl = int(x0 + 0.63 * w)
-    cols = (cl, min(int(x0 + w) - 1, cl + FIT_COLS))
-    sub = band[:, cols[0] - int(x0) - 1:cols[1] - int(x0) - 1]
-    for n in CANDIDATES:
-        if n >= h:
-            continue
-        nw = 2 * round(w * n / h / 2)
-        ay, iay = _fit(*rows, h, n, y0)
-        ax, iax = _fit(*cols, w, nw, x0)
-        back = ay @ (iay @ sub @ iax.T) @ ax.T
-        errs[n] = float(np.abs(back - sub)[2:-2, 2:-2].mean())
-    if errs:
-        best = min(errs, key=errs.get)
-        others = [e for n, e in errs.items() if n != best]
-        if errs[best] < FIT_MAX and (not others or errs[best] < FIT_GAP * min(others)):
-            return Stretch(best, False)
+    # the fit on strips of the band, the most detailed first; the first that clearly picks a height
+    # decides. A flat strip says nothing (every height rebuilds it), so it's never asked
+    lo, hi = int(x0) + 1, int(x0 + w) - 1
+    strips = [(c, c + FIT_COLS) for c in range(lo, hi - FIT_COLS + 1, FIT_COLS)] or [(lo, hi)]
+    subs = sorted(((band[:, a - lo:b - lo], (a, b)) for a, b in strips), key=lambda t: -t[0].std())
+    tried = 0
+    for sub, cols in subs:
+        if sub.std() < FLAT or tried == FIT_TRIES:
+            break
+        tried += 1
+        errs = {}
+        for n in CANDIDATES:
+            if n >= h:
+                continue
+            nw = 2 * round(w * n / h / 2)
+            ay, iay = _fit(*rows, h, n, y0)
+            ax, iax = _fit(*cols, w, nw, x0)
+            back = ay @ (iay @ sub @ iax.T) @ ax.T
+            errs[n] = float(np.abs(back - sub)[2:-2, 2:-2].mean())
+        if errs:
+            best = min(errs, key=errs.get)
+            others = [e for n, e in errs.items() if n != best]
+            if errs[best] < FIT_MAX and (not others or errs[best] < FIT_GAP * min(others)):
+                return Stretch(best, False)
+    if not tried:
+        return usual
     # no smooth stretch fits: repeated pixels? (a flat band repeats rows in a smooth stretch too, so
     # this is asked only now)
     share = float((np.abs(np.diff(band, axis=0)) > 0).any(1).mean())

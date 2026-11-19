@@ -203,3 +203,10 @@ def test_measure_small_window():
 
 def test_native_nearest_hud_level():
     assert hudnative.read_level(case_frame("fs720_stat")) == 38
+
+
+def test_measure_kept_per_frame_not_per_crop():
+    f = case_frame("fs720_stat")
+    assert native.measure(f) == native.Stretch(720, True)
+    small = f.resize((1280, 720), Image.NEAREST)          # PIL copies info: the stored answer isn't its own
+    assert native.measure(small) == native.Stretch(720, False)
