@@ -151,3 +151,55 @@ def test_the_bars_edge_stays_put_while_it_only_wobbles():
     assert again == first
     moved = native.trim_bars(boxed(np.clip(nat_picture(1228, 768), 0, 255), (2560, 1440), 240, 2080)).info[native.AREA]
     assert abs(moved[0] - 1) < 0.05 and abs(moved[1] - 2080) < 0.1
+
+
+# ---- the game's own picture height (live round 2026-11-19): 768 stretched smoothly (the usual),
+# 720 or 600 stretched by the monitor in full screen (720 on a 1440 monitor: every pixel doubled),
+# or not stretched at all (UI Size "ideal")
+import pytest                       # noqa: E402
+
+import hudnative                    # noqa: E402
+from conftest import case_frame     # noqa: E402
+
+
+@pytest.mark.parametrize("case,want", [
+    ("fs720_stat", native.Stretch(720, True)),
+    ("fs600_hud", native.Stretch(600, False)),
+    ("ui_ideal", native.Stretch(1200, False)),
+    ("map_ant1200", native.Stretch(768, False)),
+    ("stat_1080_glued", native.Stretch(768, False)),
+    ("stat_1080_real", native.Stretch(768, False)),
+    ("stat_1440_real", native.Stretch(768, False)),
+])
+def test_measure_real(case, want):
+    assert native.measure(case_frame(case)) == want
+
+
+def test_ui_scale_values():
+    assert native.ui_scale(case_frame("fs720_stat")) == pytest.approx(1.28, abs=0.005)
+    assert native.ui_scale(case_frame("ui_ideal")) == pytest.approx(0.64, abs=0.005)
+    assert native.ui_scale(case_frame("stat_1080_glued")) == pytest.approx(0.9, abs=0.001)
+
+
+def test_measure_follows_mode_at_one_size():
+    # UI Size switched at the same 1920 x 1200: nothing kept by frame size alone
+    assert native.measure(case_frame("ui_ideal")).nh == 1200
+    assert native.measure(case_frame("map_ant1200")).nh == 768
+    assert native.measure(case_frame("ui_ideal")).nh == 1200
+
+
+def test_measure_blank_band():
+    # a loading screen or a map change: the usual, never a wild height
+    assert native.measure(Image.new("RGB", (1920, 1200), (20, 20, 20))) == native.Stretch(768, False)
+    assert native.measure(Image.new("RGB", (800, 600), (20, 20, 20))) == native.Stretch(600, False)
+
+
+def test_measure_small_window():
+    # the game's own 1280 x 720 picture, as a small window shows it: not stretched, UI at 0.64
+    f = case_frame("fs720_stat").resize((1280, 720), Image.NEAREST)
+    assert native.measure(f) == native.Stretch(720, False)
+    assert native.ui_scale(f) == pytest.approx(0.64, abs=0.005)
+
+
+def test_native_nearest_hud_level():
+    assert hudnative.read_level(case_frame("fs720_stat")) == 38

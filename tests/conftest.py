@@ -38,3 +38,12 @@ def game_reader(tmp_path_factory):
         return r
     finally:
         gamedata.fetch_json = real_fetch
+
+
+def case_frame(name):
+    """A reader case's picture (samples/cases/, git-ignored) as RGB; the test is skipped without it."""
+    from PIL import Image
+    path = APP / "samples" / "cases" / f"{name}.png"
+    if not path.exists():
+        pytest.skip(f"no case {name} (samples/cases is local)")
+    return Image.open(path).convert("RGB")
