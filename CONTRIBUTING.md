@@ -14,7 +14,7 @@ however useful:
 - On-game windows stay click-through and never take focus.
 - Safe by default: anything new that reads the screen or sends data out is **off** until the user
   turns it on, with the risk spelled out.
-- Never use data from a site that asks not to be scraped (see "Not used, on purpose" in the README).
+- Never use data from a site that asks not to be scraped (see "Not used, on purpose" in docs/data-sources.md).
 
 ## Getting set up
 Companion runs on Windows (it uses Windows OCR and window capture).
@@ -65,7 +65,7 @@ Open an issue with the **Bug report** form and attach the zip from **Report a pr
 3. Run `python -m pytest -q` before pushing. CI runs it too, on Windows.
 4. Commit messages in the style already used: `fix(reader): what changed and why`,
    `feat(shops): ...`, `docs: ...`.
-5. If the change is user-visible, update the README in the same PR. The README is the manual:
+5. If the change is user-visible, update the README or its page in `docs/` (features, screen-reading, discord, data-sources) in the same PR. Together they are the manual:
    plain words, no hype, risks stated as they are.
 6. Open the PR and fill in the template.
 
