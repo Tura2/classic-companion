@@ -210,3 +210,17 @@ def test_measure_kept_per_frame_not_per_crop():
     assert native.measure(f) == native.Stretch(720, True)
     small = f.resize((1280, 720), Image.NEAREST)          # PIL copies info: the stored answer isn't its own
     assert native.measure(small) == native.Stretch(720, False)
+
+
+def test_measure_reuses_an_answer_for_the_same_band(monkeypatch):
+    # every look is a new frame; the same HUD band (same mode) needn't be fitted again, but a band
+    # that changed (UI Size switched, another resolution) is (review, 2026-11-19)
+    calls = []
+    real = native._measure
+    monkeypatch.setattr(native, "_measure", lambda f: calls.append(1) or real(f))
+    native._seen.clear()
+    a = case_frame("ui_ideal")
+    assert native.measure(a.copy()) == native.measure(a.copy()) == native.Stretch(1200, False)
+    assert len(calls) == 1
+    assert native.measure(case_frame("map_ant1200")) == native.Stretch(768, False)     # same size, other band
+    assert len(calls) == 2

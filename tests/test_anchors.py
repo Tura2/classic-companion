@@ -115,3 +115,24 @@ def test_learned_title_keyed_by_scale(tmp_path):
     t.learn(f, "stat", line, 0.9)
     assert (tmp_path / "cache" / "titles" / "s900" / "stat.png").exists()
     assert t.template("stat", 1.0).shape != t.template("stat", 0.9).shape
+
+
+def test_ncc_with_a_shared_frame_cache_is_the_same():
+    # a whole-frame look shares the frame's FFT and running sums between titles (review, 2026-11-19)
+    rng = np.random.default_rng(5)
+    img = rng.random((300, 420)).astype(np.float32)
+    cache = {}
+    for th, tw in ((10, 80), (12, 76), (10, 84)):
+        tpl = img[50:50 + th, 100:100 + tw].copy()
+        assert np.allclose(anchors.ncc(img, tpl, cache), anchors.ncc(img, tpl))
+    assert cache                                    # something was kept for the next title
+
+
+@pytest.mark.skipif(not CASES.exists(), reason="no cases on this PC")
+def test_whole_frame_find_same_with_shared_cache(tmp_path):
+    img = frame("fm_quest_window")
+    names = {"stat", "inventory", "skills", "helper", "quest"}
+    a = anchors.Titles(tmp_path / "a", res_dir=APP).find(img, 1.0, None, names, names=names)
+    b = anchors.Titles(tmp_path / "b", res_dir=APP)
+    b.share = False                                  # the old way, title by title
+    assert b.find(img, 1.0, None, names, names=names) == a

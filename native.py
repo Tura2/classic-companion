@@ -293,11 +293,11 @@ def _area(frame):
     return area if area is not None else (0.0, frame.width, 0.0, frame.height)
 
 
-@lru_cache(maxsize=256)
+@lru_cache(maxsize=48)     # a few window sizes' worth (each ~0.3 MB in float32)
 def _fit(lo, hi, frame_len, native_len, off):
     """The stretch along one side and its pseudo-inverse, for the band's fit."""
     a, _ = _stretch(lo, hi, frame_len, native_len, off)
-    return a, np.linalg.pinv(a)
+    return a.astype(np.float32), np.linalg.pinv(a).astype(np.float32)
 
 
 STRETCH = "game_stretch"     # frame.info key: the frame's own Stretch, measured once per frame
@@ -309,10 +309,29 @@ def measure(frame):
     known = frame.info.get(STRETCH) if hasattr(frame, "info") else None
     if known is not None and known[0] == frame.size:     # PIL copies info into crops and resizes
         return known[1]
-    got = _measure(frame)
+    key = _band_key(frame)
+    got = _seen.get(key)
+    if got is None:
+        got = _seen[key] = _measure(frame)
+        while len(_seen) > SEEN_MAX:
+            _seen.pop(next(iter(_seen)))
     if hasattr(frame, "info"):
         frame.info[STRETCH] = (frame.size, got)
     return got
+
+
+_seen = {}          # a HUD band's fingerprint -> its Stretch: every look is a new frame of the same mode
+SEEN_MAX = 16
+
+
+def _band_key(frame):
+    """The frame's size, where the game is in it, and its HUD band shrunk to 48 x 4 in 16 gray levels:
+    coarse enough that HP, MP and EXP moving don't change it, while a mode change (UI Size,
+    resolution) redraws the whole status bar at another size and does."""
+    x0, w, y0, h = _area(frame)
+    bh = max(4, round(h * HUD_BAND))
+    band = frame.crop((int(x0) + 1, int(y0 + h) - bh, int(x0 + w) - 1, int(y0 + h) - 1)).convert("L").resize((48, 4), Image.BOX)
+    return frame.size, (round(x0, 1), round(w, 1), round(y0, 1), round(h, 1)), bytes(v >> 4 for v in band.tobytes())
 
 
 def _measure(frame):
