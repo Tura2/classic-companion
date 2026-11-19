@@ -25,6 +25,9 @@ NEAR = 40            # how far around a window's last place (or where OCR saw it
 # around the PEAKS best spots of that at full size. ~300 ms a title over a 1920 x 1200 game before.
 COARSE = 3
 PEAKS = 5
+# titles alike enough to be each other's runner-up over the whole frame (at UI 0.64 by far): a spot
+# the other one matches better is that window, not a reason to doubt this one
+RIVALS = {"skills": ("inventory",), "inventory": ("skills",)}
 BIG = 300_000        # an area of more pixels than this is searched rough first
 
 
@@ -45,24 +48,31 @@ def _fast_len(n):
     return best
 
 
-def ncc(img, tpl):
+def ncc(img, tpl, cache=None):
     """How well `tpl` matches at each place in `img` (normalized cross-correlation, from -1 to 1),
-    one value per top-left corner the template fits at. Flat areas, where nothing can match, are 0."""
+    one value per top-left corner the template fits at. Flat areas, where nothing can match, are 0.
+    `cache`: a dict kept for one `img` while several titles are matched over it (a whole-frame look):
+    the picture's FFT and running sums are worked out once, not once a title."""
     img, tpl = np.asarray(img), np.asarray(tpl)
     (H, W), (th, tw) = img.shape, tpl.shape
     if H < th or W < tw:
         return np.zeros((0, 0))
+    cache = {} if cache is None else cache
     t = tpl - tpl.mean()
     tn = np.sqrt((t.astype(np.float64) ** 2).sum())
     fh, fw = _fast_len(H + th - 1), _fast_len(W + tw - 1)
-    num = np.fft.irfft2(np.fft.rfft2(img, (fh, fw)) * np.fft.rfft2(t[::-1, ::-1], (fh, fw)), (fh, fw))
+    if ("fft", fh, fw) not in cache:
+        cache[("fft", fh, fw)] = np.fft.rfft2(img, (fh, fw))
+    num = np.fft.irfft2(cache[("fft", fh, fw)] * np.fft.rfft2(t[::-1, ::-1], (fh, fw)), (fh, fw))
     num = num[th - 1:H, tw - 1:W]
-    a = img.astype(np.float64)
+    if "sums" not in cache:
+        a = img.astype(np.float64)
+        cache["sums"] = tuple(np.pad(v, ((1, 0), (1, 0))).cumsum(0).cumsum(1) for v in (a, a * a))
 
-    def window_sums(v):
-        c = np.pad(v, ((1, 0), (1, 0))).cumsum(0).cumsum(1)
+    def window_sums(c):
         return c[th:, tw:] - c[:-th, tw:] - c[th:, :-tw] + c[:-th, :-tw]
-    var = window_sums(a * a) - window_sums(a) ** 2 / (th * tw)
+    c1, c2 = cache["sums"]
+    var = window_sums(c2) - window_sums(c1) ** 2 / (th * tw)
     den = np.sqrt(np.maximum(var, 0)) * tn
     flat = var < 1e-3 * th * tw
     return np.where(flat | (tn == 0), 0.0, num / np.where(flat, 1, den))
@@ -89,6 +99,7 @@ class Titles:
         self.last = {}        # title -> its picture's top-left corner, when last found
         self.scores = {}      # title -> how well it matched, in the last find
         self._sized = {}      # (title, UI scale in thousandths) -> the picture to look for
+        self.share = True     # a whole-frame look shares the frame's FFT between titles
 
     def _offsets(self, name, s):
         """(dx, dy) from the title picture's corner to the OCR line's, and the line's (w, h)."""
@@ -114,14 +125,14 @@ class Titles:
         return self._sized[key]
 
     @staticmethod
-    def _search(g, tpl, box):
+    def _search(g, tpl, box, cache=None, rivals=()):
         """(x, y, score) of the best match inside box (left, top, right, bottom), or None. It has to
         match MIN_SCORE well, and MIN_GAP better than anywhere else more than FAR px away."""
         l, t, r, b = (int(round(v)) for v in box)
         l, t, r, b = max(0, l), max(0, t), min(g.shape[1], r), min(g.shape[0], b)
         if (r - l) * (b - t) > BIG and min(tpl.shape) >= 2 * COARSE:
-            return Titles._rough_first(g, tpl, (l, t, r, b))
-        score = ncc(g[t:b, l:r], tpl)
+            return Titles._rough_first(g, tpl, (l, t, r, b), cache, rivals)
+        score = ncc(g[t:b, l:r], tpl, cache.setdefault(("area", l, t, r, b), {}) if cache is not None else None)
         if score.size == 0:
             return None
         y, x = np.unravel_index(int(np.argmax(score)), score.shape)
@@ -134,34 +145,55 @@ class Titles:
         return l + int(x), t + int(y), best
 
     @staticmethod
-    def _rough_first(g, tpl, box):
+    def _rough_first(g, tpl, box, cache=None, rivals=()):
         """_search over a big area: the PEAKS best spots on both pictures shrunk COARSE times, each
         then matched at full size around it. The runner-up the gap is measured against is the best
         of the other spots (a window's title has no near twin elsewhere that the rough look misses)."""
         l, t, r, b = box
-        k = COARSE
-        score = ncc(_shrink(g[t:b, l:r], k), _shrink(tpl, k))
-        if score.size == 0:
-            return None
-        spots, score = [], score.copy()
-        gap = FAR // k + 1
-        for _ in range(PEAKS):
-            y, x = np.unravel_index(int(np.argmax(score)), score.shape)
-            if score[y, x] <= 0:
-                break
-            spots.append((t + y * k, l + x * k))
-            score[max(0, y - gap):y + gap + 1, max(0, x - gap):x + gap + 1] = -2
+        # a small title (the UI at 0.64: 10 px tall) shrunk 3 times can smear to nothing, and 2 times
+        # too, depending on how the shrink meets its pixels (ITEM INVENTORY found only at 3, SKILL
+        # INVENTORY only at 2, UI Size ideal, live 2026-11-19): it's looked for at both
         th, tw = tpl.shape
         fine = []
-        for y0, x0 in spots:
-            sub = ncc(g[max(0, y0 - k - 1):y0 + th + k + 1, max(0, x0 - k - 1):x0 + tw + k + 1], tpl)
-            if sub.size:
-                yy, xx = np.unravel_index(int(np.argmax(sub)), sub.shape)
-                fine.append((float(sub[yy, xx]), max(0, x0 - k - 1) + int(xx), max(0, y0 - k - 1) + int(yy)))
+        for k in ((COARSE,) if min(tpl.shape) >= 4 * COARSE else (2, COARSE)):
+            if cache is not None:
+                key = ("rough", k, l, t, r, b)
+                if key not in cache:
+                    cache[key] = (_shrink(g[t:b, l:r], k), {})
+                small, small_cache = cache[key]
+            else:
+                small, small_cache = _shrink(g[t:b, l:r], k), None
+            score = ncc(small, _shrink(tpl, k), small_cache)
+            if score.size == 0:
+                continue
+            score = score.copy()
+            gap = FAR // k + 1
+            for _ in range(PEAKS):
+                y, x = np.unravel_index(int(np.argmax(score)), score.shape)
+                if score[y, x] <= 0:
+                    break
+                score[max(0, y - gap):y + gap + 1, max(0, x - gap):x + gap + 1] = -2
+                y0, x0 = t + y * k, l + x * k
+                sub = ncc(g[max(0, y0 - k - 1):y0 + th + k + 1, max(0, x0 - k - 1):x0 + tw + k + 1], tpl)
+                if sub.size:
+                    yy, xx = np.unravel_index(int(np.argmax(sub)), sub.shape)
+                    spot = (float(sub[yy, xx]), max(0, x0 - k - 1) + int(xx), max(0, y0 - k - 1) + int(yy))
+                    if all(abs(spot[1] - f[1]) > FAR or abs(spot[2] - f[2]) > FAR for f in fine):
+                        fine.append(spot)
         if not fine:
             return None
         best, x, y = max(fine)
-        second = max((f[0] for f in fine if abs(f[1] - x) > FAR or abs(f[2] - y) > FAR), default=-1.0)
+
+        def rivals_spot(fx, fy, score):
+            """Another window's title matches this spot better: it's that title, not a near twin of ours."""
+            for r in rivals:
+                rh, rw = r.shape
+                patch = g[max(0, fy - 8):fy + rh + 8, max(0, fx - 8):fx + rw + 8]     # the two corners differ a few px
+                if patch.shape[0] >= rh and patch.shape[1] >= rw and float(ncc(patch, r).max()) > score:
+                    return True
+            return False
+        second = max((f[0] for f in fine if (abs(f[1] - x) > FAR or abs(f[2] - y) > FAR) and not rivals_spot(f[1], f[2], f[0])),
+                     default=-1.0)
         if best < MIN_SCORE or best - second < MIN_GAP:
             return None
         return x, y, best
@@ -173,6 +205,7 @@ class Titles:
         limits the look to those titles; the others keep their last place."""
         g = _gray(frame)
         out, self.scores = {}, {}
+        shared = {} if self.share else None      # this look's whole-frame FFTs, kept between titles
         for name, b in self.boxes.items():
             if names is not None and name not in names:
                 continue
@@ -188,7 +221,8 @@ class Titles:
                 if hit:
                     break
             if hit is None and (full is None or name in full):
-                hit = self._search(g, tpl, (0, 0, g.shape[1], g.shape[0]))
+                rivals = [self.template(k, s) for k in RIVALS.get(name, ()) if k in self.boxes]
+                hit = self._search(g, tpl, (0, 0, g.shape[1], g.shape[0]), shared, rivals)
             if hit is None:
                 self.last.pop(name, None)
                 continue

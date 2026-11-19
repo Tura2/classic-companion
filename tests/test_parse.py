@@ -144,3 +144,23 @@ def test_shop_buttons_placed_by_ui_scale():
     found = reader.find_windows([("SELLER INFO", 1062.0, 409.0, 140.0, 17.0)], 1440, 1.2)
     assert found["shop"][0] == "SELLER INFO"
     assert found["shop"][2] == pytest.approx(409 + 80 * 1.2, abs=0.5)
+
+
+def test_navy_mask_of_a_minimized_game():
+    # a minimized game hands over a frame a few pixels big: no crash (logs, 2026-11-17)
+    from PIL import Image
+    import reader
+    m = reader.navy_mask(Image.new("RGB", (2, 2)))
+    assert m.size[0] >= 1 and m.size[1] >= 1
+
+
+def test_a_title_is_learned_only_when_the_scale_held(tmp_path):
+    # one mis-measured frame would keep a wrongly sized title for good: a title is learned only when
+    # this read's scale is the last read's (review, 2026-11-19)
+    import anchors
+    import reader
+    r = reader.Reader.__new__(reader.Reader)
+    r.titles = anchors.Titles(tmp_path, res_dir=reader.RES_DIR)
+    r.last_s = 0.9
+    assert not r.may_learn(1.28)
+    assert r.may_learn(0.9)
