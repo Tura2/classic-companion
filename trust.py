@@ -93,9 +93,12 @@ class Gate:
 
     def _level(self, prof, stat, hud):
         read = stat.get("level") or (hud.get("level") if hud.get("level_exact") else None)
-        if hud.get("level_exact") and hud.get("level") and read != hud["level"]:
-            read = hud["level"]     # the HUD's sprites are exact; a stat window read a row off isn't
-            # (full screen 1280 x 720, live round 2026-11-19: LV 138 on every read)
+        # the HUD's sprites are exact; a stat window read a row off isn't (full screen 1280 x 720, live
+        # round 2026-11-19: LV 138 on every read). But a HUD read stops at the first digit it can't
+        # match, so a prefix of the stat's level ("3" for 38) is a short read, not the exact one
+        hud_lv = hud.get("level") if hud.get("level_exact") else None
+        if hud_lv and read != hud_lv and not str(read or "").startswith(str(hud_lv)):
+            read = hud_lv
         if read is None or read == prof.get("level"):
             return None
         if prof.get("level") and read == prof["level"] + 1:

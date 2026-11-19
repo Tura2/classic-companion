@@ -141,3 +141,12 @@ def test_exact_hud_level_beats_stat_window():
     outs = [g.check(prof, seen) for _ in range(10)]
     assert all(o.get("level") in (None, 38) for o in outs)
     assert any(o.get("level") == 38 for o in outs)
+
+
+def test_a_short_hud_level_doesnt_beat_the_stat_window():
+    # the HUD's sprites stop at a digit they can't match (38 read "3"): fewer digits than the stat
+    # window's level isn't the exact read that wins
+    g, prof = gate(), profile(level=37)
+    seen = {**stat(level=38), "hud": {"level": 3, "level_exact": True}}
+    outs = [g.check(prof, seen) for _ in range(10)]
+    assert all(o.get("level") in (None, 38) for o in outs)

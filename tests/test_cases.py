@@ -69,3 +69,18 @@ def test_tooltip_boxes(game_reader, name):
         assert want["name"] in got, got
         assert abs(got[want["name"]][0] - want["left"]) <= 4, (want, got[want["name"]])
         assert abs(got[want["name"]][3] - want["bottom"]) <= 6, (want, got[want["name"]])
+
+
+def test_hud_sprite_level_isnt_overwritten_by_the_stat_window(game_reader, monkeypatch):
+    # the HUD's level read off its own sprites is exact; a stat window misreading 38 as 33 (a cut
+    # digit, as ACC 83 -> 33) must not overwrite it and mark it exact
+    import reader
+    if "stat_1080_glued" not in CASE_LIST:
+        pytest.skip("no case")
+    real = reader.read_stat
+    monkeypatch.setattr(reader, "read_stat", lambda *a, **k: {**real(*a, **k), "level": 33})
+    f = Image.open(CASES / "stat_1080_glued.png").convert("RGB")
+    game_reader.kept, game_reader.titles.last, game_reader.reads = {}, {}, 0
+    for _ in range(3):
+        seen = game_reader.read(f)
+    assert seen["stat"]["level"] == 33 and seen["hud"]["level"] == 38

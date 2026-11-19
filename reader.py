@@ -1559,7 +1559,8 @@ class Reader:
         if "stat" in wins:
             seen["stat"] = read_stat(frame, wins["stat"], s, self.job_names)
             lv = seen["stat"].get("level")
-            if glyphs and lv and len(str(lv)) == len(glyphs):    # both agree on the digit count
+            # both agree on the digit count; never over the HUD's own sprites, which are exact
+            if glyphs and lv and not nat_lv and len(str(lv)) == len(glyphs):
                 seen["hud"].update(level=lv, level_exact=True)
             st = seen["stat"]
             if exp_g and st.get("exp") is not None and seen["hud"].get("exp") in (None, st["exp"]):
