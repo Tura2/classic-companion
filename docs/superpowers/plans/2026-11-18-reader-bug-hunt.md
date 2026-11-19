@@ -285,3 +285,20 @@ Checked and fine: the API answers this PC only (Host and Origin checked, JSON-on
 
 ### Fixed (2026-11-18)
 Reader PR (`fix/reader-bug-hunt`): F1, F2 (and two more found fixing it: a crash when the AP box is wholly off the frame, and a title cut by the frame's edge placing the window a row off), F6 street, F12 (new: ACCURACY never read at real 1080, Windows OCR blank at one box edge; real case `stat_1080_real`). App PR (`fix/app-routes-and-copies`): U1, U2 (+ monster names on hover), P1, and Go to's town-to-town routes always taking the cab (now walking, the cab a button away; Beginners ride first). Still open, waiting for pictures: F3, F4, F7, F8, F9 skill rows, F10, F11.
+
+### Fixed (2026-11-19, live round; plan `2026-11-19-reader-live-round-fixes.md`)
+Branch `fix/reader-live-round` (on `fix/reader-bug-hunt`), plus `fix/go-to-arrival` (on `fix/app-routes-and-copies`). Merged together on main: 777 passed, 31 xfailed, 0 failed (6 min on one core, below normal).
+
+| F# | what the player sees now |
+|---|---|
+| F13 | Full screen below 768 (1280 x 720 on a 1440 monitor, pixels doubled; 800 x 600): stats read on the right rows (LV 38, not 138); the HUD level reads too. `native.measure` tells the game's own picture height from the HUD band; every reader's `s` follows it |
+| F10 | UI Size ideal: stat window and inventory read (found by title picture; OCR can't read titles at 0.64). Skill points still blank there (SKILL INVENTORY's title too like ITEM INVENTORY's) |
+| F5 | 1920 x 1080 with the stat title misread ("OHRRROTER STAT"): found by its title picture every third read; every stat reads. 15 size-test xfails flipped |
+| F15 | ACCURACY 83 no longer read 33: the Detail panel isn't always at the same place beside the stat window (9 game px nearer in one picture); its box follows the panel's label edge |
+| F16 | Price cards go under the tooltip: its bottom follows its own text lines (sky behind passes the navy test, a light row broke the old walk) |
+| F14, F8 | A stat value 70 %+ under a tooltip is left out (AP read "60" from "REQ DEX: 60"); a name 20 %+ covered too ("ura") |
+| F4 | A player shop's seller read at 1440 (button offsets at the UI's scale, not OCR's text height). 6 shop size-test xfails flipped |
+| trust | The HUD's exact level wins over a stat window that disagrees |
+| Go to | Arriving ends the route: walking on no longer re-plans back to the destination |
+
+Still open: F4 seller loses a letter at 1080 (OCR); F4b sold rows not listed; F7, F9 skill rows, F11; session 7 (small window); UI Size 73 % unconfirmed.
