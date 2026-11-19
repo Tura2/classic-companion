@@ -778,6 +778,9 @@ def update_then_serve(win, started):
         import updater
         folder = CACHE_DIR / "updates"
         updater.clean(folder, VERSION)
+        note = updater.updated_note(sys.argv, VERSION)     # the setup restarted it after an update
+        if note:
+            applog.say(note)
         found = updater.find(updater.latest_release, VERSION)
         if found:
             win.note(f"Updating to {found.version}…")
@@ -786,8 +789,10 @@ def update_then_serve(win, started):
                 setup = updater.download(found, folder)
                 applog.log(f"Starting {setup.name} to update {VERSION} -> {found.version}")
                 updater.run_setup(setup)
-                applog.say("Installing the update. Companion starts again by itself in a moment.")
-                win.call(lambda: win.root.after(1500, win.root.destroy))
+                # the setup has no window of its own: say what happens, and long enough to read it
+                applog.say(f"Installing {found.version}. Companion closes now and opens again by itself "
+                           "in about half a minute.")
+                win.call(lambda: win.root.after(5000, win.root.destroy))
                 return
             except Exception as e:
                 applog.problem("update", f"Couldn't update to {found.version}. Starting this version; "

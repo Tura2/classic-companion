@@ -1,9 +1,10 @@
 """
 Companion keeps itself up to date: when it starts (installed copies only), it asks GitHub for the
 latest release; if that's newer and has CompanionSetup.exe, it downloads the setup into
-cache\\updates\\, checks its size and SHA-256 against what GitHub publishes, runs it silently with
-/UPDATE and closes. The setup waits for Companion to close, installs over it (data\\ stays) and
-starts it again. No internet, no answer or a bad download: Companion just starts as it is.
+cache\\updates\\, checks its size and SHA-256 against what GitHub publishes, runs it with no window
+of its own (/VERYSILENT /UPDATE) and closes. The setup waits for Companion to close, installs over
+it (data\\ stays) and starts it again, which then says it was updated. No internet, no answer or a
+bad download: Companion just starts as it is.
 """
 import hashlib
 import re
@@ -93,9 +94,18 @@ def clean(folder, current):
 
 
 def run_setup(path):
-    """Start the setup on its own (it outlives Companion) and return; Companion then closes."""
+    """Start the setup on its own (it outlives Companion) and return; Companion then closes. No
+    window of its own: with one, the player saw Companion, then an installer, then Companion again,
+    which felt like something went wrong (2026-11-19). Companion's window says what happens instead."""
     flags = 0
     if sys.platform == "win32":
         flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
-    subprocess.Popen([str(path), "/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/UPDATE"],
+    subprocess.Popen([str(path), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/UPDATE"],
                      creationflags=flags, close_fds=True)
+
+
+
+def updated_note(argv, version):
+    """What Companion's window says when the setup started it right after an update (it passes
+    --updated), else None."""
+    return f"Updated to {version}." if "--updated" in argv else None
