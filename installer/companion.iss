@@ -113,7 +113,7 @@ Name: "{autodesktop}\{#IconName}"; Filename: "{app}\Companion.exe"; Tasks: deskt
 [Run]
 Filename: "{app}\Companion.exe"; Description: "{cm:LaunchCompanion}"; Flags: nowait postinstall skipifsilent
 ; an update Companion started (/UPDATE) starts the new version by itself
-Filename: "{app}\Companion.exe"; Flags: nowait; Check: IsUpdate
+Filename: "{app}\Companion.exe"; Parameters: "--updated"; Flags: nowait; Check: IsUpdate
 
 [UninstallDelete]
 ; made by Companion as it runs, safe to remove: downloaded data, logs, pictures, report zips

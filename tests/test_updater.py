@@ -53,3 +53,26 @@ def test_old_setups_are_cleaned_up(tmp_path):
         (tmp_path / f"CompanionSetup-{v}.exe").write_bytes(b"x")
     updater.clean(tmp_path, "1.4.0")
     assert [p.name for p in tmp_path.iterdir()] == ["CompanionSetup-1.4.1.exe"]
+
+
+def test_the_setup_runs_hidden(monkeypatch, tmp_path):
+    # the player saw Companion, then the installer's window, then Companion again: the update's
+    # setup now runs with no window of its own (2026-11-19)
+    seen = {}
+    monkeypatch.setattr(updater.subprocess, "Popen", lambda args, **kw: seen.setdefault("args", args))
+    updater.run_setup(tmp_path / "CompanionSetup-9.9.9.exe")
+    assert "/VERYSILENT" in seen["args"] and "/SILENT" not in seen["args"]
+    assert "/UPDATE" in seen["args"] and "/SUPPRESSMSGBOXES" in seen["args"]
+
+
+
+def test_the_restart_after_an_update_says_so():
+    # the setup starts Companion with --updated after installing (installer/companion.iss)
+    assert updater.updated_note(["Companion.exe", "--updated"], "1.4.5") == "Updated to 1.4.5."
+    assert updater.updated_note(["Companion.exe"], "1.4.5") is None
+
+
+def test_the_installer_restarts_companion_with_updated():
+    from pathlib import Path
+    iss = (Path(__file__).resolve().parent.parent / "installer" / "companion.iss").read_text("utf-8")
+    assert 'Parameters: "--updated"; Flags: nowait; Check: IsUpdate' in iss
