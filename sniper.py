@@ -747,6 +747,15 @@ def select_region(root, done):
 
 
 # ---------------------------------------------------------------- app
+def game_corner(hwnd, frame):
+    """Where the frame's top-left pixel is on screen: the game window's client corner, plus the black
+    bars full screen cut off the frame's left and top (a 1920 x 1200 game on a 2560 x 1440 monitor:
+    127 px), so what's drawn over the game lands on what was read."""
+    cl, ct, _, _ = client_box(hwnd) if hwnd else (0, 0, 0, 0)
+    dx, dy = frame.info.get(native.CUT, (0, 0)) if frame is not None else (0, 0)
+    return cl + dx, ct + dy
+
+
 class App:
     """On-game windows and screen reading. Shares `state` and the command queue with the web dashboard."""
 
@@ -964,7 +973,7 @@ class App:
                 return
             seen = self.reader.read_map_only(frame)
             if seen and (seen.get("map") or seen.get("map_missed")):
-                cl, ct, _, _ = client_box(self.capture.hwnd) if self.capture.hwnd else (0, 0, 0, 0)
+                cl, ct = game_corner(self.capture.hwnd, frame)
                 self.place_strip(seen, cl, ct)
                 self.q.put(("seen", seen, None))
         except Exception as e:
@@ -1068,7 +1077,7 @@ class App:
 
     def tips_on_screen(self, tips, frame):
         """Each item tooltip's place on screen, and whether its price strip fits under it."""
-        cl, ct, _, _ = client_box(self.capture.hwnd) if self.capture.hwnd else (0, 0, 0, 0)
+        cl, ct = game_corner(self.capture.hwnd, frame)
         for tip in tips:
             l, t, r, b = tip["box"]
             tip["screen"] = [cl + l, ct + t, cl + r, ct + b]
@@ -1121,7 +1130,7 @@ class App:
             mine = seen.get("myshop")
             self.myshop_anchor = mine["anchor"] if mine else None
             self.myshop_panel = mine["panel_anchor"] if mine else None
-            cl, ct, _, _ = client_box(self.capture.hwnd) if self.capture.hwnd else (0, 0, 0, 0)
+            cl, ct = game_corner(self.capture.hwnd, frame)
             self.place_strip(seen, cl, ct)
             self.tips_on_screen(seen.get("tooltips") or [], frame)
             if not seen.get("quick"):

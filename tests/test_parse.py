@@ -10,6 +10,12 @@ import reader
     ("32 (30+2)", (32, 30)),
     ("4", (4, 4)),
     ("", (None, None)),
+    # a bracket that didn't read: there is gear on it, so the base isn't the total (real 1080 px,
+    # 2026-11-18: "157 (147+10)" read "1 57 (1 0)" and DEX's base was taken as 157)
+    ("1 57 (1 0)", (157, None)),
+    ("157 (", (157, None)),
+    ("157 (140+10)", (157, None)),       # doesn't add up: one of them is misread
+    ("152 c", (152, None)),              # the bracket cut at the screen's edge, its "(" read as a letter
 ])
 def test_stat_number(text, expected):
     assert reader.stat_number(text) == expected
@@ -113,3 +119,19 @@ def test_a_name_that_cant_be_checked_is_not_guessed():
 ])
 def test_title_lines_join_the_pieces_of_a_row(lines, expected):
     assert reader.title_lines(lines) == expected
+
+
+STREETS = ["Victoria Road", "Warning Street", "Hidden Street", "Dungeon", "Free Market"]
+
+
+@pytest.mark.parametrize("text,expected", [
+    ("Victoria Road", "Victoria Road"),
+    ("Victoyia Road", "Victoria Road"),         # real 1920 x 1080, 2026-11-18
+    ("Victor ia Road", "Victoria Road"),        # real 2560 x 1440
+    ("War ning Stl eet", "Warning Street"),
+    ("[ Victoria Road", "Victoria Road"),
+    ("Road", None),                             # too little of it to say which street
+    (None, None),
+])
+def test_known_street(text, expected):
+    assert reader.known_street(text, STREETS) == expected
