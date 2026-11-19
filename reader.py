@@ -18,6 +18,8 @@ import asyncio
 import json
 import re
 
+import numpy as np
+
 from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont, ImageOps, ImageStat
 
 from paths import APP_DIR, CACHE_DIR, RES_DIR
@@ -567,6 +569,26 @@ def fix_one_vs_l(text, crop):
     return "".join(out)
 
 
+DETAIL_LABEL_END = 384.5     # the Detail panel's blue label cells end here, from the title (game px)
+
+
+def detail_shift(frame, x, y, s):
+    """How far (frame px) the Detail panel sits from where it usually does. It isn't always at the
+    same place beside the stat window: 9 game px nearer in a full-screen 1920 x 1200 picture
+    (live round 2026-11-19), where the fixed box cut ACCURACY's first digit (83 read 33). Told by
+    where its blue label cells end on the ACCURACY row; 0 when they aren't seen."""
+    row_y = int(y + DETAIL_ROWS["acc"] * s)
+    l, r = int(x + 330 * s), int(x + 420 * s)
+    if row_y >= frame.height or l < 0 or r > frame.width:
+        return 0.0
+    row = np.asarray(frame.crop((l, row_y, r, row_y + 1)).convert("RGB"), int)[0]
+    blue = np.flatnonzero(row[:, 2] - row[:, 0] > 40)
+    if not len(blue):
+        return 0.0
+    shift = l + blue.max() + 1 - (x + DETAIL_LABEL_END * s)
+    return shift if abs(shift) <= 20 * s else 0.0
+
+
 def read_stat(frame, t, s, job_names):
     from rapidfuzz import fuzz, process
     x, y = t[1], t[2]     # values start right of the colored label cells, whose edge can read as a "1"
@@ -604,7 +626,8 @@ def read_stat(frame, t, s, job_names):
     out["ap"] = read_small_number(frame, (x + 122 * s, y + 390 * s, x + 170 * s, y + 412 * s), s)   # below the line over the box (1080)
     # a blank margin round it: Windows OCR gave nothing at all for this box at one left edge and
     # all of it a pixel either side (real 1920 x 1080, 2026-11-18: ACCURACY 74 never read)
-    detail = read_box(frame, (x + 388 * s, y + 85 * s, x + 550 * s, y + 375 * s), s, pad=8)
+    dx = detail_shift(frame, x, y, s)
+    detail = read_box(frame, (x + 388 * s + dx, y + 85 * s, x + 550 * s + dx, y + 375 * s), s, pad=8)
     d = nearest_row(detail, DETAIL_ROWS, y, s)
     if d:
         m = re.match(r"\s*(\d{1,3})(?!\d)", d.get("acc", ""))     # just the number, nothing read beside it
