@@ -140,6 +140,10 @@ class Grind:
         self.events = []             # (ts, gain, active seconds before it, lump), for the rates
         self.last_gain = None        # the last gain that counted as killing (runs the clock)
         self.last_any = None         # the last gain of any kind, lumps too (tells a break)
+        # (ts, exp) of reads since the last counted gain that showed the EXP rising but didn't count
+        # yet (two reads in a row didn't agree): in a party the EXP moves on almost every read, so a
+        # counted gain can come over a minute after the last, and that wait is grinding all the same
+        self.moves = []
         self.deaths = []             # {"ts", "lost", "map"}: EXP drops of up to DEATH_MAX of the level
         self.kills = {}              # monster name (None: not named) -> your kills, from the EXP gains
         self.party_kills = {}        # monster name -> kills your party made (their share of the EXP came to you)
@@ -236,12 +240,29 @@ class Grind:
         self.save_card(end, final=True)
 
     # ---- reads
-    def _open_gap(self, now):
-        """Seconds since the last gain while they still count as grinding (not yet a break)."""
+    def _open_gap(self, now, below=None):
+        """Seconds since the last gain that count as grinding: each wait up to BREAK, from the last
+        gain through the reads that showed the EXP rising since (only those under `below`, when
+        given: a jump's own first sighting doesn't bridge the break before it) to `now`."""
         if self.last_gain is None or self.paused:
             return 0.0
-        gap = now - self.last_gain
-        return gap if 0 <= gap <= BREAK else 0.0
+        points = [self.last_gain] + [t for t, e in self.moves
+                                     if t > self.last_gain and (below is None or e < below)] + [now]
+        return sum(b - a for a, b in zip(points, points[1:]) if 0 <= b - a <= BREAK)
+
+    def _last_active(self):
+        """When the EXP was last seen coming in: the last counted gain, or a rising read since."""
+        times = [t for t in [self.last_gain] + [t for t, _ in self.moves] if t is not None]
+        return max(times) if times else None
+
+    def _note_move(self, exp, pct, level, now):
+        """A read that fits the level and shows the EXP up on the last counted one, but isn't counted
+        yet: grinding is going on. Not while paused, and not a jump too big to be killing."""
+        if self.paused or self.last is None or level != self.last[2]:
+            return
+        need = self.need or need_of(exp, pct) or 0
+        if self.last[0] < exp <= self.last[0] + MAX_GAIN_SHARE * need:
+            self.moves.append((now, exp))
 
     def update(self, exp, pct, level, map_id, map_name, now):
         """One read of the HUD's EXP. Returns the EXP it counted (0 for none)."""
@@ -266,6 +287,8 @@ class Grind:
         agreed = self.raw == read
         self.raw = read
         fits = self._fits_level(exp, pct, level)
+        if fits and not agreed:
+            self._note_move(exp, pct, level, now)
         if not agreed or not fits:
             return 0                      # one read alone, or its EXP and percent disagree on the level's EXP
         if self.last is None:
@@ -299,18 +322,22 @@ class Grind:
         # LUMP_SHARE of the level, and measured from the last killing gain each kill would be a
         # lump after a "break", so the clock never started (0 s, no EXP/hr). Now only the first
         # gain after a real break can be a lump.
-        resumed = self.last_any is None or now - self.last_any > BREAK
+        # ...or from a read since that showed the EXP rising on the way to this one (a quest's jump
+        # is seen whole at its first read, so that one doesn't count)
+        seen = [t for t, e in self.moves if e < exp] + ([self.last_any] if self.last_any is not None else [])
+        resumed = not seen or now - max(seen) > BREAK
         self.last_any = now
         self.after_pause = False
         need = self.need or need_of(exp, pct) or 0
         lump = resumed and gain > LUMP_SHARE * need     # a quest turned in, not a kill
         self.last_lump = lump
         if not lump:                       # a lump isn't grinding: it doesn't start the clock either
-            dt = self._open_gap(now)       # the wait since the last gain is grinding time, unless a break
+            dt = self._open_gap(now, below=exp)   # the waits since the last gain are grinding time, unless breaks
             self.s_active += dt
             self.seg["active"] += dt
             self.s_paced += gain
             self.last_gain = now
+            self.moves = []
         self.events.append((now, gain, self.s_active, lump))
         self.events = [e for e in self.events
                        if e[2] >= self.s_active - WINDOW - 60 or e[0] >= now - CLOCK_WINDOW - 60]
@@ -389,6 +416,7 @@ class Grind:
     def _died(self, lost, read, now):
         """Count a death: its EXP comes off the session, the map's log, the chart and the rates."""
         self.last = read
+        self.moves = []                  # rises seen before it are above the bar now
         self.deaths.append({"ts": now, "lost": lost, "map": self.pq or self.map})
         self.s_gained -= lost
         self.s_paced -= lost
@@ -496,6 +524,7 @@ class Grind:
         if self.paused:
             self.after_pause = True        # a pause you chose never counts toward the 30 idle minutes
             self.last_gain = None          # the paused time isn't grinding time
+            self.moves = []
 
     def reset(self, now):
         self._save_segment(now)
@@ -503,7 +532,8 @@ class Grind:
         self._new_session(now)
 
     def summary(self, now):
-        running = self.last_gain is not None and now - self.last_gain <= BREAK and not self.paused
+        last_active = self._last_active()
+        running = last_active is not None and now - last_active <= BREAK and not self.paused
         # EXP/hr is cumulative over the session's grinding time: every wait between gains up to
         # BREAK counts (respawns, walking), longer ones are breaks and don't. One-off lumps (quests)
         # are left out. Counting only 15 s after each gain showed ~100K/hr against ~66K
@@ -536,8 +566,8 @@ class Grind:
         spark = [self.minutes.get(m, 0) for m in range(now_m - SPARK_MINUTES + 1, now_m + 1)]
         level = self.last[2] if self.last else None
         # "no EXP for a minute": you were grinding here a while and the HUD still reads, but nothing comes
-        stalled = (not self.paused and self.last_gain is not None and self.seg is not None
-                   and self.seg.get("active", 0) >= STALL_AFTER and now - self.last_gain >= BREAK)
+        stalled = (not self.paused and last_active is not None and self.seg is not None
+                   and self.seg.get("active", 0) >= STALL_AFTER and now - last_active >= BREAK)
         need = self.need if self.need is not None else (need_of(self.last[0], self.last[1]) if self.last else None)
         return {"running": running, "paused": self.paused, "no_reset": self.no_reset, "gained": self.s_gained,
                 "level": level, "need": round(need) if need else None,
@@ -554,7 +584,7 @@ class Grind:
                 "mesos_picked": self._mesos_picked(), "start": self.s_first, "gain_pct": self._gain_pct(),
                 "chart": self._chart(now),
                 "exp_lost": sum(d["lost"] for d in self.deaths),
-                "stalled_s": round(now - self.last_gain) if stalled else None,
+                "stalled_s": round(now - last_active) if stalled else None,
                 "per_kill": self.per_kill(), "kills_left": self.kills_left(need),
                 "map": self.pq or self.map, "map_id": self.map_id,
                 "pq": self.pq_summary(now, need - self.last[0] if need and self.last else None) if self.pq else None,
