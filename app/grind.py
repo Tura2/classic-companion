@@ -60,7 +60,8 @@ MIN_TTL_DATA = 60.0     # seconds of active time before time-to-level is shown
 MAX_GAIN_SHARE = 0.6    # one step gaining more than this share of a level is a misread
 SPARK_MINUTES = 30      # the chart: EXP per minute over this many minutes
 NEED_READS = 3          # reads that agree on the level's EXP (exp / pct) before any is trusted
-DEATH_MAX = 0.10        # a death costs up to this share of the level's EXP (LUK lowers it)
+DEATH_MAX = 0.105       # a death costs up to 10% of the level's EXP (LUK lowers it); a little more here, as the
+                        # level's EXP is worked out from a percent shown to 0.01 and can come out low
 DEATH_MIN = 0.005       # ...and at least this: a HUD digit misread that still fits the level is far less
 STALL_AFTER = 300.0     # "no EXP" note: only after this much grinding on the map you're still on
 KILL_SAMPLE = 30        # kills to level: the typical gain over this many recent ones
