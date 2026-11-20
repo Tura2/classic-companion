@@ -2,6 +2,8 @@
 and a counted gain can come a minute or more after the one before. Reads that show the EXP still
 rising are grinding all the same (seen live 2026-11-20 on The Burnt Land II: 112K/hr shown for
 ~80K really made)."""
+import pytest
+
 from test_grind import feed, pct, tracker
 
 
@@ -152,3 +154,28 @@ def test_a_duo_the_fitter_explains_is_still_told(tmp_path, game_reader):
     yours = {k["name"]: k["count"] for k in s["kills"]}
     party = {k["name"]: k["count"] for k in s["party_kills"]}
     assert yours.get("Wild Boar", 0) >= 10 and party.get("Wild Boar", 0) >= 2
+
+
+# ---- best maps keep party grinding apart from solo (Task 3)
+def rows(g, *specs):
+    """sessions rows: (map_id, exp, active_s, party, pq), all at level 38."""
+    for i, (mid, exp, act, party, pq) in enumerate(specs):
+        g.db.execute("INSERT INTO sessions (start, end, map_id, map, level_start, level_end, exp_gained, active_s,"
+                     " party, pq) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                     (i, i + act, mid, f"Map {mid}" if mid else pq, 38, 38, exp, act, party, pq))
+    g.db.commit()
+
+
+def test_party_and_solo_rows_rank_apart(tmp_path):
+    g = tracker(tmp_path)
+    rows(g, (1, 10000, 600, 0, None), (1, 20000, 600, 1, None))
+    best = g.best_maps(38)
+    assert sorted((r["exp_hr"], r["party"]) for r in best if r["map_id"] == 1) == [(60000, False), (120000, True)]
+    assert g.by_map()[1] == pytest.approx(60000)
+    assert [r["party"] for r in g.all_maps(38) if r["map_id"] == 1].count(True) == 1
+
+
+def test_old_pq_rows_are_not_party_maps(tmp_path):
+    g = tracker(tmp_path)
+    rows(g, (1, 10000, 600, 0, None), (None, 50000, 900, 1, "Kerning PQ"))
+    assert [(r["map_id"], r["party"]) for r in g.best_maps(38)] == [(1, False)]

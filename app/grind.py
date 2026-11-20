@@ -718,30 +718,32 @@ class Grind:
             "SELECT map_id, map, MIN(level_start), MAX(level_end), SUM(exp_gained), SUM(active_s),"
             " SUM(kills), SUM(CASE WHEN kills IS NOT NULL THEN active_s END),"
             " SUM(COALESCE(mesos_picked, mesos_gained)), SUM(CASE WHEN COALESCE(mesos_picked, mesos_gained)"
-            " IS NOT NULL THEN active_s END) FROM sessions"
-            " WHERE pq IS NULL AND map_id IS NOT NULL AND level_end >= ? GROUP BY map_id",
+            " IS NOT NULL THEN active_s END), COALESCE(party, 0) FROM sessions"
+            " WHERE pq IS NULL AND map_id IS NOT NULL AND level_end >= ? GROUP BY map_id, COALESCE(party, 0)",
             (int(level) - levels_back + 1,)).fetchall()
         out = []
-        for m, name, lo, hi, e, a, k, ka, ms, ma in rows:
+        for m, name, lo, hi, e, a, k, ka, ms, ma, party in rows:
             if not a or a < min_active:
                 continue
-            out.append({"map_id": m, "map": name, "level_lo": lo, "level_hi": hi, "active_s": a,
+            out.append({"map_id": m, "map": name, "level_lo": lo, "level_hi": hi, "active_s": a, "party": bool(party),
                         "exp_hr": round(e / a * 3600), "kills_hr": round(k / ka * 3600) if k and ka else None,
                         "mesos_hr": round(ms / ma * 3600) if ms is not None and ma else None})
         return sorted(out, key=lambda r: -r["exp_hr"])
 
     def best_maps(self, level, levels_back=5, min_active=600, limit=5):
-        """Your best maps by killing EXP an hour in your last few levels (it falls as you level), each with
+        """Your best maps by killing EXP an hour in your last few levels (a map ground in a party is its own row) (it falls as you level), each with
         at least min_active seconds of grinding. Party quests aren't maps you'd go back to grind."""
         rows = self.db.execute(
-            "SELECT map_id, map, MIN(level_start), MAX(level_end), SUM(exp_gained), SUM(active_s) FROM sessions"
-            " WHERE pq IS NULL AND map_id IS NOT NULL AND level_end >= ? GROUP BY map_id",
+            "SELECT map_id, map, MIN(level_start), MAX(level_end), SUM(exp_gained), SUM(active_s), COALESCE(party, 0)"
+            " FROM sessions WHERE pq IS NULL AND map_id IS NOT NULL AND level_end >= ? GROUP BY map_id, COALESCE(party, 0)",
             (int(level) - levels_back + 1,)).fetchall()
-        out = [{"map_id": m, "map": name, "level_lo": lo, "level_hi": hi, "active_s": a, "exp_hr": round(e / a * 3600)}
-               for m, name, lo, hi, e, a in rows if a and a >= min_active]
+        out = [{"map_id": m, "map": name, "level_lo": lo, "level_hi": hi, "active_s": a, "exp_hr": round(e / a * 3600),
+                "party": bool(party)} for m, name, lo, hi, e, a, party in rows if a and a >= min_active]
         return sorted(out, key=lambda r: -r["exp_hr"])[:limit]
 
     def by_map(self, min_active=120):
         """{map_id: your real EXP per hour there}, from at least min_active seconds of grinding."""
-        rows = self.db.execute("SELECT map_id, SUM(exp_gained), SUM(active_s) FROM sessions GROUP BY map_id")
+        # solo only: a party's EXP (shares and its bonus) isn't what you'd make there on your own
+        rows = self.db.execute("SELECT map_id, SUM(exp_gained), SUM(active_s) FROM sessions"
+                               " WHERE COALESCE(party, 0) = 0 GROUP BY map_id")
         return {m: e / a * 3600 for m, e, a in rows if m is not None and a and a >= min_active}
