@@ -28,7 +28,8 @@ SITEMAP = "https://cozy.markets/sitemap.xml"
 PAGE = "https://cozy.markets/items/"
 UA = {"User-Agent": "companion/1.0 (personal use)"}
 
-EVERY_HOURS = 2         # how old a price may get before the app fetches it again
+EVERY_HOURS = 12        # how old a price may get before the app fetches it again: a pass over every item
+                        # takes hours (2026-11-20: 1,459 pages in 281 min), so at 2 h it never stopped
 CHECK_EVERY = 600       # seconds between the app's looks for prices that got that old
 RETRIES = 3
 SAVE_EVERY = 25         # write progress this often, so a stop costs little
@@ -102,11 +103,16 @@ def parse(page):
 
 
 def wanted(row, older_than):
-    """Does this row need fetching? Failures always do; rows with a price (or with none published)
-    only when they're older than `older_than` hours, if that's given."""
-    if not row or (row.get("error") and row["error"] != NO_PRICE):
+    """Does this row need fetching? Rows with a price, with none published, or that failed, when they're
+    older than `older_than` hours: a page that failed waits for the next pass rather than being tried
+    again on every one (it costs a timeout each time). With no `older_than` (a full run), every failure
+    and nothing else. A failure saved without a time (older versions) is always fetched."""
+    if not row:
         return True
-    return older_than is not None and age_hours(row.get("fetched")) > older_than
+    failed = row.get("error") and row["error"] != NO_PRICE
+    if older_than is None:
+        return bool(failed)
+    return age_hours(row.get("fetched")) > older_than
 
 
 def refresh(path, older_than=None, workers=4, delay=0.6, stop=None, verbose=False, say=print, on_save=None):
@@ -156,7 +162,7 @@ def refresh(path, older_than=None, workers=4, delay=0.6, stop=None, verbose=Fals
         else:
             with lock:
                 if "price" not in out.get(key, {}):
-                    out[key] = {"error": error}
+                    out[key] = {"error": error, "fetched": now()}
                 counts["fail"] += 1
         time.sleep(pace[0])
 
