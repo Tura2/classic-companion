@@ -80,3 +80,23 @@ def test_a_repeated_last_digit_misread_is_not_a_death(tmp_path):
     t = feed(g, [50000 + 100 * i for i in range(20)])            # 51900
     t = feed(g, [51895, 51895, 51900], t0=t)                     # the HUD misreads the last digit, three times
     assert g.summary(t)["deaths"] == []
+
+
+def test_a_death_a_hair_over_ten_percent_counts_whole(tmp_path):
+    # 2026-11-20 live: a death cost 26,668 of 266,857 (9.99%) against a limit 18 EXP above it. The
+    # level's EXP is worked out from a percent shown to 0.01, so it can come out a little low
+    need = 266857
+    g = tracker(tmp_path)
+    e, t = 60000, 0.0
+    for _ in range(20):
+        e += 200
+        for _ in range(2):
+            g.update(e, round(e / need * 100, 2), 39, 1, "The Burnt Land II", t)
+            t += 1.5
+    lost = round(0.1003 * need)
+    e -= lost
+    for _ in range(2):
+        g.update(e, round(e / need * 100, 2), 39, 1, "The Burnt Land II", t)
+        t += 1.5
+    s = g.summary(t)
+    assert len(s["deaths"]) == 1 and s["deaths"][0]["lost"] == lost

@@ -1143,7 +1143,7 @@ const HIST_BTN = `<button class="btn mini allmaps" id="history-btn">History ›<
 function bestMaps(best, limit = 5){
   const here = state.current && state.current.id;
   const rows = (best || []).slice(0, limit).map((b, i) => `<div class="bl${b.map_id === here ? " here" : ""}"><span class="rk ${MEDAL[i] || "rx"}">${i + 1}</span>
-      <b>${pretty(b.map)}</b><span class="sub">Lv ${b.level_lo === b.level_hi ? b.level_lo : `${b.level_lo}–${b.level_hi}`} · ${dur(b.active_s)}</span>
+      <b>${pretty(b.map)}${b.party ? ` <span class="chip">party</span>` : ""}</b><span class="sub">Lv ${b.level_lo === b.level_hi ? b.level_lo : `${b.level_lo}–${b.level_hi}`} · ${dur(b.active_s)}</span>
       <span class="eh">${perHr(b.exp_hr)}</span>${b.map_id === here ? `<span class="hereb">here</span>`
         : `<button class="btn mini" data-go="${b.map_id}" data-name="${esc(b.map)}">Go</button>`}</div>`).join("");
   return `<div class="dhead blue">${itemIcon(4001009, 18)} Your best maps <span class="sub" title="EXP / hour killing · your last 5 levels">EXP / hour killing · your last 5 levels</span>
@@ -1219,14 +1219,15 @@ function grindCard(gr, g){
     : `<div class="gstrip">
         <div><b>${perHr(n.exp_hr)}</b><span>EXP / hour</span></div>
         <div><b>${dur(n.ttl_s)}</b><span>to level ${up}</span></div>
-        <div><b>${n.kills_left != null ? fmt(n.kills_left) : "—"}</b><span>kills to level ${up}</span></div>
+        ${n.party ? `<div><b>${n.left != null ? shortN(n.left) : "—"}</b><span>EXP to level ${up}</span></div>`
+          : `<div><b>${n.kills_left != null ? fmt(n.kills_left) : "—"}</b><span>kills to level ${up}</span></div>`}
         <div><b>${dur(n.active_s)}</b><span>grinding</span></div></div>
       <p class="sub gclock">${n.ttl_s ? `By the clock (${perHr(n.exp_hr_clock)} an hour, breaks included), level ${up} at about <b>${clock(Date.now() / 1000 + n.ttl_s)}</b>${n.left != null ? ` · ${fmt(n.left)} EXP to go` : ""}.` : "Time to level shows after a minute of grinding."}</p>`;
   const btns = `<span class="gbtns"><button class="btn mini" data-grind="pause">${n.paused
       ? gicon('<path d="M7 4l12 8-12 8z"/>', "Resume") : gicon('<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>', "Pause")}</button>
     <button class="btn mini" data-grind="reset">${gicon('<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>', "Start over")}</button></span>`;
   const stall = n.stalled ? `<p class="stall">No EXP for ${dur(n.stalled_s)} on ${pretty(n.map || "this map")}. Still grinding?</p>` : "";
-  return `<section class="card win gcard"><div class="title"><span>${itemIcon(4000001, 22)} Grind${n.map ? ` · ${pretty(n.map)}` : ""}${n.paused ? ` <span class="chip warn">Paused</span>` : ""}</span>${btns}</div>
+  return `<section class="card win gcard"><div class="title"><span>${itemIcon(4000001, 22)} Grind${n.map ? ` · ${pretty(n.map)}` : ""}${n.party ? ` <span class="chip">Party</span>` : ""}${n.paused ? ` <span class="chip warn">Paused</span>` : ""}</span>${btns}</div>
     <div class="body">${stall}${strip}${chartBox(sv.chart, n.deaths, n.gained)}${best}
       <label class="toggle small"><input type="checkbox" data-grind="no_reset" ${n.no_reset ? "checked" : ""}> Keep counting across maps</label>
     </div></section>`;
@@ -1295,8 +1296,10 @@ function mapCard(h, sv){
     : `<small>${h.mobs.length ? "No drop data right now" : esc(h.street || "")}</small>`;
   return `<section class="card win mapcard"><div class="title"><span>${markIcon(h.mark, 22)} This map · ${pretty(h.name)}</span>${dropsBtn}</div>
     <div class="body">${boxes ? `<div class="mboxes">${boxes}</div>` : `<p class="sub" style="margin:0">No monsters here.</p>`}
-      ${other ? `<p class="sub" style="margin:6px 0 0">${fmt(other)} more killed for EXP no monster here gives (a party share or a bonus).</p>` : ""}
-      ${guess ? `<p class="sub" style="margin:6px 0 0">About ${fmt(guess)} killed this session (worked out from your EXP).</p>` : ""}</div></section>`;
+      ${sv && sv.party ? `<p class="sub" style="margin:6px 0 0">${named ? "In a party your EXP comes in shares, so only the kills Companion can tell apart are counted."
+          : "In a party your EXP comes in shares, so kills aren't counted."}</p>`
+        : `${other ? `<p class="sub" style="margin:6px 0 0">${fmt(other)} more killed for EXP no monster here gives (a bonus).</p>` : ""}
+      ${guess ? `<p class="sub" style="margin:6px 0 0">About ${fmt(guess)} killed this session (worked out from your EXP).</p>` : ""}`}</div></section>`;
 }
 // pop-ups over the page: the map's drops, every map you've ground on
 function openModal(title, body, onOpen){
@@ -1336,7 +1339,7 @@ async function allMapsModal(){
   const rows = await api("/api/allmaps").catch(() => []);
   const here = state.current && state.current.id;
   const body = rows.length ? `<table class="lb"><thead><tr><th></th><th>Map</th><th>Your level</th><th>Time</th><th>EXP / hour</th><th>Kills / hour</th><th>Mesos / hour</th><th></th></tr></thead><tbody>${
-      rows.map((r, i) => `<tr class="${r.map_id === here ? "here" : ""}"><td><span class="rk ${MEDAL[i] || "rx"}">${i + 1}</span></td><td><b>${pretty(r.map)}</b></td>
+      rows.map((r, i) => `<tr class="${r.map_id === here ? "here" : ""}"><td><span class="rk ${MEDAL[i] || "rx"}">${i + 1}</span></td><td><b>${pretty(r.map)}</b>${r.party ? ` <span class="chip">party</span>` : ""}</td>
         <td>${r.level_lo === r.level_hi ? r.level_lo : `${r.level_lo}–${r.level_hi}`}</td><td>${dur(r.active_s)}</td><td class="eh">${perHr(r.exp_hr)}</td>
         <td>${r.kills_hr != null ? fmt(r.kills_hr) : "—"}</td><td>${r.mesos_hr != null ? perHr(r.mesos_hr) : "—"}</td>
         <td>${r.map_id === here ? `<span class="hereb">here</span>` : `<button class="btn mini" data-go="${r.map_id}" data-name="${esc(r.map)}">Go</button>`}</td></tr>`).join("")}</tbody></table>
@@ -1384,7 +1387,7 @@ function histBody(c){
   const netS = net == null ? "—" : net < 0 ? `−${fmt(-net)}` : `+${fmt(net)}`;
   const top = `<div class="xtop">${c.map_id ? `<img class="hthumb" src="/api/mapimg?id=${c.map_id}" alt="" onerror="this.remove()">` : ""}<div class="gstrip hs">
       <div><b${c.best_minute != null ? ` class="best">${fmt(c.best_minute)}` : ">—"}</b><span>best minute</span></div>
-      <div><b>${fmt(kt)}</b><span>killed${c.kills_per_min != null ? ` · ${c.kills_per_min} a minute` : ""}</span></div>
+      <div><b>${c.party && !kt ? "—" : fmt(kt)}</b><span>killed${c.party ? " · party" : c.kills_per_min != null ? ` · ${c.kills_per_min} a minute` : ""}</span></div>
       <div><b>${netS}</b><span>net mesos</span></div>
       <div><b>${nd}</b><span>${nd === 1 ? "death" : "deaths"}${nd ? ` · −${fmt(c.exp_lost || 0)} EXP` : ""}</span></div></div></div>`;
   if (c.old) return `<div class="xbody">${top}<div class="oldnote">Saved before Companion kept the full story: no chart, loot or kills per monster for this one.
@@ -1392,7 +1395,8 @@ function histBody(c){
   const loot = c.loot.length || c.mesos_picked ? `<div class="lgrid" id="hlgrid"></div><div class="pager" id="hlpager"></div>` : `<p class="hnote">No loot was read in this session.</p>`;
   const party = (c.party_kills || []).reduce((a, k) => a + k.count, 0);
   const kills = c.kills.length ? `<div class="kl pfit" id="hkl"></div><div class="pager" id="hkpager"></div>`
-    : `<p class="hnote">${kt ? `About ${fmt(kt)} killed (worked out from your EXP).` : "No kills were read in this session."}</p>`;
+    : `<p class="hnote">${c.party ? "In a party your EXP came in shares, so kills weren't counted."
+        : kt ? `About ${fmt(kt)} killed (worked out from your EXP).` : "No kills were read in this session."}</p>`;
   const d = c.deaths || [];
   const died = !nd ? "" : `<div class="deathrow">${TOMB(16)} ${nd === 1 && d.length ? `Died once, at ${clock(d[0].ts)}` : nd === 1 ? "Died once" : `Died ${nd} times`} · lost ${fmt(c.exp_lost || 0)} EXP</div>`;
   return `<div class="xbody">${top}${chartBox(c.minutes, d, c.exp_gained, false, c.levelups)}${histLevels(c)}
@@ -1491,7 +1495,7 @@ function lastSessionCard(gr){
   return `<section class="card win lastcard"><div class="title"><span>${itemIcon(4000094, 22)} ${live ? "This session" : `Last session${L.map ? ` · ${pretty(L.map)}` : ""}`}</span><small>${aside}</small></div>
     <div class="body"><div class="lastrow">
       <span><b>${dur(L.active_s)}</b><small>grinding</small></span><span><b class="${g >= 0 ? "g" : "neg"}">${g >= 0 ? "+" : ""}${g.toFixed(2)}%</b><small>Lv. ${L.level ?? "?"}</small></span>
-      <span><b>${fmt(L.kills_total || 0)}</b><small>killed</small></span><span><b>${fmt(L.items || 0)}</b><small>items</small></span>
+      <span><b>${L.party && !L.kills_total ? "—" : fmt(L.kills_total || 0)}</b><small>killed</small></span><span><b>${fmt(L.items || 0)}</b><small>items</small></span>
       <span><b class="g">+${fmt(L.mesos_picked || 0)}</b><small>mesos</small></span>${tomb}</div></div></section>`;
 }
 // In a town, Grind shrinks: last session's EXP an hour, the time to level at that pace, your best maps

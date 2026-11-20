@@ -156,3 +156,14 @@ def test_party_gains_become_your_kills_and_your_partys(tmp_path, game_reader):
     v = companion.session_view(a.grind, d, prof["current_map"], 1e10)
     boar = next(k for k in v["kills"] if k["name"] == "Wild Boar")
     assert boar["party"] == party["Wild Boar"]
+
+
+def test_session_view_says_party(tmp_path, game_reader):
+    d = game_reader.data
+    mid = d.match_map_name("West Rocky Mountain IV")
+    a, prof = app(tmp_path, d), {"current_map": mid, "level": 37}
+    reads(a, prof, 166000, [])
+    reads(a, prof, 166046, [])
+    assert companion.session_view(a.grind, d, mid, 1e10)["party"] is False
+    reads(a, prof, 166077, [("party", 3)])
+    assert companion.session_view(a.grind, d, mid, 1e10)["party"] is True

@@ -660,7 +660,8 @@ def session_view(g, data, map_id, now):
     return {"kills": kills, "kills_total": s["kills_total"], "loot": loot, "mesos_picked": s["mesos_picked"],
             "mesos_per_min": round(s["mesos_picked"] / minutes) if minutes >= 1 else None,
             "start": s["start"], "level": s["level"], "pct": s["pct"], "gain_pct": s["gain_pct"],
-            "deaths": s["deaths"], "exp_lost": s["exp_lost"], "chart": s["chart"], "since": s["since"]}
+            "deaths": s["deaths"], "exp_lost": s["exp_lost"], "chart": s["chart"], "since": s["since"],
+            "party": s["party"]}
 
 
 def grind_view(g, data, prof, now):

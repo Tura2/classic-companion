@@ -190,10 +190,13 @@ def handle_grind(app, seen, prof):
         gain = g.update(hud["exp"], hud.get("exp_pct"), prof.get("level"), mid, name, now)
         if gain and gain > 0 and not getattr(g, "last_lump", False):
             # the kills behind this gain, named by this map's monsters' EXP; a gain none of them
-            # explains (a party share, a bonus) is kills all the same, unnamed, at the usual kill
+            # explains (a bonus) is kills all the same, unnamed, at the usual kill. In a party (the
+            # corner's party bonus lines) a gain is shares: only the party split tells it as kills,
+            # since whole kills that happen to add up to it aren't yours (2026-11-20: "Fire Boar 12")
+            in_party = g.in_party(now)
             split = getattr(app.data, "split_kills", None)
             on_map = split and mid in getattr(app.data, "maps", {})
-            names = split(mid, gain) if on_map else None
+            names = split(mid, gain) if on_map and not in_party else None
             fit = getattr(app, "party", None)
             if fit is None:
                 fit = app.party = party_split.Fitter()
@@ -212,7 +215,7 @@ def handle_grind(app, seen, prof):
             elif told:
                 for n, who in told:
                     g.add_kill(n, now, party=who == "party")
-            else:
+            elif not in_party:            # a party's shares the split can't tell aren't counted as kills
                 k = g.per_kill()
                 for _ in range(max(1, round(gain / k)) if k else 1):
                     g.add_kill(None, now)
@@ -229,7 +232,9 @@ def handle_corner(app, events):
         return
     now = time.time()
     for ev in events:
-        if ev[0] == "mesos":
+        if ev[0] == "party":
+            g.add_party_bonus(ev[1], now)
+        elif ev[0] == "mesos":
             g.add_mesos(ev[1], now)
         elif ev[0] == "item" and ev[1]:
             g.add_loot(ev[1], ev[2], now)
