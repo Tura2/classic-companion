@@ -6,7 +6,7 @@ every one of those pages in its public sitemap.xml. robots.txt is `Allow: /` and
 terms page, so this reads what the site offers to crawlers -- it does not touch /api or the
 Turnstile pass, which stay the site's own gate.
 
-The app refreshes the file when it starts and every two hours after (keep_fresh), in the background
+The app refreshes the file when it starts and every 12 hours after (keep_fresh), in the background
 and one page a second: the pages aren't cached and each is built for its request, so a pass takes
 about half an hour rather than a burst. tools/scrape_cozy.py does the same by hand, faster.
 
