@@ -171,6 +171,20 @@ class SteadyCounts:
         return out
 
 
+def note_exp_rise(app, exp, level, now):
+    """Your HUD EXP went up since the highest read on this level (a level-up starts it over): you're
+    here, whatever Grind makes of it (its two-reads rule can take a while when the EXP moves every
+    read). Only ever higher, so a last digit misread flickering while you stand still isn't."""
+    peak = getattr(app, "exp_peak", None)
+    if peak is None or level != peak[1]:
+        if peak is not None:
+            app.exp_moved_at = now
+        app.exp_peak = (exp, level)
+    elif exp > peak[0]:
+        app.exp_peak = (exp, level)
+        app.exp_moved_at = now
+
+
 def handle_grind(app, seen, prof):
     """Feed the grind tracker from a full read: the HUD's EXP, where you are, your mesos."""
     g = getattr(app, "grind", None)
@@ -184,6 +198,7 @@ def handle_grind(app, seen, prof):
         app.grind_pq = pq_of_read(missed) if not seen.get("map") else None   # another title: out of it
     hud = seen.get("hud") or {}
     if hud.get("exp") is not None:
+        note_exp_rise(app, hud["exp"], prof.get("level"), now)
         mid = prof.get("current_map")
         name = (app.data.maps.get(mid) or {}).get("name") if mid else None
         pq = getattr(app, "grind_pq", None)
@@ -750,13 +765,14 @@ def select_region(root, done):
 
 
 # ---------------------------------------------------------------- app
-def is_idle(last_gain, started, now, in_front, shop_open):
-    """You're away from the game: it isn't the window in front, no shop is open, and no EXP came in for
-    IDLE_AFTER seconds (or since Companion started, if none has). Grinding behind the dashboard isn't:
-    the EXP keeps coming. 2026-11-20 the game stayed open all night and was read at full pace."""
+def is_idle(last_active, started, now, in_front, shop_open):
+    """You're away from the game: it isn't the window in front, no shop is open, and you were last here
+    (`last_active`: the game in front, or your EXP rising) over IDLE_AFTER seconds ago, or Companion
+    started that long ago if never. Grinding behind the dashboard isn't away: the EXP keeps coming.
+    2026-11-20 the game stayed open all night and was read at full pace."""
     if in_front or shop_open:
         return False
-    since = last_gain if last_gain is not None else started
+    since = last_active if last_active is not None else started
     return now - since > IDLE_AFTER
 
 
@@ -1477,9 +1493,14 @@ class App:
                 card.win.withdraw()
 
     def idle(self):
-        """Away from the game right now (is_idle)."""
-        g = getattr(self, "grind", None)
-        return is_idle(g.last_any if g is not None else None, self.started_at, time.time(), self.game_in_front(),
+        """Away from the game right now (is_idle). Here means the game in front (labels hidden or not)
+        or your EXP rising, by Companion's own clock: a grind session starts over on every map change."""
+        now = time.time()
+        front = bool(self.game_hwnd) and foreground_window() == self.game_hwnd
+        if front:
+            self.active_at = now
+        seen = [t for t in (getattr(self, "active_at", None), getattr(self, "exp_moved_at", None)) if t is not None]
+        return is_idle(max(seen) if seen else None, self.started_at, now, front,
                        bool(self.shop_anchor or self.myshop_anchor))
 
     def game_in_front(self):

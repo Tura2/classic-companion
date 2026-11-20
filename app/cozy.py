@@ -112,7 +112,8 @@ def wanted(row, older_than):
     failed = row.get("error") and row["error"] != NO_PRICE
     if older_than is None:
         return bool(failed)
-    return age_hours(row.get("fetched")) > older_than
+    # a priced page that failed to refetch keeps its price's age ("fetched") and notes the try: it waits too
+    return min(age_hours(row.get("fetched")), age_hours(row.get("tried"))) > older_than
 
 
 def refresh(path, older_than=None, workers=4, delay=0.6, stop=None, verbose=False, say=print, on_save=None):
@@ -163,6 +164,8 @@ def refresh(path, older_than=None, workers=4, delay=0.6, stop=None, verbose=Fals
             with lock:
                 if "price" not in out.get(key, {}):
                     out[key] = {"error": error, "fetched": now()}
+                else:                         # the price stays, with its own age; the try waits for the next pass
+                    out[key] = {**out[key], "tried": now()}
                 counts["fail"] += 1
         time.sleep(pace[0])
 

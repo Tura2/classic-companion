@@ -700,10 +700,15 @@ def lower_priority(setter=None):
             return False
 
         def setter(cls):
+            # handle types declared: by default ctypes passes GetCurrentProcess's -1 as a 32-bit int,
+            # which 64-bit Windows refuses as an invalid handle (the call quietly did nothing)
             import ctypes
-            k32 = ctypes.windll.kernel32
+            from ctypes import wintypes
+            k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+            k32.GetCurrentProcess.restype = wintypes.HANDLE
+            k32.SetPriorityClass.argtypes = [wintypes.HANDLE, wintypes.DWORD]
             if not k32.SetPriorityClass(k32.GetCurrentProcess(), cls):
-                raise OSError("SetPriorityClass failed")
+                raise OSError(f"SetPriorityClass failed ({ctypes.get_last_error()})")
     try:
         setter(BELOW_NORMAL)
         return True
