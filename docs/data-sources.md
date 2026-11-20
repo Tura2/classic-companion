@@ -9,8 +9,8 @@ Where every piece of data comes from, and what's left out on purpose.
   (~07:00 UTC), so intraday moves aren't in it.
 - Second prices: Cozy Market (cozy.markets) item pages, read into `cache/cozy_items.json` by the
   app itself (`app/cozy.py`): when it starts and every 10 minutes after, it fetches again any price
-  older than two hours, in the background and one page a second (the pages aren't cached, so a full
-  pass is spread over about half an hour rather than a burst). Cozy publishes one number per item -- its usual sale price, the listing
+  older than 12 hours, in the background and one page a second (the pages aren't cached, so a full
+  pass is spread over a few hours rather than a burst; a page that fails waits for the next pass). Cozy publishes one number per item -- its usual sale price, the listing
   and sale counts, and the day it was last seen -- in each page's meta description, and lists every
   page in its public sitemap; robots allows all and the site has no terms page. Its `/api` (behind a
   browser check) is not used. Labels and the dashboard show both prices, MSC in blue and Cozy in
