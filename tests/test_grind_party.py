@@ -179,3 +179,36 @@ def test_old_pq_rows_are_not_party_maps(tmp_path):
     g = tracker(tmp_path)
     rows(g, (1, 10000, 600, 0, None), (None, 50000, 900, 1, "Kerning PQ"))
     assert [(r["map_id"], r["party"]) for r in g.best_maps(38)] == [(1, False)]
+
+
+# ---- review fixes: misreads mustn't pass for EXP coming in
+def test_a_flickering_misread_while_standing_still_isnt_grinding(tmp_path):
+    g = tracker(tmp_path)
+    t = feed(g, [50000 + 100 * i for i in range(30)])     # 3 min of grinding
+    hr = g.summary(t)["exp_hr"]
+    for i in range(600):                                  # 20 min standing still, the last digit flickering
+        e = 52900 if i % 2 else 52908
+        g.update(e, pct(e), 32, 1, "Ant Tunnel I", t)
+        t += 2.0
+    assert g.summary(t)["running"] is False
+    t = feed(g, [53000], t0=t)                            # one kill
+    assert abs(g.summary(t)["exp_hr"] - hr) / hr < 0.05
+
+
+def test_a_misread_first_sighting_of_a_quest_is_still_a_lump(tmp_path):
+    g = tracker(tmp_path)
+    t = feed(g, [50000 + 100 * i for i in range(30)])     # 3 min of grinding
+    hr = g.summary(t)["exp_hr"]
+    t = feed(g, [52900] * 30, t0=t)                       # 3 min idle
+    for e in (59912, 59920, 59920):                       # the quest's first read a few EXP off, then right
+        g.update(e, pct(e), 32, 1, "Ant Tunnel I", t)
+        t += 2.0
+    assert abs(g.summary(t)["exp_hr"] - hr) / hr < 0.05
+
+
+def test_a_party_map_has_no_kills_an_hour(tmp_path):
+    g = tracker(tmp_path)
+    rows(g, (1, 20000, 600, 1, None))
+    g.db.execute("UPDATE sessions SET kills = 40")         # only the shares the party split could tell
+    g.db.commit()
+    assert [r["kills_hr"] for r in g.all_maps(38)] == [None]

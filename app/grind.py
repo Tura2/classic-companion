@@ -145,7 +145,7 @@ class Grind:
         self.events = []             # (ts, gain, active seconds before it, lump), for the rates
         self.last_gain = None        # the last gain that counted as killing (runs the clock)
         self.last_any = None         # the last gain of any kind, lumps too (tells a break)
-        # (ts, exp) of reads since the last counted gain that showed the EXP rising but didn't count
+        # (ts, exp, small) of reads since the last counted gain that showed the EXP rising but didn't count
         # yet (two reads in a row didn't agree): in a party the EXP moves on almost every read, so a
         # counted gain can come over a minute after the last, and that wait is grinding all the same
         self.moves = []
@@ -252,23 +252,27 @@ class Grind:
         given: a jump's own first sighting doesn't bridge the break before it) to `now`."""
         if self.last_gain is None or self.paused:
             return 0.0
-        points = [self.last_gain] + [t for t, e in self.moves
+        points = [self.last_gain] + [t for t, e, _ in self.moves
                                      if t > self.last_gain and (below is None or e < below)] + [now]
         return sum(b - a for a, b in zip(points, points[1:]) if 0 <= b - a <= BREAK)
 
     def _last_active(self):
         """When the EXP was last seen coming in: the last counted gain, or a rising read since."""
-        times = [t for t in [self.last_gain] + [t for t, _ in self.moves] if t is not None]
+        times = [t for t in [self.last_gain] + [t for t, _, _ in self.moves] if t is not None]
         return max(times) if times else None
 
     def _note_move(self, exp, pct, level, now):
         """A read that fits the level and shows the EXP up on the last counted one, but isn't counted
-        yet: grinding is going on. Not while paused, and not a jump too big to be killing."""
+        yet: grinding is going on. Not while paused, and not a jump too big to be killing. Only ever
+        higher than the last such read: a last digit misread flickering while you stand still
+        (52900, 52908, 52900...) isn't EXP coming in. `small`: up by no more than a kill's worth
+        (LUMP_SHARE) on the read before it, so a quest's jump, misread or not, never passes for one."""
         if self.paused or self.last is None or level != self.last[2]:
             return
         need = self.need or need_of(exp, pct) or 0
-        if self.last[0] < exp <= self.last[0] + MAX_GAIN_SHARE * need:
-            self.moves.append((now, exp))
+        floor = max([self.last[0]] + [e for _, e, _ in self.moves])
+        if floor < exp <= self.last[0] + MAX_GAIN_SHARE * need:
+            self.moves.append((now, exp, exp - floor <= LUMP_SHARE * need))
 
     def update(self, exp, pct, level, map_id, map_name, now):
         """One read of the HUD's EXP. Returns the EXP it counted (0 for none)."""
@@ -330,7 +334,7 @@ class Grind:
         # gain after a real break can be a lump.
         # ...or from a read since that showed the EXP rising on the way to this one (a quest's jump
         # is seen whole at its first read, so that one doesn't count)
-        seen = [t for t, e in self.moves if e < exp] + ([self.last_any] if self.last_any is not None else [])
+        seen = [t for t, e, small in self.moves if e < exp and small] + ([self.last_any] if self.last_any is not None else [])
         resumed = not seen or now - max(seen) > BREAK
         self.last_any = now
         self.after_pause = False
@@ -727,7 +731,7 @@ class Grind:
             if not a or a < min_active:
                 continue
             out.append({"map_id": m, "map": name, "level_lo": lo, "level_hi": hi, "active_s": a, "party": bool(party),
-                        "exp_hr": round(e / a * 3600), "kills_hr": round(k / ka * 3600) if k and ka else None,
+                        "exp_hr": round(e / a * 3600), "kills_hr": round(k / ka * 3600) if k and ka and not party else None,   # a party's are shares
                         "mesos_hr": round(ms / ma * 3600) if ms is not None and ma else None})
         return sorted(out, key=lambda r: -r["exp_hr"])
 

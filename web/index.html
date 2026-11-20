@@ -1387,7 +1387,7 @@ function histBody(c){
   const netS = net == null ? "—" : net < 0 ? `−${fmt(-net)}` : `+${fmt(net)}`;
   const top = `<div class="xtop">${c.map_id ? `<img class="hthumb" src="/api/mapimg?id=${c.map_id}" alt="" onerror="this.remove()">` : ""}<div class="gstrip hs">
       <div><b${c.best_minute != null ? ` class="best">${fmt(c.best_minute)}` : ">—"}</b><span>best minute</span></div>
-      <div><b>${fmt(kt)}</b><span>killed${c.kills_per_min != null ? ` · ${c.kills_per_min} a minute` : ""}</span></div>
+      <div><b>${c.party && !kt ? "—" : fmt(kt)}</b><span>killed${c.party ? " · party" : c.kills_per_min != null ? ` · ${c.kills_per_min} a minute` : ""}</span></div>
       <div><b>${netS}</b><span>net mesos</span></div>
       <div><b>${nd}</b><span>${nd === 1 ? "death" : "deaths"}${nd ? ` · −${fmt(c.exp_lost || 0)} EXP` : ""}</span></div></div></div>`;
   if (c.old) return `<div class="xbody">${top}<div class="oldnote">Saved before Companion kept the full story: no chart, loot or kills per monster for this one.
@@ -1395,7 +1395,8 @@ function histBody(c){
   const loot = c.loot.length || c.mesos_picked ? `<div class="lgrid" id="hlgrid"></div><div class="pager" id="hlpager"></div>` : `<p class="hnote">No loot was read in this session.</p>`;
   const party = (c.party_kills || []).reduce((a, k) => a + k.count, 0);
   const kills = c.kills.length ? `<div class="kl pfit" id="hkl"></div><div class="pager" id="hkpager"></div>`
-    : `<p class="hnote">${kt ? `About ${fmt(kt)} killed (worked out from your EXP).` : "No kills were read in this session."}</p>`;
+    : `<p class="hnote">${c.party ? "In a party your EXP came in shares, so kills weren't counted."
+        : kt ? `About ${fmt(kt)} killed (worked out from your EXP).` : "No kills were read in this session."}</p>`;
   const d = c.deaths || [];
   const died = !nd ? "" : `<div class="deathrow">${TOMB(16)} ${nd === 1 && d.length ? `Died once, at ${clock(d[0].ts)}` : nd === 1 ? "Died once" : `Died ${nd} times`} · lost ${fmt(c.exp_lost || 0)} EXP</div>`;
   return `<div class="xbody">${top}${chartBox(c.minutes, d, c.exp_gained, false, c.levelups)}${histLevels(c)}
@@ -1494,7 +1495,7 @@ function lastSessionCard(gr){
   return `<section class="card win lastcard"><div class="title"><span>${itemIcon(4000094, 22)} ${live ? "This session" : `Last session${L.map ? ` · ${pretty(L.map)}` : ""}`}</span><small>${aside}</small></div>
     <div class="body"><div class="lastrow">
       <span><b>${dur(L.active_s)}</b><small>grinding</small></span><span><b class="${g >= 0 ? "g" : "neg"}">${g >= 0 ? "+" : ""}${g.toFixed(2)}%</b><small>Lv. ${L.level ?? "?"}</small></span>
-      <span><b>${fmt(L.kills_total || 0)}</b><small>killed</small></span><span><b>${fmt(L.items || 0)}</b><small>items</small></span>
+      <span><b>${L.party && !L.kills_total ? "—" : fmt(L.kills_total || 0)}</b><small>killed</small></span><span><b>${fmt(L.items || 0)}</b><small>items</small></span>
       <span><b class="g">+${fmt(L.mesos_picked || 0)}</b><small>mesos</small></span>${tomb}</div></div></section>`;
 }
 // In a town, Grind shrinks: last session's EXP an hour, the time to level at that pace, your best maps
