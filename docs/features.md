@@ -9,7 +9,9 @@ Everything here works without screen reading: public game data and market prices
     maps by EXP an hour in your last 5 levels. "All maps" opens every one, with kills and mesos
     an hour. "History" lists your past sessions, 8 to a page, newest first; click one to open it
     in full, with its chart, loot, kills and deaths (sessions from before this update show their
-    totals only).
+    totals only). In a party (the game's "Bonus EXP for PARTY" lines) the card says so and shows
+    EXP to level instead of kills, since your EXP comes in shares; party maps are marked apart
+    from solo ones in your best maps.
   - **This session**: how far the EXP bar moved (across a level-up too), deaths, the loot, and
     the mesos.
   - **This map**: its monsters (level, HP, EXP) with your kills, and "Worth picking up" for
