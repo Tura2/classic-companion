@@ -23,6 +23,7 @@ from PIL import Image
 import applog
 
 FRAME_INTERVAL_MS = 143   # at most 7 frames a second: tooltip prices still keep up with the mouse
+IDLE_FRAME_S = 0.5        # two frames a second while you're away from the game (sniper.is_idle)
 STALE_AFTER = 3.0         # seconds without a new frame before we restart the session
 IDLE_STOP = 15.0          # seconds without a read before the session is stopped
 
@@ -164,6 +165,7 @@ class GameCapture:
         self.frame, self.frame_time = None, 0.0
         self.hwnd, self.control, self.started, self.last_use = None, None, 0.0, 0.0
         self.mode, self.error = "off", ""
+        self.min_interval = FRAME_INTERVAL_MS / 1000     # seconds between kept frames (slower while idle)
         import importlib.util
         self.wgc_ok = _windows() and importlib.util.find_spec("windows_capture") is not None
 
@@ -181,7 +183,7 @@ class GameCapture:
 
             @cap.event
             def on_frame_arrived(frame, control):
-                if time.time() - self.frame_time < FRAME_INTERVAL_MS / 1000:
+                if time.time() - self.frame_time < self.min_interval:
                     return             # keep at most 7 frames a second, whatever Windows sends
                 img = frame_to_rgb(frame.frame_buffer, frame.width, frame.height)
                 with self.lock:

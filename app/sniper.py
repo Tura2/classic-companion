@@ -37,6 +37,7 @@ import notices as notice_lines
 import party as party_split
 import native
 import quickslots
+import capture as capture_mod
 from capture import GameCapture, client_box, find_window, foreground_window, window_bounds
 from gamedata import JOBS, NPC_PRICES, MapMove
 
@@ -88,6 +89,8 @@ TIP_SECONDS = 1.0         # a tooltip's prices go away this long after it was la
 SHOP_LABEL_SECONDS = 8    # labels disappear this long after the last scan that found shop rows
 PAD_W = 300               # room for labels beside the shop, at 100% display scale
 WATCH_EVERY = 1.5         # seconds between looks at the game while screen reading is on
+IDLE_AFTER = 300.0        # no EXP for this long and the game not in front: you're away (is_idle)
+IDLE_EVERY = 5.0          # seconds between looks at the game while you're away
 MAP_EVERY = 0.5           # seconds between quick looks at just the mini map, between those
 CORNER_EVERY = 0.4        # seconds between looks at the corner's lines (mesos and items picked up)
 SHOP_EVERY = 0.3          # seconds between quick re-reads of an open shop's item list
@@ -747,6 +750,16 @@ def select_region(root, done):
 
 
 # ---------------------------------------------------------------- app
+def is_idle(last_gain, started, now, in_front, shop_open):
+    """You're away from the game: it isn't the window in front, no shop is open, and no EXP came in for
+    IDLE_AFTER seconds (or since Companion started, if none has). Grinding behind the dashboard isn't:
+    the EXP keeps coming. 2026-11-20 the game stayed open all night and was read at full pace."""
+    if in_front or shop_open:
+        return False
+    since = last_gain if last_gain is not None else started
+    return now - since > IDLE_AFTER
+
+
 def game_corner(hwnd, frame):
     """Where the frame's top-left pixel is on screen: the game window's client corner, plus the black
     bars full screen cut off the frame's left and top (a 1920 x 1200 game on a 2560 x 1440 monitor:
@@ -819,6 +832,8 @@ class App:
         self.sample_ts = 0.0        # when a shop window's picture was last saved
         self.auto_job = None        # the pending auto-scan timer, so there's only ever one
         self.game_hwnd = None       # the game window, looked up every 3 s
+        self.started_at = time.time()
+        self.idle_now = False       # away from the game (is_idle): the looks slow down
         self.apply_settings()
 
     def start(self):
@@ -948,7 +963,10 @@ class App:
         """While screen reading is on, look at the whole game every few seconds and read whatever
         windows are open, wherever they are. Nothing to select. While a shop is open, only its item
         list is re-read, about three times a second, so prices and labels keep up as you scroll."""
-        every = SHOP_EVERY if self.shop_anchor else MYSHOP_EVERY if self.myshop_anchor else WATCH_EVERY
+        self.idle_now = self.idle()
+        self.capture.min_interval = capture_mod.IDLE_FRAME_S if self.idle_now else capture_mod.FRAME_INTERVAL_MS / 1000
+        every = (SHOP_EVERY if self.shop_anchor else MYSHOP_EVERY if self.myshop_anchor
+                 else IDLE_EVERY if self.idle_now else WATCH_EVERY)
         if self.cfg["screen_reading"] and self.watching and self.map_looking:
             self.root.after(100, self.watch_loop)      # a quick mini map look is on: right after it
             return
@@ -962,7 +980,7 @@ class App:
         or so rather than after a few full reads (one every 1.5 s). Not while a shop is open: its own
         quick reads run then. Waits for a full read in progress, since both use the same reader."""
         self.root.after(int(MAP_EVERY * 1000), self.map_loop)
-        if self.cfg["screen_reading"] and not self.watching and not self.shop_anchor and not self.myshop_anchor:
+        if self.cfg["screen_reading"] and not self.watching and not self.shop_anchor and not self.myshop_anchor                 and not self.idle_now:
             self.watching = self.map_looking = True
             threading.Thread(target=self._map_look, daemon=True).start()
 
@@ -1004,7 +1022,7 @@ class App:
         up) for the grind session. They fade within 2-3 s, so they're looked at more often than the
         full read; a look is a small area (about 10 ms)."""
         self.root.after(int(CORNER_EVERY * 1000), self.corner_loop)
-        if self.cfg["screen_reading"] and self.grind is not None and not self.corner_busy:
+        if self.cfg["screen_reading"] and self.grind is not None and not self.corner_busy and not self.idle_now:
             self.corner_busy = True
             threading.Thread(target=self._corner_look, daemon=True).start()
 
@@ -1457,6 +1475,12 @@ class App:
                 card.win.deiconify()
             elif not want and shown:
                 card.win.withdraw()
+
+    def idle(self):
+        """Away from the game right now (is_idle)."""
+        g = getattr(self, "grind", None)
+        return is_idle(g.last_any if g is not None else None, self.started_at, time.time(), self.game_in_front(),
+                       bool(self.shop_anchor or self.myshop_anchor))
 
     def game_in_front(self):
         return bool(self.game_hwnd) and foreground_window() == self.game_hwnd and not getattr(self, "user_hidden", False)
