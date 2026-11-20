@@ -68,6 +68,7 @@ KILL_MIN = 5            # ... once there are at least this many
 IDLE_END = 1800.0       # no EXP for this long ends the session: the next gain starts a new one
 CARD_MIN_ACTIVE = 120.0 # a session shorter than this (2 minutes of grinding) isn't kept in the history
 RETHINK_VALUES = 3      # different EXPs in a row agreeing on another level EXP replace one set by misreads
+PARTY_FORGET = 300.0    # in a party until this long after the corner's last "Bonus EXP for PARTY" line
 
 
 def need_of(exp, pct):
@@ -103,6 +104,7 @@ class Grind:
         self.db.execute("UPDATE history SET open = 0 WHERE open = 1")
         self.db.commit()
         self.who = {"name": None, "job": None}     # the character, set by the app before each update
+        self.party_at = None         # the corner's last party bonus line: still in the party on the next map
         self.card_id = None
         self.pq = None               # the party quest you're in, if any
         self.no_reset = False
@@ -128,6 +130,8 @@ class Grind:
         self.card_id = None
         self.levelups = []           # {"ts", "level"}: each level reached in the session
         self.s_pq = self.pq          # the party quest the session is in, if any
+        # the session saw party EXP: its gains are shares, not your kills (still in the party: from the start)
+        self.s_party = now is not None and self.in_party(now)
         self.s_enter = now           # when it began: a PQ run's card starts here (its whole wall time)
         self.s_maps = []             # maps the session's EXP came on, in order
         self.s_map_ids = []          # their ids, in the same order (skipping party quest stages)
@@ -158,20 +162,20 @@ class Grind:
         self.seg = {"id": None, "start": now, "map_id": None if self.pq else self.map_id, "map": self.pq or self.map,
                     "pq": self.pq, "stage": self.map, "level_start": level, "level_end": level, "exp": 0,
                     "active": 0.0, "mesos0": None, "mesos": None, "deaths": 0, "exp_lost": 0, "kills": None,
-                    "picked": None}
+                    "picked": None, "party": now is not None and self.in_party(now)}
 
     def _save_segment(self, now):
         g = self.seg
         if not g or (g["exp"] <= 0 and not g.get("deaths")):     # a stretch with a death is kept, net below 0 too
             return
         active = now - g["start"] if g["pq"] else g["active"]      # a run counts all its time
-        if g.get("kills") is None and not g["pq"]:      # no corner line read: kills worked out from the EXP
+        if g.get("kills") is None and not g["pq"] and not g.get("party"):   # no corner line read: kills from the EXP
             k = self.per_kill()
             killed = g["exp"] + g.get("exp_lost", 0)
             g["kills_est"] = round(killed / k) if k and killed > 0 else None
         row = (g["start"], now, g["map_id"], g["map"], g["level_start"], g["level_end"], g["exp"], active,
                (g["mesos"] - g["mesos0"]) if g["mesos0"] is not None and g["mesos"] is not None else None, None,
-               1 if g["pq"] else 0, g["pq"], g.get("deaths", 0), g.get("exp_lost", 0),
+               1 if g["pq"] or g.get("party") else 0, g["pq"], g.get("deaths", 0), g.get("exp_lost", 0),
                g.get("kills") if g.get("kills") is not None else g.get("kills_est"), g.get("picked"))
         if g["id"] is None:
             cur = self.db.execute("INSERT INTO sessions (start, end, map_id, map, level_start, level_end, exp_gained,"
@@ -216,7 +220,8 @@ class Grind:
                 "loot": [{"name": n, "count": c} for n, c in self.loot.items()],
                 "used": [{"name": n, "count": c} for n, c in self.used.items()],
                 "mesos_picked": picked, "mesos_change": change,
-                "deaths": [{"ts": d["ts"], "lost": d["lost"]} for d in self.deaths], "maps": list(self.s_maps), "map_ids": list(self.s_map_ids)}
+                "deaths": [{"ts": d["ts"], "lost": d["lost"]} for d in self.deaths], "maps": list(self.s_maps), "map_ids": list(self.s_map_ids),
+                "party": self.s_party}
         row = (start, now, self.s_map_id, self.s_map, pq, self.who.get("name"), self.who.get("job"),
                first.get("level"), first.get("pct"), last[2], last[1], self.s_gained, active, hr,
                0 if final else 1, json.dumps(data))
@@ -465,6 +470,17 @@ class Grind:
         """Potions drunk: a quick slot's count went down by n."""
         self.used[name] = self.used.get(name, 0) + int(n)
 
+    def add_party_bonus(self, n, now):
+        """The corner's "Bonus EXP for PARTY (+n)": you're in a party, and this session's EXP is shares."""
+        self.party_at = now
+        self.s_party = True
+        if self.seg is not None:
+            self.seg["party"] = True
+
+    def in_party(self, now):
+        """A party bonus line came in the last PARTY_FORGET seconds."""
+        return self.party_at is not None and now - self.party_at <= PARTY_FORGET
+
     def add_mesos(self, n, now):
         """Mesos picked up ("You have gained mesos (+15)")."""
         self.picked += int(n)
@@ -473,7 +489,7 @@ class Grind:
 
     def _kills_total(self):
         line = sum(self.kills.values())
-        if line:
+        if line or self.s_party:          # a party's gains are shares: no kills worked out from them
             return line
         k = self.per_kill()
         killed = self.s_paced + sum(d["lost"] for d in self.deaths)      # what was killed, deaths aside
@@ -504,7 +520,7 @@ class Grind:
                 "exp_hr": hr if hr and hr > 0 else None,
                 "gain_pct": self._gain_pct(), "level": self.last[2] if self.last else None,
                 "kills_total": self._kills_total(), "items": sum(self.loot.values()),
-                "mesos_picked": self._mesos_picked(), "deaths": len(self.deaths)}
+                "mesos_picked": self._mesos_picked(), "deaths": len(self.deaths), "party": self.s_party}
 
     def mesos(self, mesos, now):
         """A read of your mesos (the inventory, while it's open)."""
@@ -588,7 +604,8 @@ class Grind:
                 "per_kill": self.per_kill(), "kills_left": self.kills_left(need),
                 "map": self.pq or self.map, "map_id": self.map_id,
                 "pq": self.pq_summary(now, need - self.last[0] if need and self.last else None) if self.pq else None,
-                "exp": self.last[0] if self.last else None, "pct": self.last[1] if self.last else None}
+                "exp": self.last[0] if self.last else None, "pct": self.last[1] if self.last else None,
+                "party": self.s_party}
 
     def per_kill(self):
         """The EXP a kill usually gives: the median of the recent killing gains (a read that caught two
@@ -601,7 +618,7 @@ class Grind:
     def kills_left(self, need):
         """About how many kills to the next level, at the usual EXP a kill."""
         k = self.per_kill()
-        if not k or not need or not self.last:
+        if not k or not need or not self.last or self.s_party:     # a party's gains are shares, not kills
             return None
         return max(0, math.ceil((need - self.last[0]) / k))
 

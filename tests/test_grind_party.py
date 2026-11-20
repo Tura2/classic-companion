@@ -52,3 +52,103 @@ def test_rising_reads_while_paused_dont_count(tmp_path):
     before = g.summary(t)["active_s"]
     t, _ = rising(g, t, exp, holds=3)
     assert g.summary(t)["active_s"] == before
+
+
+# ---- the corner's "Bonus EXP for PARTY" lines make a party session (Task 2)
+import json
+from types import SimpleNamespace
+
+import grind
+import sniper
+
+BL2 = 10004112
+NEED39 = 266857
+MOBS = [("Fire Boar", 60, 19), ("Dark Axe Stump", 43, 12)]
+
+
+def fake_data():
+    def split(mid, gain):             # whole kills only, like gamedata.split_kills
+        for k in range(1, 7):
+            if gain == 60 * k:
+                return ["Fire Boar"] * k
+        return None
+    return SimpleNamespace(maps={BL2: {"name": "The Burnt Land II"}}, split_kills=split, map_mobs=lambda mid: MOBS)
+
+
+def app(tmp_path, data=None):
+    return SimpleNamespace(grind=grind.Grind(tmp_path / "grind.sqlite"), data=data or fake_data())
+
+
+def hud(a, prof, exp, need=NEED39, n=2):
+    seen = {"hud": {"exp": exp, "exp_pct": round(exp / need * 100, 2)}}
+    for _ in range(n):
+        sniper.handle_grind(a, seen, prof)
+
+
+def gains(a, prof, exp, steps):
+    hud(a, prof, exp, n=3)
+    for s in steps:
+        exp += s
+        hud(a, prof, exp)
+    return exp
+
+
+def test_party_lines_mark_the_session(tmp_path):
+    a, prof = app(tmp_path), {"current_map": BL2, "level": 39}
+    gains(a, prof, 20000, [60])
+    sniper.handle_corner(a, [("party", 3)])
+    gains(a, prof, 20060, [120, 60])
+    assert a.grind.summary(1e10)["party"] is True
+    a.grind.flush()
+    assert [r[0] for r in a.grind.db.execute("SELECT party FROM sessions")] == [1]
+
+
+def test_a_party_card_says_party(tmp_path):
+    g = tracker(tmp_path)
+    g.add_party_bonus(3, 0.0)
+    t = feed(g, [50000 + 100 * i for i in range(40)])     # 4 minutes
+    g.close(t)
+    data = json.loads(g.db.execute("SELECT data FROM history").fetchone()[0])
+    assert data["party"] is True
+
+
+def test_in_a_party_chunks_are_not_made_up_kills(tmp_path):
+    a, prof = app(tmp_path), {"current_map": BL2, "level": 39}
+    sniper.handle_corner(a, [("party", 3)])
+    # read live 2026-11-20, three players: the party split explains some (shares of 20%, a 20% bonus);
+    # the rest, several kills' shares in one read, aren't guessed at
+    live = [147, 705, 321, 415, 954, 376, 734, 68, 195, 214, 106, 206, 58, 25, 72, 28, 103, 53, 72, 108, 97, 28, 120]
+    gains(a, prof, 20000, live)
+    s = a.grind.summary(1e10)
+    assert None not in [k["name"] for k in s["kills"]]          # no unnamed "kills" from the usual gain
+    assert s["kills_total"] == sum(k["count"] for k in s["kills"])
+    assert s["kills_total"] < sum(live) / 60                     # far fewer than whole Fire Boars would make it
+    assert s["kills_left"] is None and s["party"] is True
+
+
+def test_solo_gains_are_still_named(tmp_path):
+    a, prof = app(tmp_path), {"current_map": BL2, "level": 39}
+    gains(a, prof, 20000, [60, 120])
+    s = a.grind.summary(1e10)
+    assert s["kills"] == [{"name": "Fire Boar", "count": 3}] and s["party"] is False
+
+
+def test_party_is_forgotten_after_five_minutes(tmp_path):
+    g = tracker(tmp_path)
+    g.add_party_bonus(3, 1000.0)
+    assert g.in_party(1000.0 + 300) and not g.in_party(1000.0 + 301)
+
+
+def test_a_duo_the_fitter_explains_is_still_told(tmp_path, game_reader):
+    d = game_reader.data
+    a, prof = app(tmp_path, d), {"current_map": d.match_map_name("West Rocky Mountain IV"), "level": 37}
+    sniper.handle_corner(a, [("party", 3)])
+    exp = 166000
+    hud(a, prof, exp, need=122755 * 1.0, n=3)
+    for gain in [62, 43, 46, 31, 31, 20, 31, 51, 30, 31, 21, 62, 31, 20, 44, 31]:      # read live, two players
+        exp += gain
+        hud(a, prof, exp, need=122755 * 1.0)
+    s = a.grind.summary(1e10)
+    yours = {k["name"]: k["count"] for k in s["kills"]}
+    party = {k["name"]: k["count"] for k in s["party_kills"]}
+    assert yours.get("Wild Boar", 0) >= 10 and party.get("Wild Boar", 0) >= 2
