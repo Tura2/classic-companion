@@ -688,7 +688,31 @@ def start_server(handler):
     raise SystemExit(f"Ports {PORT}-{PORT + 9} are all busy. Close other copies of Companion.")
 
 
+BELOW_NORMAL = 0x4000     # Windows' BELOW_NORMAL_PRIORITY_CLASS
+
+
+def lower_priority(setter=None):
+    """Run below normal priority, so the game always comes first: at Normal, Companion's reads took
+    their share of the CPU beside the game's (2026-11-20). `setter(cls)`: sets the priority class, for
+    tests. True if it was set; False off Windows or when it fails (nothing else changes)."""
+    if setter is None:
+        if sys.platform != "win32":
+            return False
+
+        def setter(cls):
+            import ctypes
+            k32 = ctypes.windll.kernel32
+            if not k32.SetPriorityClass(k32.GetCurrentProcess(), cls):
+                raise OSError("SetPriorityClass failed")
+    try:
+        setter(BELOW_NORMAL)
+        return True
+    except Exception:
+        return False
+
+
 def main():
+    low = lower_priority()
     if "--report" in sys.argv:
         from sniper import report
         report()
@@ -699,6 +723,8 @@ def main():
     moved = paths.migrate()               # data files older versions left loose go into data/
     applog.setup(LOGS_DIR)
     applog.log(f"Companion {VERSION} starting in {APP_DIR}")
+    if not low:
+        applog.log("Couldn't lower Companion's priority: it runs at normal priority")
     if moved:
         applog.log("Moved into data/: " + ", ".join(moved))
     try:   # Companion's own window, with its logo, open from the first second
