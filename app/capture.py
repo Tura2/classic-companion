@@ -132,6 +132,17 @@ def covers(client, monitor):
     return (cl, ct, cl + cw, ct + ch) == tuple(monitor)
 
 
+def frame_to_rgb(buf, width, height):
+    """A captured frame (WGC's BGRA numpy buffer, rows maybe padded wider than the window) as an RGB
+    picture `width` x `height` that owns its pixels. Pillow's BGRX decoder does it in one copy: the
+    old numpy channel shuffle, tobytes and convert cost 25 ms a frame against 7 (2026-11-20)."""
+    import numpy as np
+    buf = np.ascontiguousarray(buf)
+    h, w = buf.shape[:2]
+    img = Image.frombuffer("RGB", (w, h), buf, "raw", "BGRX", 0, 1)
+    return img.crop((0, 0, width, height)) if (w, h) != (width, height) else img.copy()
+
+
 def game_area(img, window, client, full=False):
     """The game's picture out of a capture of its window: the client area (no title bar or border),
     and in full screen on a monitor of another shape without the black bars round it (the game keeps
@@ -172,10 +183,9 @@ class GameCapture:
             def on_frame_arrived(frame, control):
                 if time.time() - self.frame_time < FRAME_INTERVAL_MS / 1000:
                     return             # keep at most 7 frames a second, whatever Windows sends
-                buf = frame.frame_buffer
-                img = Image.frombuffer("RGBA", (frame.width, frame.height), buf[:, :, [2, 1, 0, 3]].tobytes())
+                img = frame_to_rgb(frame.frame_buffer, frame.width, frame.height)
                 with self.lock:
-                    self.frame, self.frame_time = img.convert("RGB"), time.time()
+                    self.frame, self.frame_time = img, time.time()
 
             @cap.event
             def on_closed():
