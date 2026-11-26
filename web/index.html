@@ -1129,8 +1129,7 @@ function discordCard(d){
 }
 function reportsCard(r, on){
   const title = `<span>${itemIcon(GI.quests, 22)} Problem reports</span>`;
-  if (!r || !r.setup) return `<section class="card win"><div class="title">${title}${pill(false, "Not set up")}</div>
-    <div class="body"><p class="sub" style="margin:0">Not set up in this build.</p></div></section>`;
+  if (!r || !r.setup) return "";      // a build without the report server: nothing to switch on
   return `<section class="card win"><div class="title">${title}${pill(on, on ? "On" : "Off")}</div><div class="body">
       ${swRow("rp-on", "Send problem reports on their own", "When a read misses something (a map, the EXP, the HUD), so it gets fixed", on)}
       <p class="sub" style="margin:6px 0 0">A report holds the game’s picture as Companion saw it (other players’ names and chat too), what it read, the game’s size and scale, your character’s name, level and map, Companion’s settings and its log’s last lines. It goes to the group’s private report store, never anywhere public. At most once an hour for the same problem, 25 a day.</p>

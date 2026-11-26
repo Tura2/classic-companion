@@ -227,3 +227,54 @@ def test_one_map_misread_different_ways_is_one_problem(tmp_path):
                 keys.append(json.loads((p / "report.json").read_text(encoding="utf-8"))["key"])
         w.see(frame(), {**HUD, "map": MAP})          # a good read between: the run starts over
     assert keys == ["map_missed:henesys-hunting-ground-i", "map_missed:zz"]
+
+
+# ---- live 2026-11-26: switching the game's resolution sent 25 reports in 1.5 minutes. Every read
+# mid-switch was another size, so another problem key, and the runs built up before kept going
+
+def test_a_resolution_switch_sends_nothing_while_the_size_moves(tmp_path):
+    clock = Clock()
+    r, _ = make(tmp_path, clock=clock)
+    w = Watch(r, clock=clock)
+    for _ in range(3):
+        w.see(frame(1920, 1200), {**HUD, "map": MAP})
+        clock.t += 1.5
+    for i in range(40):                                   # dragged: a new size every read, nothing read
+        clock.t += 1.5
+        assert w.see(frame(2074 + 7 * i, 1368 + i), {"windows": {}, "scale": 0.64}) == []
+    assert r.pending() == 0
+
+
+def test_after_a_switch_a_size_that_stays_broken_is_reported_once(tmp_path):
+    clock = Clock()
+    r, _ = make(tmp_path, clock=clock)
+    w = Watch(r, clock=clock)
+    w.see(frame(1920, 1200), {**HUD, "map": MAP})
+    kept = []
+    for _ in range(60):                                   # steady at the new size, EXP and map unread
+        clock.t += 1.5
+        kept += w.see(frame(2560, 1440), {"windows": {"hud": [0, 0]}, "scale": 0.64, "hud": {"level": 40}})
+    kinds = sorted(p.name.split("-")[2] for p in kept)
+    assert kinds == ["exp_missed", "map_lost"]
+
+
+def test_one_kind_at_most_a_few_times_an_hour(tmp_path):
+    clock = Clock()
+    r, _ = make(tmp_path, clock=clock)
+    for i in range(10):
+        r.keep("map_lost", f"map_lost:{2000 + i}x1440:0.64", {})
+    assert r.pending() == autoreport.KIND_HOUR
+    clock.t += 3601
+    assert r.keep("map_lost", "map_lost:1x1:1", {}) is not None
+
+
+def test_an_open_mini_map_showing_no_name_isnt_lost(tmp_path):
+    # its "+" view: just MINI MAP over the map's picture, no name to read (live 2026-11-26)
+    clock = Clock()
+    r, _ = make(tmp_path, clock=clock)
+    w = Watch(r, clock=clock)
+    w.see(frame(), {**HUD, "map": MAP})
+    for _ in range(autoreport.LOST_READS * 2):
+        clock.t += 1.5
+        w.see(frame(), {**HUD}, extra={"map_titles": {"minimap": ["MINI MAP", 14, 17, 75, 10]}})
+    assert r.pending() == 0

@@ -36,6 +36,8 @@ OUTBOX = DATA_DIR / "report_outbox"
 STATE = DATA_DIR / "reports_state.json"
 COOLDOWN = 3600.0      # the same problem is sent again only after an hour
 DAY_CAP = 25           # reports a day, whatever happens
+KIND_HOUR = 3          # reports of one kind (map_lost, exp_missed...) an hour, whatever their keys
+HOLD_READS = 8         # after the game area changes size, reads at the new size before any is judged
 OUTBOX_MAX = 40
 OUTBOX_DAYS = 7
 MAX_BYTES = 3_000_000  # the files' size before base64 (x 4/3): under the server's 4.5 MB
@@ -138,6 +140,7 @@ class Reports:
         self.install = st.get("install") or uuid.uuid4().hex[:12]
         self.last = st.get("last", {})            # problem key -> when it was last kept
         self.day = st.get("day", {"date": "", "count": 0})
+        self.kinds = st.get("kinds", {})          # kind -> when its reports of the last hour were kept
         self.sent = int(st.get("sent", 0))
         self.error = ""
         self.next_at = 0.0
@@ -147,7 +150,8 @@ class Reports:
     # ------------------------------------------------------------ keeping
     def _save_state(self):
         try:
-            save_json(self.state_path, {"install": self.install, "last": self.last, "day": self.day, "sent": self.sent})
+            save_json(self.state_path, {"install": self.install, "last": self.last, "day": self.day, "sent": self.sent,
+                                        "kinds": self.kinds})
         except OSError:
             pass
 
@@ -164,6 +168,11 @@ class Reports:
             if self.day.get("date") != today:
                 self.day = {"date": today, "count": 0}
             if self.day["count"] >= DAY_CAP:
+                return False
+            # a key holds a size or a text, so one problem can come as many keys (a window dragged
+            # through sizes): a kind is kept only a few times an hour, whatever its keys
+            kind = key.split(":")[0]
+            if len([t for t in self.kinds.get(kind, []) if now - t < COOLDOWN]) >= KIND_HOUR:
                 return False
             return now - self.last.get(key, -1e18) >= COOLDOWN
 
@@ -203,6 +212,10 @@ class Reports:
             self.last[key] = now
             self.last = {k: t for k, t in self.last.items() if now - t < COOLDOWN * 24}
             self.day["count"] = self.day.get("count", 0) + 1
+            kind = key.split(":")[0]
+            self.kinds = {k: [t for t in ts if now - t < COOLDOWN] for k, ts in self.kinds.items()}
+            self.kinds = {k: ts for k, ts in self.kinds.items() if ts}
+            self.kinds.setdefault(kind, []).append(now)
             self._save_state()
         self._trim()
         return folder
@@ -330,6 +343,8 @@ class Watch:
         self.seen_at = {}          # "hud" / "map" -> when it last read
         self.last_ok = None        # the last frame where the HUD's EXP and the map both read
         self.extra = {}            # the reader's own state at this read (title picture scores, ...)
+        self.size = None           # the game area's size at the last read
+        self.hold = 0              # reads left before judging, after the size changed
 
     def _meta(self, kind, seen, frame, why):
         meta = {"why": why, "seen": jsonable(seen), "history": self.history[:-1],
@@ -360,6 +375,16 @@ class Watch:
         self.extra = extra or {}
         now = self.clock()
         self.history = (self.history + [{"t": round(now, 1), **gist(seen)}])[-HISTORY:]
+        # the game switching resolution or a window being dragged: a new size every read, the reader
+        # catching up. Nothing is judged until the size stays put a while, and the runs start over
+        # (live 2026-11-26: 25 reports in 1.5 minutes, every read another size and so another key)
+        size_now = (frame.width, frame.height)
+        if self.size is not None and size_now != self.size:
+            self.runs, self.hold = {}, HOLD_READS
+        self.size = size_now
+        if self.hold:
+            self.hold -= 1
+            return []
         hud = seen.get("hud")
         size = f"{frame.width}x{frame.height}"
         s = seen.get("scale")
@@ -395,7 +420,9 @@ class Watch:
         if self._run("hud_lost", not hud and recent("hud")) >= LOST_READS:
             kept.append(self.report("hud_lost", f"hud_lost:{size}:{s}", frame, seen,
                                     "The HUD read a little while ago and not since", hud_area, True))
-        if self._run("map_lost", bool(hud) and not seen.get("map") and not missed and recent("map")) >= LOST_READS:
+        # the mini map open in its "+" view shows no name at all (just MINI MAP over the map): not lost
+        no_name = bool((self.extra.get("map_titles") or {}).get("minimap"))
+        if self._run("map_lost", bool(hud) and not seen.get("map") and not missed and not no_name and recent("map")) >= LOST_READS:
             kept.append(self.report("map_lost", f"map_lost:{size}:{s}", frame, seen,
                                     "The mini map read a little while ago and not since (closed, or lost?)", map_area, True))
         for k in [k for k in self.runs if self.runs[k] >= LOST_READS * 3]:
