@@ -534,9 +534,33 @@ def stat_number(text):
         # just a number: no gear on it. Anything else after it ("152 c") is a bracket that didn't read
         return total, total if re.fullmatch(r"[\d,\s]*", text) else None
     m = re.search(r"\(\s*(\d+)\s*\+\s*(\d+)", text)
+    if m and total is not None and int(m.group(1)) + int(m.group(2)) != total:
+        whole = int(m.group(1)) + int(m.group(2))
+        if lost_digits(str(total), str(whole)):
+            # "193 (176+17)" read "1 (176+17)" at UI 0.64 (live 2026-11-26): the total lost digits the
+            # bracket still has. The game always shows the total as the bracket's sum
+            return whole, int(m.group(1))
     if not m or total is None or int(m.group(1)) + int(m.group(2)) != total:
         return total, None
     return total, int(m.group(1))
+
+
+def lost_digits(read, whole):
+    """Whether `read` is `whole` with some digits dropped, in order ("1" or "13" of "193"), and
+    nothing else: a total read short, never one read wrong."""
+    it = iter(whole)
+    return len(read) < len(whole) and all(c in it for c in read)
+
+
+def clear_job(text, job_names):
+    """The job the small second JOB line names when it reads too badly for the usual match ("HUNTER"
+    read "HurtTEP." at UI 0.64, live 2026-11-26): only a match at least 50 that beats every other
+    job by 20."""
+    from rapidfuzz import fuzz, process
+    hits = process.extract(text.title(), job_names, scorer=fuzz.ratio, limit=2)
+    if not hits or hits[0][1] < 50:
+        return None
+    return hits[0][0] if len(hits) < 2 or hits[0][1] - hits[1][1] >= 20 else None
 
 
 def fix_one_vs_l(text, crop):
@@ -627,6 +651,8 @@ def read_stat(frame, t, s, job_names):
         if hit:
             job = hit[0]
             break
+    if job is None and v.get("job2"):
+        job = clear_job(v["job2"], job_names)
     name = v.get("name")
     line = next((ln for ln in vals if ln[0] == name), None) if name else None
     if line:      # OCR reads Hero1 as Herol: the 1's own shape says which it is
@@ -798,7 +824,11 @@ def _have(nums, need):
         # only the goal read: "3 / 25" over a busy map often comes out as "25", and taking that as
         # the count would say the quest is done and send you back to the NPC
         return None
-    # a lone number isn't a count: "0 / 25" with "0 / 2" hidden behind a rope reads "5"
+    # a lone number is mostly not a count: "0 / 25" with "0 / 2" hidden behind a rope reads "5". But
+    # one of 2+ digits that's no piece of the goal can only be what you have: "98 / 30 Lupin's Banana"
+    # read "98 Lupin's Banana" at UI 0.64 (live 2026-11-26), its "/ 30" lost
+    if n and digits.isdigit() and len(digits) >= 2 and digits not in n and int(digits) <= need * 5:
+        return int(digits)
     return None
 
 
@@ -877,7 +907,7 @@ def _helper_rows(rows, s, quests_by_name, names, active_ids):
             if have is not None and best:
                 cur["needs"].append({"what": best[0], "have": have, "need": need})
             continue
-        hit = match_quest(text, names)
+        hit = match_quest(text, names) or active_quest(text, quests_by_name, active_ids)
         if hit:
             bottom = ly + lh
             q = quests_by_name[hit]
@@ -889,6 +919,21 @@ def _helper_rows(rows, s, quests_by_name, names, active_ids):
         elif not text.lstrip()[:1].isdigit():
             cur = None    # a title we couldn't place: skip its counts rather than pin them on another quest
     return quests, bottom
+
+
+def active_quest(text, quests_by_name, active_ids):
+    """A Quest Helper title read too badly for match_quest, matched among the quests you're known to
+    have going only ("[Event] The New Journey Begins" read "Eyentl The flew Jour ey Begins" at UI
+    0.64, live 2026-11-26: among every quest it's closest to "The Old Snail"). At least 75, and 20
+    ahead of the next of yours."""
+    from rapidfuzz import fuzz, process
+    if not active_ids or len(text) < 10:
+        return None
+    mine = [n for n, q in quests_by_name.items() if str(q.get("id")) in active_ids]
+    hits = process.extract(text, mine, scorer=fuzz.ratio, limit=2)     # whole titles: WRatio gives "The Old Snail" 85
+    if not hits or hits[0][1] < 75:
+        return None
+    return hits[0][0] if len(hits) < 2 or hits[0][1] - hits[1][1] >= 20 else None
 
 
 def read_hud(frame, t, s, job_names):
