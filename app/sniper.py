@@ -76,6 +76,7 @@ DEFAULTS = {
     "setup_done": False,       # the dashboard's first-run setup was finished or skipped
     "discord_enabled": False,  # post your shop's sales to the group's Discord (after Connect Discord)
     "discord_post_sales": True,
+    "auto_reports": False,     # send a report on its own when a read misses something (autoreport.py)
 }
 
 GREEN, AMBER, RED, GREY = "#2EE59D", "#FFC24B", "#FF6B5B", "#C9D3DF"
@@ -1124,6 +1125,7 @@ class App:
         return tips
 
     def _watch(self):
+        frame = None
         try:
             frame = self.capture.grab_game()
             if frame is None:
@@ -1164,6 +1166,7 @@ class App:
                     seen = None
             if seen is None:
                 seen = self.reader.read(frame)
+                self.watch_reads(frame, seen)
             shop = seen.get("shop")
             self.shop_anchor = shop["anchor"] if shop else None
             mine = seen.get("myshop")
@@ -1206,14 +1209,38 @@ class App:
                     self.sample_ts = time.time()
                     (DEBUG / "samples").mkdir(exist_ok=True)
                     frame.save(DEBUG / "samples" / f"shop_{datetime.now():%Y%m%d_%H%M%S}.png")
+                    if (w := self.state.get("report_watch")) is not None:
+                        w.shop_unread(frame, seen)
                     for old in sorted((DEBUG / "samples").glob("shop_*.png"))[:-SAMPLES_KEPT]:
                         old.unlink(missing_ok=True)
             self.q.put(("seen", seen, preview(frame, seen)))
         except Exception as e:
             applog.problem("read", "Reading the game hit an error. Companion keeps trying.", exc=e)
+            if (w := self.state.get("report_watch")) is not None:
+                try:
+                    w.error(frame, e)
+                except Exception:
+                    pass
             self.q.put(("seen", {"error": f"Reading failed: {e}"}, None))
         finally:
             self.watching = False
+
+    def watch_reads(self, frame, seen):
+        """A full read, for the problem reports (autoreport.Watch): whatever goes wrong there, the read goes on."""
+        w = self.state.get("report_watch")
+        if w is None:
+            return
+        try:
+            box = None
+            line = self.reader.map_titles.get("minimap") or self.reader.map_titles.get("minibar")
+            if line:
+                s = seen.get("scale") or 1
+                box = (line[1] - 40 * s, line[2] - 20 * s, line[1] + line[3] + 260 * s, line[2] + line[4] + 240 * s)
+            t = self.reader.titles
+            w.see(frame, seen, box, {"title_scores": getattr(t, "scores", {}), "titles_at": dict(getattr(t, "last", {})),
+                                     "map_titles": self.reader.map_titles, "reads": self.reader.reads})
+        except Exception as e:
+            applog.log(f"Problem report check failed: {e!r}")
 
     def apply_map(self, seen, prof):
         """The map a read named: you move there once enough reads agree (gamedata.MapMove), and the

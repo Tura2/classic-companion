@@ -41,6 +41,7 @@ from reader import CORNER_READ, MIN_HEIGHT
 from gamedata import JOBS, GameData, portal_meta
 
 import applog
+import autoreport
 import paths
 from paths import APP_DIR, CACHE_DIR, DATA_DIR, LOGS_DIR, RES_DIR, load_json, save_json
 from version import VERSION
@@ -173,11 +174,11 @@ def guide_plan(data, state):
 
 SETTINGS = ["screen_reading", "draw_overlay", "consent", "label_side", "row_tolerance", "name_match_min",
             "price_is_per_bundle", "sound", "auto_interval", "ocr_scale", "nav_corner", "game_title",
-            "setup_done", "discord_enabled", "discord_post_sales"]
+            "setup_done", "discord_enabled", "discord_post_sales", "auto_reports"]
 DEFAULT_SETTINGS = {"screen_reading": False, "draw_overlay": False, "consent": False, "label_side": "right",
                     "row_tolerance": 14, "name_match_min": 84, "price_is_per_bundle": False, "sound": True,
                     "auto_interval": 2.0, "ocr_scale": 3, "nav_corner": "top-right", "game_title": "MapleStory",
-                    "setup_done": False, "discord_enabled": False, "discord_post_sales": True}
+                    "setup_done": False, "discord_enabled": False, "discord_post_sales": True, "auto_reports": False}
 RANGES = {"row_tolerance": (4, 60), "name_match_min": (50, 100), "auto_interval": (2.0, 10.0), "ocr_scale": (1, 6)}
 CHOICES = {"label_side": ("right", "left", "inside"), "nav_corner": ("top-right", "bottom-right", "bottom-left", "top-left")}
 
@@ -222,6 +223,25 @@ def make_outbox(data, state, cfg):
     box.setup = setup
     box.start()
     return box
+
+
+def make_reports(data, state, cfg):
+    """Problem reports sent on their own (autoreport): off until Settings → Problem reports is on,
+    and only in a build with reports.json. state["report_watch"] is what the screen reader feeds."""
+    import requests
+    import report
+    reports = autoreport.Reports(lambda: bool(cfg.get("auto_reports")), autoreport.load_reports_config(), requests.post)
+
+    def context():
+        prof = state["profile"]
+        mid = prof.get("current_map")
+        return {"version": VERSION, "screen": report.screen(), "game_size": state.get("game_size"),
+                "settings": {k: v for k, v in cfg.items() if k not in autoreport.PERSONAL and k != "region"},
+                "profile": {"name": prof.get("name"), "job": prof.get("job"), "level": prof.get("level"),
+                            "map_id": mid, "map": (data.maps.get(mid) or {}).get("name") if mid else None}}
+    state["report_watch"] = autoreport.Watch(reports, context)
+    reports.start()
+    return reports
 
 
 def discord_status(state, cfg, port):
@@ -389,7 +409,8 @@ def make_handler(data, state, cfg):
                                            "game_size": state.get("game_size") if state.get("game_found") else None,
                                            "capture": (state.get("live") or {}).get("capture", "off"),
                                            "capture_error": (state.get("live") or {}).get("capture_error", ""),
-                                           "discord": discord_status(state, cfg, self.server.server_address[1])})
+                                           "discord": discord_status(state, cfg, self.server.server_address[1]),
+                                           "reports": state["reports"].status() if state.get("reports") else {"setup": False}})
                 if url.path == "/api/maps":
                     return self.send(200, data.find_maps(q.get("q", "")))
                 if url.path == "/api/mobs":          # Train's monster search
@@ -870,6 +891,7 @@ def start(win, started):
     state["guide_tick"] = lambda: guide_plan(data, state)     # the screen reader calls it after each look
     state["outbox"] = make_outbox(data, state, cfg)
     state["discord_send"] = lambda text: discord_send(state, cfg, text)
+    state["reports"] = make_reports(data, state, cfg)
 
     server, port = start_server(make_handler(data, state, cfg))
     started["server"] = server
