@@ -1230,6 +1230,11 @@ class App:
         w = self.state.get("report_watch")
         if w is None:
             return
+        if w.near is None:
+            from rapidfuzz import fuzz, process
+            names = self.reader.map_names
+            w.near = lambda text: (lambda m: (m[0], round(m[1])) if m else None)(
+                process.extractOne(text, names, scorer=fuzz.WRatio))
         try:
             box = None
             line = self.reader.map_titles.get("minimap") or self.reader.map_titles.get("minibar")

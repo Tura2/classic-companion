@@ -51,6 +51,7 @@ MAP_MISSED_READS = 3   # the title read, but names no map
 EXP_MISSED_READS = 5   # the HUD found, its EXP not read
 LOST_READS = 10        # the HUD or the mini map seen lately, now gone
 LOST_RECENT = 600.0    # ...where "lately" is this many seconds
+NEAR_MIN = 60          # a misread title is keyed by the closest map name when it's at least this close
 
 
 def load_reports_config():
@@ -124,10 +125,11 @@ class Reports:
     """Keeps reports on disk and sends them. enabled(): the setting. post(url, json=, headers=,
     timeout=): requests.post, or a stand-in in tests."""
 
-    def __init__(self, enabled, setup=None, post=None, outbox=OUTBOX, state_path=STATE, clock=time.time):
+    def __init__(self, enabled, setup=None, post=None, outbox=OUTBOX, state_path=STATE, clock=time.time, get=None):
         self.enabled = enabled
         self.setup = setup
         self.post = post
+        self.get = get              # requests.get: asks the server whether it still wants this problem's pictures
         self.outbox = Path(outbox)
         self.state_path = Path(state_path)
         self.clock = clock
@@ -232,8 +234,26 @@ class Reports:
                  for p in sorted(folder.iterdir()) if p.is_file() and p.name != "report.json"}
         return {"report": meta, "files": files}
 
+    def wants_files(self, meta):
+        """Whether the server still wants pictures of this problem: it keeps a few of each (and a few
+        more for a screen size it hasn't seen it at, or once it's back after being fixed), and only
+        counts the rest. When it can't be asked, the pictures go: the server drops them if unwanted."""
+        if self.get is None:
+            return True
+        size = meta.get("frame_size") or []
+        try:
+            r = self.get(self.setup["url"], params={"key": meta.get("key", ""), "version": meta.get("version", ""),
+                                                    "size": "x".join(map(str, size))},
+                         headers={"X-Companion-Key": self.setup["key"]}, timeout=TIMEOUT)
+            if getattr(r, "status_code", 0) == 200:
+                return bool(r.json().get("want_files", True))
+        except Exception:
+            pass
+        return True
+
     def send_one(self):
-        """Send the oldest waiting report. True if one went."""
+        """Send the oldest waiting report. True if one went. A problem the server already has enough
+        pictures of goes without them: it only adds one to its count."""
         if not self.ready() or self.post is None:
             return False
         ws = self.waiting()
@@ -242,6 +262,8 @@ class Reports:
         folder = ws[0]
         try:
             body = self.payload(folder)
+            if body["files"] and not self.wants_files(body["report"]):
+                body = {"report": {**body["report"], "files": [], "count_only": True}, "files": {}}
         except (OSError, ValueError):
             shutil.rmtree(folder, ignore_errors=True)       # a broken report can't ever go
             return False
@@ -298,8 +320,9 @@ class Watch:
     """Looks at every full read for what should have read and didn't, and keeps a report for it.
     context(): the rest of what a report tells (version, settings, map, profile, game window)."""
 
-    def __init__(self, reports, context=None, clock=time.time):
+    def __init__(self, reports, context=None, clock=time.time, near=None):
         self.reports = reports
+        self.near = near           # near(text) -> (the map name closest to a misread title, score), or None
         self.context = context or (lambda: {})
         self.clock = clock
         self.history = []          # the last reads, in short (gist), with when
@@ -353,8 +376,18 @@ class Watch:
 
         missed = seen.get("map_missed")
         if self._run("map_missed", bool(missed) and not seen.get("map")) >= MAP_MISSED_READS:
-            kept.append(self.report("map_missed", f"map_missed:{slug(missed)}", frame, seen,
-                                    f"The mini map's title read as {missed!r}, which names no map", map_area, True))
+            # one map misread a different way each time ("Hennes Huntng", "Henes Hunting") is one
+            # problem: keyed by the map it's closest to, when that's clear enough
+            near = None
+            try:
+                near = self.near(missed) if self.near else None
+            except Exception:
+                pass
+            name = near[0] if near and near[1] >= NEAR_MIN else None
+            seen = {**seen, "nearest_map": list(near) if near else None}
+            kept.append(self.report("map_missed", f"map_missed:{slug(name or missed)}", frame, seen,
+                                    f"The mini map's title read as {missed!r}, which names no map"
+                                    + (f" (closest: {name})" if name else ""), map_area, True))
         if self._run("exp_missed", bool(hud) and hud.get("exp") is None) >= EXP_MISSED_READS:
             kept.append(self.report("exp_missed", f"exp_missed:{size}:{s}", frame, seen,
                                     "The HUD was found but its EXP didn't read", hud_area, True))

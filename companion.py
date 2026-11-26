@@ -230,7 +230,8 @@ def make_reports(data, state, cfg):
     and only in a build with reports.json. state["report_watch"] is what the screen reader feeds."""
     import requests
     import report
-    reports = autoreport.Reports(lambda: bool(cfg.get("auto_reports")), autoreport.load_reports_config(), requests.post)
+    reports = autoreport.Reports(lambda: bool(cfg.get("auto_reports")), autoreport.load_reports_config(), requests.post,
+                                 get=requests.get)
 
     def context():
         prof = state["profile"]

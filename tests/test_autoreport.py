@@ -177,3 +177,53 @@ def test_a_read_error_is_reported_with_its_traceback(tmp_path):
         folder = w.error(frame(300, 200), e)
     meta = json.loads((folder / "report.json").read_text(encoding="utf-8"))
     assert meta["kind"] == "error" and "KeyError" in meta["seen"]["traceback"]
+
+
+class Get:
+    def __init__(self, want):
+        self.want, self.calls = want, []
+
+    def __call__(self, url, params=None, headers=None, timeout=None):
+        self.calls.append(params)
+        want = self.want
+        return type("R", (), {"status_code": 200, "json": lambda self: {"want_files": want}})()
+
+
+def test_a_problem_the_server_has_enough_pictures_of_goes_without_them(tmp_path):
+    post, get = Post(), Get(False)
+    r = Reports(lambda: True, SETUP, post, tmp_path / "outbox", tmp_path / "state.json", Clock(), get)
+    r.keep("map_missed", "map_missed:henesys", {"version": "1.4.6", "frame_size": [1920, 1080]}, frame(200, 100))
+    assert r.send_one() and r.pending() == 0
+    body = post.calls[-1][1]
+    assert body["files"] == {} and body["report"]["count_only"] is True
+    assert get.calls[-1] == {"key": "map_missed:henesys", "version": "1.4.6", "size": "1920x1080"}
+    get.want = True
+    r.keep("map_missed", "map_missed:other", {}, frame(200, 100))
+    r.send_one()
+    assert "frame.png" in post.calls[-1][1]["files"]
+
+
+def test_the_server_not_answering_the_question_still_sends_the_pictures(tmp_path):
+    post = Post()
+
+    def get(*a, **k):
+        raise OSError("offline")
+    r = Reports(lambda: True, SETUP, post, tmp_path / "outbox", tmp_path / "state.json", Clock(), get)
+    r.keep("error", "e1", {}, frame(200, 100))
+    r.send_one()
+    assert "frame.png" in post.calls[-1][1]["files"]
+
+
+def test_one_map_misread_different_ways_is_one_problem(tmp_path):
+    clock = Clock()
+    r, _ = make(tmp_path, clock=clock)
+    near = {"Hennes Huntng": ("Henesys Hunting Ground I", 88), "Henes Hunting": ("Henesys Hunting Ground I", 85),
+            "zz": ("Ellinia", 20)}
+    w = Watch(r, clock=clock, near=lambda t: near[t])
+    keys = []
+    for text in ("Hennes Huntng", "Henes Hunting", "zz"):
+        for _ in range(autoreport.MAP_MISSED_READS):
+            for p in w.see(frame(), {**HUD, "map_missed": text}):
+                keys.append(json.loads((p / "report.json").read_text(encoding="utf-8"))["key"])
+        w.see(frame(), {**HUD, "map": MAP})          # a good read between: the run starts over
+    assert keys == ["map_missed:henesys-hunting-ground-i", "map_missed:zz"]

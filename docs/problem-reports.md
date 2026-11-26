@@ -15,8 +15,10 @@ Each full read of the game (about every 1.5 s) is checked by `app/autoreport.py`
 | `shop_unread` | a player shop found, none of its items read | |
 | `error` | a read raised an exception (with the traceback) | |
 
-The same problem (its kind and what was misread, e.g. the title's text or the game's size and
-scale) goes at most once an hour; at most 25 reports a day.
+Each report has a **key**: one problem. For a map it's the map name closest to the misread title
+(so "Hennes Huntng" and "Henes Hunting" are one problem, `map_missed:henesys-hunting-ground-i`),
+else the title's text; for the HUD and the mini map, the game's size and UI scale; for an error, its
+type and line. On each PC the same key goes at most once an hour, at most 25 reports a day.
 
 A report is a folder:
 
@@ -31,10 +33,24 @@ A report is a folder:
 Reports wait in `data/report_outbox/` until the server takes them (retries with backoff; at most
 40 wait, none older than a week).
 
+## One entry per problem: `index.json`
+
+The server keeps `index.json` at the reports repository's root, one entry per key: how many times,
+first and last seen, versions, screen sizes, players, and where its kept reports are. Only the
+first **3** reports of a problem keep their pictures (up to 6, one more for each screen size it
+wasn't seen at). Before sending, Companion asks the server (`GET ?key=&version=&size=`) whether
+it still wants this problem's pictures; when not, the report goes as a count only (a few hundred
+bytes). So the repository grows with the number of different problems, not with how often they
+happen; sort `index.json` by `count` for what to fix first.
+
+**Fixed:** add `"fixed": {"version": "1.4.7"}` to the entry. Reports from older versions then only
+count; one from 1.4.7 or later sets `"back"` and keeps 3 more with pictures, so you see the fix
+didn't hold.
+
 ## Where they go
 
 Companion → `reports-server/` (a Vercel function) → a private GitHub repository, one commit per
-report under `reports/YYYY-MM-DD/<kind>/<id>/`. The app only holds an upload key, which can add
+kept report under `reports/YYYY-MM-DD/<kind>/<id>/`, and `index.json` updated in the same commit. The app only holds an upload key, which can add
 reports and nothing else; the GitHub token lives only on Vercel.
 
 ## Setting it up (once)
