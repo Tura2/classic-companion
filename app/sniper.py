@@ -226,7 +226,7 @@ def handle_grind(app, seen, prof):
                 # the gain as your kills and your party's
                 mobs = app.data.map_mobs(mid)
                 model = fit.model(mobs)
-                told = party_split.split(mobs, gain, model) if model else None
+                told = party_split.tell(mobs, gain, model) if model else None
             if names:
                 for n in names:
                     g.add_kill(n, now)

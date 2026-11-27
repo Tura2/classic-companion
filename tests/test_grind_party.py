@@ -212,3 +212,14 @@ def test_a_party_map_has_no_kills_an_hour(tmp_path):
     g.db.execute("UPDATE sessions SET kills = 40")         # only the shares the party split could tell
     g.db.commit()
     assert [r["kills_hr"] for r in g.all_maps(38)] == [None]
+
+
+def test_a_big_read_in_a_party_is_told_as_kills(tmp_path):
+    a, prof = app(tmp_path), {"current_map": BL2, "level": 39}
+    sniper.handle_corner(a, [("party", 3)])
+    # read live 2026-11-27 on The Burnt Land III (a Hunter in a party): the small reads teach the split,
+    # then one read of 518 holds a dozen kills. Up to 1.4.6 it counted none (73 kills in 24 minutes)
+    exp = gains(a, prof, 20000, [110, 71, 142, 137, 168, 80, 187, 142, 170, 69])
+    before = a.grind.summary(1e10)["kills_total"]
+    gains(a, prof, exp, [518])
+    assert a.grind.summary(1e10)["kills_total"] - before >= 8
