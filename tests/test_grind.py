@@ -421,3 +421,26 @@ def test_exp_read_only_now_and_then_doesnt_inflate_the_rate(tmp_path):
     t = feed(g, [e + 100 * i for i in range(1, 51)], t0=t)
     s = g.summary(t)
     assert abs(s["exp_hr"] - 60000) / 60000 < 0.03, s["exp_hr"]
+
+
+def test_exp_rising_on_every_read_is_counted_as_it_rises(tmp_path):
+    # live 2026-11-27, six in a party: the EXP up on every read, so no two agreed and the session
+    # showed 0 gained for a minute of 1,844 EXP, then a chunk all at once
+    g = tracker(tmp_path)
+    t = feed(g, [50000])
+    e = 50000
+    for _ in range(30):
+        e += 37
+        g.update(e, pct(e), 32, 1, "Ant Tunnel I", t)
+        t += 2.0
+    s = g.summary(t)
+    assert s["gained"] >= 37 * 28 and s["running"] is True
+
+
+def test_a_misread_spike_while_rising_isnt_counted(tmp_path):
+    g = tracker(tmp_path)
+    t = feed(g, [50000])
+    for e in (50037, 58037, 50111, 50148, 50185):         # 58037: one digit misread
+        g.update(e, pct(e), 32, 1, "Ant Tunnel I", t)
+        t += 2.0
+    assert g.summary(t)["gained"] <= 185

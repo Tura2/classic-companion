@@ -153,6 +153,7 @@ class Grind:
         # yet (two reads in a row didn't agree): in a party the EXP moves on almost every read, so a
         # counted gain can come over a minute after the last, and that wait is grinding all the same
         self.moves = []
+        self.last_steps = []         # the last gain as the rises read on the way to it (one read's kills each)
         self.deaths = []             # {"ts", "lost", "map"}: EXP drops of up to DEATH_MAX of the level
         self.kills = {}              # monster name (None: not named) -> your kills, from the EXP gains
         self.party_kills = {}        # monster name -> kills your party made (their share of the EXP came to you)
@@ -316,11 +317,22 @@ class Grind:
         if self.s_t0 is None:
             self.s_t0 = now
         read = (exp, pct, level)
-        agreed = self.raw == read
+        prev, prev_fits = self.raw, getattr(self, "raw_fits", False)
+        agreed = prev == read
         self.raw = read
         fits = self._fits_level(exp, pct, level)
+        self.raw_fits = fits
         if fits and not agreed:
             self._note_move(exp, pct, level, now)
+        if not agreed and fits and prev_fits and prev is not None and self.last is not None \
+                and prev[2] == level == self.last[2] and self.last[0] < prev[0] < exp \
+                and exp - prev[0] <= LUMP_SHARE * (self.need or need_of(exp, pct) or 0):
+            # mobbing, the EXP rises on every read and no two agree (live 2026-11-27: a minute of
+            # 1,844 EXP showed 0 gained, then came as one chunk). The read before is confirmed by this
+            # one rising on from it by a kill's worth: count up to it. A misread digit isn't followed
+            # by a read rising on from it, so it still never counts
+            read, agreed = prev, True
+            exp, pct, level = prev
         if not agreed or not fits:
             return 0                      # one read alone, or its EXP and percent disagree on the level's EXP
         if self.last is None:
@@ -330,6 +342,7 @@ class Grind:
         if self.s_first is None:
             self.s_first = {"level": self.last[2], "pct": self.last[1]}
         gain = self._gain(self.last, read)
+        prev_exp, prev_level = self.last[0], self.last[2]
         fresh, self.need_fresh = getattr(self, "need_fresh", False), False
         if gain is None:
             lost = self._death_loss(self.last, read)
@@ -364,6 +377,14 @@ class Grind:
         self.after_pause = False
         need = self.need or need_of(exp, pct) or 0
         lump = resumed and gain > LUMP_SHARE * need     # a quest turned in, not a kill
+        # mobbing, the EXP rises on every read, so no two agree until a pause and the gain comes as one
+        # chunk of many kills (989 at once, live 2026-11-27). The rises read on the way split it back
+        # into steps of one read each, a few kills apiece, that the party split can tell
+        if level == prev_level:
+            pts = [prev_exp] + sorted({e for _, e, _ in self.moves if prev_exp < e < exp}) + [exp]
+            self.last_steps = [b - a for a, b in zip(pts, pts[1:])]
+        else:
+            self.last_steps = [gain]
         blind, self.blind = self.blind, False
         self.last_lump = lump or blind
         if blind and not lump:

@@ -212,3 +212,93 @@ def test_a_party_map_has_no_kills_an_hour(tmp_path):
     g.db.execute("UPDATE sessions SET kills = 40")         # only the shares the party split could tell
     g.db.commit()
     assert [r["kills_hr"] for r in g.all_maps(38)] == [None]
+
+
+def test_a_big_read_in_a_party_is_told_as_kills(tmp_path):
+    a, prof = app(tmp_path), {"current_map": BL2, "level": 39}
+    sniper.handle_corner(a, [("party", 3)])
+    # read live 2026-11-27 on The Burnt Land III (a Hunter in a party): the small reads teach the split,
+    # then one read of 518 holds a dozen kills. Up to 1.4.6 it counted none (73 kills in 24 minutes)
+    exp = gains(a, prof, 20000, [110, 71, 142, 137, 168, 80, 187, 142, 170, 69])
+    before = a.grind.summary(1e10)["kills_total"]
+    gains(a, prof, exp, [518])
+    assert a.grind.summary(1e10)["kills_total"] - before >= 8
+
+
+def one_read_each(a, prof, exp, steps):
+    """EXP rising on every read (mobbing): no two reads in a row agree until the last one."""
+    for s in steps:
+        exp += s
+        hud(a, prof, exp, n=1)
+    hud(a, prof, exp, n=1)        # the second read of the last value: now it's counted
+    return exp
+
+
+def test_rising_on_every_read_is_counted_read_by_read(tmp_path):
+    a, prof = app(tmp_path), {"current_map": BL2, "level": 39}
+    exp = gains(a, prof, 20000, [60])
+    before = a.grind.summary(1e10)["gained"]
+    one_read_each(a, prof, exp, [43, 60, 60, 48])
+    assert a.grind.summary(1e10)["gained"] - before == 211
+    assert a.grind.last_steps == [48]                 # each read's rise its own gain, not one chunk
+
+
+def test_mobbing_in_a_party_is_told_read_by_read(tmp_path):
+    a, prof = app(tmp_path), {"current_map": BL2, "level": 39}
+    sniper.handle_corner(a, [("party", 3)])
+    # read live 2026-11-27: EXP up on every read while mobbing, counted only as one chunk (989 at
+    # once on Forgotten Entrance II); each read's step is a few kills
+    exp = gains(a, prof, 20000, [110, 71, 142, 137, 168, 80, 187, 142, 170, 69])
+    before = a.grind.summary(1e10)["kills_total"]
+    steps = [142, 137, 168, 80, 110, 71, 187, 142]
+    one_read_each(a, prof, exp, steps)
+    assert a.grind.summary(1e10)["kills_total"] - before >= len(steps)
+
+
+# ---- in a party, kills come from the corner's EXP lines (one line, one kill)
+def fe2_app(tmp_path):
+    from test_party import FE2
+    data = SimpleNamespace(maps={BL2: {"name": "Forgotten Entrance II"}}, split_kills=lambda mid, gain: None,
+                           map_mobs=lambda mid: FE2)
+    return app(tmp_path, data)
+
+
+def corner_lines(a, values, bonus=3):
+    evs = []
+    for v in values:
+        evs += [("exp", v), ("party", bonus)]
+    sniper.handle_corner(a, evs)
+
+
+def test_in_a_party_kills_come_from_the_corner_lines(tmp_path):
+    from test_party import FE2_LINES
+    a, prof = fe2_app(tmp_path), {"current_map": BL2, "level": 40}
+    gains(a, prof, 20000, [9])                      # the map is known
+    sniper.handle_corner(a, [("party", 3)])
+    before = a.grind.summary(1e10)
+    corner_lines(a, FE2_LINES)
+    s = a.grind.summary(1e10)
+    assert s["kills_total"] - before["kills_total"] == 16
+    assert sum(k["count"] for k in s["party_kills"]) - sum(k["count"] for k in before["party_kills"]) >= 67
+
+
+def test_corner_kills_arent_counted_again_from_the_hud(tmp_path):
+    a, prof = app(tmp_path), {"current_map": BL2, "level": 39}
+    sniper.handle_corner(a, [("party", 3)])
+    # a duo on The Burnt Land II: the HUD's gains teach its split and are told as kills...
+    exp = gains(a, prof, 20000, [110, 71, 142, 137, 168, 80, 187, 142, 170, 69])
+    hud_told = a.grind.summary(1e10)["kills_total"]
+    assert hud_told > 0
+    # ...then the corner's lines come (your Fire Boar +36, your partner's +24, your Dark Axe Stump +26)
+    corner_lines(a, [36, 24, 36, 36, 24, 26, 36, 24, 36, 36], bonus=4)
+    mid = a.grind.summary(1e10)["kills_total"]
+    assert mid > hud_told
+    gains(a, prof, exp, [142, 137, 168])         # the same kills' EXP, read off the HUD: not again
+    assert a.grind.summary(1e10)["kills_total"] == mid
+
+
+def test_solo_the_corner_lines_dont_count_kills(tmp_path):
+    a, prof = app(tmp_path), {"current_map": BL2, "level": 39}
+    gains(a, prof, 20000, [60])
+    sniper.handle_corner(a, [("exp", 60)] * 10)
+    assert a.grind.summary(1e10)["kills_total"] == 1          # the HUD's Fire Boar, the lines not again
