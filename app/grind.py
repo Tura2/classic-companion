@@ -295,11 +295,22 @@ class Grind:
         if self.s_t0 is None:
             self.s_t0 = now
         read = (exp, pct, level)
-        agreed = self.raw == read
+        prev, prev_fits = self.raw, getattr(self, "raw_fits", False)
+        agreed = prev == read
         self.raw = read
         fits = self._fits_level(exp, pct, level)
+        self.raw_fits = fits
         if fits and not agreed:
             self._note_move(exp, pct, level, now)
+        if not agreed and fits and prev_fits and prev is not None and self.last is not None \
+                and prev[2] == level == self.last[2] and self.last[0] < prev[0] < exp \
+                and exp - prev[0] <= LUMP_SHARE * (self.need or need_of(exp, pct) or 0):
+            # mobbing, the EXP rises on every read and no two agree (live 2026-11-27: a minute of
+            # 1,844 EXP showed 0 gained, then came as one chunk). The read before is confirmed by this
+            # one rising on from it by a kill's worth: count up to it. A misread digit isn't followed
+            # by a read rising on from it, so it still never counts
+            read, agreed = prev, True
+            exp, pct, level = prev
         if not agreed or not fits:
             return 0                      # one read alone, or its EXP and percent disagree on the level's EXP
         if self.last is None:

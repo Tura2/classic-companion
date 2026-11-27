@@ -234,11 +234,13 @@ def one_read_each(a, prof, exp, steps):
     return exp
 
 
-def test_a_gain_is_kept_as_the_steps_it_rose_by(tmp_path):
+def test_rising_on_every_read_is_counted_read_by_read(tmp_path):
     a, prof = app(tmp_path), {"current_map": BL2, "level": 39}
     exp = gains(a, prof, 20000, [60])
+    before = a.grind.summary(1e10)["gained"]
     one_read_each(a, prof, exp, [43, 60, 60, 48])
-    assert a.grind.last_steps == [43, 60, 60, 48]
+    assert a.grind.summary(1e10)["gained"] - before == 211
+    assert a.grind.last_steps == [48]                 # each read's rise its own gain, not one chunk
 
 
 def test_mobbing_in_a_party_is_told_read_by_read(tmp_path):
@@ -250,7 +252,6 @@ def test_mobbing_in_a_party_is_told_read_by_read(tmp_path):
     before = a.grind.summary(1e10)["kills_total"]
     steps = [142, 137, 168, 80, 110, 71, 187, 142]
     one_read_each(a, prof, exp, steps)
-    assert sum(a.grind.last_steps) == sum(steps)
     assert a.grind.summary(1e10)["kills_total"] - before >= len(steps)
 
 
