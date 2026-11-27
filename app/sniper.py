@@ -218,15 +218,20 @@ def handle_grind(app, seen, prof):
             fit = getattr(app, "party", None)
             if fit is None:
                 fit = app.party = party_split.Fitter()
+            # the gain read by read (Grind.last_steps): mobbing, one counted gain is many reads' kills
+            steps = [s for s in (getattr(g, "last_steps", None) or []) if s > 0]
+            steps = steps if sum(steps) == gain else [gain]
             if on_map:
-                fit.add(gain)
+                for s in steps:
+                    fit.add(s)
             told = None
             if not names and on_map:
                 # not whole kills: in a party each kill's EXP is shared. Learn the split, then tell
-                # the gain as your kills and your party's
+                # each step as your kills and your party's (a step nothing explains isn't guessed at)
                 mobs = app.data.map_mobs(mid)
                 model = fit.model(mobs)
-                told = party_split.tell(mobs, gain, model) if model else None
+                if model:
+                    told = [k for s in steps for k in (party_split.tell(mobs, s, model) or [])] or None
             if names:
                 for n in names:
                     g.add_kill(n, now)

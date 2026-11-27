@@ -223,3 +223,32 @@ def test_a_big_read_in_a_party_is_told_as_kills(tmp_path):
     before = a.grind.summary(1e10)["kills_total"]
     gains(a, prof, exp, [518])
     assert a.grind.summary(1e10)["kills_total"] - before >= 8
+
+
+def one_read_each(a, prof, exp, steps):
+    """EXP rising on every read (mobbing): no two reads in a row agree until the last one."""
+    for s in steps:
+        exp += s
+        hud(a, prof, exp, n=1)
+    hud(a, prof, exp, n=1)        # the second read of the last value: now it's counted
+    return exp
+
+
+def test_a_gain_is_kept_as_the_steps_it_rose_by(tmp_path):
+    a, prof = app(tmp_path), {"current_map": BL2, "level": 39}
+    exp = gains(a, prof, 20000, [60])
+    one_read_each(a, prof, exp, [43, 60, 60, 48])
+    assert a.grind.last_steps == [43, 60, 60, 48]
+
+
+def test_mobbing_in_a_party_is_told_read_by_read(tmp_path):
+    a, prof = app(tmp_path), {"current_map": BL2, "level": 39}
+    sniper.handle_corner(a, [("party", 3)])
+    # read live 2026-11-27: EXP up on every read while mobbing, counted only as one chunk (989 at
+    # once on Forgotten Entrance II); each read's step is a few kills
+    exp = gains(a, prof, 20000, [110, 71, 142, 137, 168, 80, 187, 142, 170, 69])
+    before = a.grind.summary(1e10)["kills_total"]
+    steps = [142, 137, 168, 80, 110, 71, 187, 142]
+    one_read_each(a, prof, exp, steps)
+    assert sum(a.grind.last_steps) == sum(steps)
+    assert a.grind.summary(1e10)["kills_total"] - before >= len(steps)

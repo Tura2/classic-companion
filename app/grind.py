@@ -149,6 +149,7 @@ class Grind:
         # yet (two reads in a row didn't agree): in a party the EXP moves on almost every read, so a
         # counted gain can come over a minute after the last, and that wait is grinding all the same
         self.moves = []
+        self.last_steps = []         # the last gain as the rises read on the way to it (one read's kills each)
         self.deaths = []             # {"ts", "lost", "map"}: EXP drops of up to DEATH_MAX of the level
         self.kills = {}              # monster name (None: not named) -> your kills, from the EXP gains
         self.party_kills = {}        # monster name -> kills your party made (their share of the EXP came to you)
@@ -308,6 +309,7 @@ class Grind:
         if self.s_first is None:
             self.s_first = {"level": self.last[2], "pct": self.last[1]}
         gain = self._gain(self.last, read)
+        prev_exp, prev_level = self.last[0], self.last[2]
         fresh, self.need_fresh = getattr(self, "need_fresh", False), False
         if gain is None:
             lost = self._death_loss(self.last, read)
@@ -341,6 +343,14 @@ class Grind:
         need = self.need or need_of(exp, pct) or 0
         lump = resumed and gain > LUMP_SHARE * need     # a quest turned in, not a kill
         self.last_lump = lump
+        # mobbing, the EXP rises on every read, so no two agree until a pause and the gain comes as one
+        # chunk of many kills (989 at once, live 2026-11-27). The rises read on the way split it back
+        # into steps of one read each, a few kills apiece, that the party split can tell
+        if level == prev_level:
+            pts = [prev_exp] + sorted({e for _, e, _ in self.moves if prev_exp < e < exp}) + [exp]
+            self.last_steps = [b - a for a, b in zip(pts, pts[1:])]
+        else:
+            self.last_steps = [gain]
         if not lump:                       # a lump isn't grinding: it doesn't start the clock either
             dt = self._open_gap(now, below=exp)   # the waits since the last gain are grinding time, unless breaks
             self.s_active += dt
