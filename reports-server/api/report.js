@@ -16,14 +16,22 @@
 //   POST {report, files}        files it (files dropped when not wanted); {"ok", "stored", "count"}
 //
 // Environment (Vercel → Project → Settings → Environment Variables; never in the code):
-//   UPLOAD_KEY     the key built into Companion (reports.json). It can only add reports, nothing else
+//   UPLOAD_KEY     the key built into Companion (reports.json). It can only add reports, nothing else.
+//                  Several keys, comma-separated, are all taken: a new one ships while the old one works
 //   GITHUB_TOKEN   a fine-grained token with Contents: read and write on REPORTS_REPO only
 //   REPORTS_REPO   owner/name of the private repository, e.g. Tura2/companion-reports
 //   REPORTS_BRANCH optional, default main
+//   REPORTS_MODE   on (default) | count (take reports, keep no pictures) | off (503: Companion keeps
+//                  its reports and tries later)
+//   DAY_STORED 100, DAY_NEW_KEYS 50, DAY_PER_INSTALL 25, DAY_TOTAL 1000: a day's caps (UTC). Over
+//                  DAY_STORED a report only counts; over the others it's refused (429, tried later).
+//                  The counters are in index.json under "#day", a key no report can have.
+//   The key is public in practice (it's inside every build), so the caps are the guard; one caller
+//   (IP) also gets at most 30 calls in 10 minutes while the function's instance is warm.
 //
 // The request body is at most 4.5 MB (Vercel's limit): Companion keeps its files under about 3 MB.
 "use strict";
-const crypto = require("crypto");
+const { keyOk, throttle, mode, today, num } = require("../lib/guard.js");
 
 const API = "https://api.github.com";
 const MAX_FILES = 8;
@@ -36,10 +44,22 @@ const NAME = /^[a-z0-9_]{1,40}\.(png|jpg)$/;
 const KIND = /^[a-z_]{1,24}$/;
 const ID = /^[0-9]{8}-[0-9]{6}-[a-z_]{1,24}-[0-9a-f]{6}$/;
 const KEY = /^[A-Za-z0-9_.:x-]{1,120}$/;
+const INSTALL = /^[A-Za-z0-9]{1,32}$/;
+const MAGIC = { png: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], jpg: [0xff, 0xd8, 0xff] };
+const IP_LIMIT = 30, IP_WINDOW = 10 * 60 * 1000;
+const IPS = new Map();
 
-function sameKey(a, b) {
-  const x = Buffer.from(String(a || "")), y = Buffer.from(String(b || ""));
-  return x.length === y.length && x.length > 0 && crypto.timingSafeEqual(x, y);
+// the file's first bytes are what its name says: a PNG or a JPEG, not anything else in disguise
+function isPicture(name, b64) {
+  const want = MAGIC[name.split(".").pop()];
+  const head = Buffer.from(b64.slice(0, 24), "base64");
+  return !!want && head.length >= want.length && want.every((b, i) => head[i] === b);
+}
+
+function refusal(code, message) {
+  const e = new Error(message);
+  e.refuse = code;
+  return e;
 }
 
 function vtuple(v) {
@@ -104,6 +124,7 @@ function check(body) {
     if (!NAME.test(n)) return `bad file name ${n}`;
     if (typeof files[n] !== "string" || files[n].length > MAX_FILE_B64 || !/^[A-Za-z0-9+/=]*$/.test(files[n]))
       return `bad file ${n}`;
+    if (!isPicture(n, files[n])) return `${n} isn't a picture`;
   }
   return null;
 }
@@ -157,7 +178,7 @@ async function head(fetchFn, env) {
 
 // one commit with the index and, when wanted, every file of the report; tries again on a branch
 // that moved meanwhile (another report landed), on the new index
-async function file(fetchFn, env, body) {
+async function file(fetchFn, env, body, now, keepFiles) {
   const { repo, branch, token } = repoOf(env);
   const r = body.report;
   const day = `${r.id.slice(0, 4)}-${r.id.slice(4, 6)}-${r.id.slice(6, 8)}`;
@@ -167,8 +188,16 @@ async function file(fetchFn, env, body) {
   for (let attempt = 0; attempt < 4; attempt++) {
     const parent = await head(fetchFn, env);
     const index = await readIndex(fetchFn, env, parent);
+    const date = today(now);
+    const d = index["#day"] && index["#day"].date === date ? index["#day"] : { date, stored: 0, new_keys: 0, installs: {}, total: 0 };
+    const fresh = !index[r.key];
+    const inst = INSTALL.test(String(r.install || "")) ? String(r.install) : "";
+    if ((d.total || 0) >= num(env.DAY_TOTAL, 1000)) throw refusal(429, "too many reports today");
+    if (fresh && d.new_keys >= num(env.DAY_NEW_KEYS, 50)) throw refusal(429, "too many new problems today");
+    if (inst && (d.installs[inst] || 0) >= num(env.DAY_PER_INSTALL, 25)) throw refusal(429, "too many reports from this install today");
     const files = body.files || {};
-    const stored = Object.keys(files).length > 0 && wantFiles(index[r.key], r.version, size);
+    const stored = keepFiles && Object.keys(files).length > 0 && d.stored < num(env.DAY_STORED, 100) &&
+      wantFiles(index[r.key], r.version, size);
     if (stored && !blobs) {
       blobs = [];
       for (const [name, b64] of Object.entries(files)) {
@@ -177,6 +206,11 @@ async function file(fetchFn, env, body) {
       }
     }
     index[r.key] = record(index[r.key], r, stored, dir);
+    index["#day"] = {
+      date, stored: d.stored + (stored ? 1 : 0), new_keys: d.new_keys + (fresh ? 1 : 0),
+      installs: inst ? { ...d.installs, [inst]: (d.installs[inst] || 0) + 1 } : d.installs,
+      total: (d.total || 0) + 1,
+    };
     const tree = [{ path: "index.json", mode: "100644", type: "blob", content: JSON.stringify(index, null, 1) + "\n" }];
     if (stored) tree.push({ path: `${dir}/report.json`, mode: "100644", type: "blob", content: JSON.stringify(r, null, 1) }, ...blobs);
     const commit = await gh(fetchFn, token, "GET", `/repos/${repo}/git/commits/${parent}`);
@@ -202,13 +236,19 @@ async function handler(req, res, deps = {}) {
   if (req.method !== "POST" && req.method !== "GET") return res.status(405).json({ error: "GET or POST" });
   if (!env.UPLOAD_KEY || !env.GITHUB_TOKEN || !env.REPORTS_REPO)
     return res.status(500).json({ error: "the server isn't set up" });
-  if (!sameKey(req.headers["x-companion-key"], env.UPLOAD_KEY)) return res.status(401).json({ error: "bad key" });
+  if (!keyOk(req.headers["x-companion-key"], env.UPLOAD_KEY)) return res.status(401).json({ error: "bad key" });
+  const how = mode(env.REPORTS_MODE, ["on", "count", "off"], "on");
+  if (how === "off") return res.status(503).json({ error: "reports are paused" });
+  const now = deps.now || Date.now();
+  const ip = deps.ip || String(req.headers["x-forwarded-for"] || "?").split(",")[0].trim();
+  const slow = throttle(deps.ipStore || IPS, ip, IP_LIMIT, IP_WINDOW, now);
+  if (!slow.ok) return res.status(429).json({ error: "too many calls", retry_after: slow.retry_after });
   if (req.method === "GET") {
     const q = req.query || Object.fromEntries(new URL(req.url || "/", "http://x").searchParams);
     if (!KEY.test(String(q.key || ""))) return res.status(400).json({ error: "bad key" });
     try {
       const index = await readIndex(fetchFn, env, await head(fetchFn, env));
-      return res.status(200).json({ want_files: wantFiles(index[q.key], q.version, String(q.size || "")) });
+      return res.status(200).json({ want_files: how === "on" && wantFiles(index[q.key], q.version, String(q.size || "")) });
     } catch (e) {
       console.error(e);
       return res.status(200).json({ want_files: true });
@@ -221,9 +261,10 @@ async function handler(req, res, deps = {}) {
   const bad = check(body);
   if (bad) return res.status(400).json({ error: bad });
   try {
-    const out = await file(fetchFn, env, body);
+    const out = await file(fetchFn, env, body, now, how === "on");
     return res.status(201).json({ ok: true, path: out.dir, stored: out.stored, count: out.count });
   } catch (e) {
+    if (e.refuse) return res.status(e.refuse).json({ error: e.message });
     console.error(e);
     return res.status(502).json({ error: "couldn't file the report" });
   }

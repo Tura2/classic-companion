@@ -95,3 +95,38 @@ def test_your_party_kills_are_kept_apart(tmp_path):
     s = g.summary(t)
     assert s["kills"] == [{"name": "Wild Boar", "count": 1}] and s["kills_total"] == 1
     assert s["party_kills"] == [{"name": "Wild Boar", "count": 2}]
+
+
+def test_on_final_gets_the_card_once_per_session(tmp_path):
+    g = tracker(tmp_path)
+    got = []
+    g.on_final = got.append
+    t = feed(g, [50000 + 100 * i for i in range(110)])        # 11 minutes on Ant Tunnel I
+    g.add_loot("Tablecloth", 2, t)
+    t = feed(g, [61000, 61000], t0=t, map_id=2, name="Kerning City")    # a new map: that session ends
+    g.close(t)                                                # Kerning City's few seconds aren't a card
+    assert len(got) == 1
+    c = got[0]
+    assert c["id"] and c["start"] is not None
+    assert c["map"] == "Ant Tunnel I" and c["active_s"] >= 600 and c["exp_gained"] == 10900
+    assert c["level_start"] == 32 and c["exp_hr"] > 0
+    assert c["data"]["loot"] == [{"name": "Tablecloth", "count": 2}]
+
+
+def test_closing_twice_hands_the_same_card(tmp_path):
+    g = tracker(tmp_path)
+    got = []
+    g.on_final = got.append
+    t = feed(g, [50000 + 100 * i for i in range(110)])
+    g.close(t)
+    g.close(t + 1)
+    assert len(got) == 2 and got[0]["id"] == got[1]["id"] and got[0]["start"] == got[1]["start"]
+
+
+def test_a_short_session_hands_nothing(tmp_path):
+    g = tracker(tmp_path)
+    got = []
+    g.on_final = got.append
+    t = feed(g, [50000, 50100])
+    g.close(t)
+    assert got == []

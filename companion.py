@@ -174,11 +174,13 @@ def guide_plan(data, state):
 
 SETTINGS = ["screen_reading", "draw_overlay", "consent", "label_side", "row_tolerance", "name_match_min",
             "price_is_per_bundle", "sound", "auto_interval", "ocr_scale", "nav_corner", "game_title",
-            "setup_done", "discord_enabled", "discord_post_sales", "auto_reports"]
+            "setup_done", "discord_enabled", "discord_post_sales", "discord_post_grind", "discord_post_drops",
+            "auto_reports"]
 DEFAULT_SETTINGS = {"screen_reading": False, "draw_overlay": False, "consent": False, "label_side": "right",
                     "row_tolerance": 14, "name_match_min": 84, "price_is_per_bundle": False, "sound": True,
                     "auto_interval": 2.0, "ocr_scale": 3, "nav_corner": "top-right", "game_title": "MapleStory",
-                    "setup_done": False, "discord_enabled": False, "discord_post_sales": True, "auto_reports": False}
+                    "setup_done": False, "discord_enabled": False, "discord_post_sales": True,
+                    "discord_post_grind": False, "discord_post_drops": False, "auto_reports": False}
 RANGES = {"row_tolerance": (4, 60), "name_match_min": (50, 100), "auto_interval": (2.0, 10.0), "ocr_scale": (1, 6)}
 CHOICES = {"label_side": ("right", "left", "inside"), "nav_corner": ("top-right", "bottom-right", "bottom-left", "top-left")}
 
@@ -201,25 +203,28 @@ def clean_setting(k, v):
 
 
 def make_outbox(data, state, cfg):
-    """The Discord outbox: sales and messages wait on disk until the #shop-sales webhook takes them.
-    Linking your Discord ID is the only way cfg gets discord_id; the token never reaches a file."""
-    setup = discord_link.load_discord_config()
+    """The Discord outbox: posts wait on disk until the report server takes them (it holds the
+    channel's webhook). Connect Discord is the only way cfg gets discord_card; the token never
+    reaches a file."""
+    reports = autoreport.load_reports_config()
+    setup = reports if discord_link.server_url(reports) else None
 
-    def webhook():
-        if not setup or not cfg.get("discord_enabled") or not cfg.get("discord_id"):
+    def target():
+        if not setup or not discord_link.linked(cfg):
             return None
-        return setup["webhook"]
+        return {"url": discord_link.server_url(setup), "key": setup["key"], "card": cfg["discord_card"]}
 
     def build(sales):
         mk = data.market
         today = time.strftime("%Y-%m-%d")
         sold = (state.get("myshop") or {}).get("sales") or []
         total = sum(x["price"] for x in sold if time.strftime("%Y-%m-%d", time.localtime(x["ts"])) == today)
-        return discord_link.sale_message(sales, cfg["discord_id"], state["profile"].get("name"),
-                                         median=lambda n: (mk.items.get(n) or {}).get("p"),
-                                         img=data.item_img, total_today=total or None)
+        return discord_link.sale_data(sales, median=lambda n: (mk.items.get(n) or {}).get("p"),
+                                      item_id=lambda n: (getattr(data, "item_ids", None) or {}).get(n),
+                                      total_today=total or None)
     import requests
-    box = discord_link.Outbox(discord_link.OUTBOX, webhook, requests.post, build)
+    box = discord_link.Outbox(discord_link.OUTBOX, target, requests.post, build,
+                              who=lambda: state["profile"].get("name"))
     box.setup = setup
     box.start()
     return box
@@ -245,22 +250,60 @@ def make_reports(data, state, cfg):
     return reports
 
 
-def discord_status(state, cfg, port):
+def _discord_setup(state):
+    """The server's {"client_id", "on"} if known this run; else asks for it in the background."""
+    box = state.get("outbox")
+    known = discord_link.cached_setup(box.setup)
+    if known is None and not state.get("discord_asking"):
+        state["discord_asking"] = True
+
+        def ask():
+            try:
+                discord_link.fetch_setup(box.setup)
+            finally:
+                state["discord_asking"] = False
+        threading.Thread(target=ask, daemon=True, name="discord-setup").start()
+    return known
+
+
+def discord_status(state, cfg, port, fetch=None):
+    """The Settings card. fetch(): the server's {"client_id", "on"} or None (not known yet)."""
     box = state.get("outbox")
     setup = box.setup if box else None
-    return {"setup": bool(setup), "linked": bool(cfg.get("discord_id")), "name": cfg.get("discord_name"),
-            "enabled": bool(cfg.get("discord_enabled")), "post_sales": bool(cfg.get("discord_post_sales")),
-            "authorize": discord_link.authorize_url(setup["client_id"], port) if setup else None,
+    server = (fetch or (lambda: _discord_setup(state)))() if setup else None
+    card = bool(cfg.get("discord_card"))
+    return {"setup": bool(setup), "linked": card, "relink": bool(cfg.get("discord_id")) and not card,
+            "name": cfg.get("discord_name"), "enabled": bool(cfg.get("discord_enabled")),
+            "post_sales": bool(cfg.get("discord_post_sales")), "post_grind": bool(cfg.get("discord_post_grind")),
+            "post_drops": bool(cfg.get("discord_post_drops")),
+            "authorize": discord_link.authorize_url(server["client_id"], port) if server else None,
             "port_ok": port == PORT, "pending": box.pending() if box else 0, "error": box.error if box else ""}
 
 
-def discord_send(state, cfg, text):
-    """A text message to #shop-sales tagging you, if Discord is linked and on."""
+def discord_send(state, cfg, what, **extra):
+    """A fixed notice to the Discord channel, tagging you, if Discord is linked and on."""
+    return discord_link.share(state.get("outbox"), cfg, "notice", {"what": what, **extra},
+                              f"notice:{what}:{time.time():.3f}")
+
+
+def link_discord(state, cfg, token, post=None):
+    """Connect Discord: the report server asks Discord whose `token` is and hands back a card.
+    Returns (HTTP code, body). Nothing is written unless it worked."""
     box = state.get("outbox")
-    if not (box and box.setup and cfg.get("discord_id") and cfg.get("discord_enabled")):
-        return False
-    msg = discord_link.text_message(cfg["discord_id"], state["profile"].get("name"), text)
-    return box.add("text", msg, f"text:{time.time():.3f}")
+    if not (box and box.setup):
+        return 400, {"error": "Discord isn't set up in this build."}
+    if not token or len(token) > 200:
+        return 400, {"error": "No token from Discord."}
+    try:
+        me = discord_link.link(box.setup, token, post)
+    except ValueError as e:
+        return 502, {"error": str(e)}
+    cfg.update(discord_card=me["card"], discord_id=me["id"], discord_name=me["name"], discord_enabled=True,
+               discord_post_sales=True)
+    if state.get("save_cfg"):
+        state["save_cfg"](cfg)
+    discord_send(state, cfg, "connected")
+    return 200, {"name": me["name"]}
 
 
 DISCORD_PAGE = """<!doctype html><meta charset="utf-8"><title>Companion · Discord</title>
@@ -274,7 +317,7 @@ const say = (t, m) => { document.getElementById("t").textContent = t; document.g
 if (!token) say("Not connected", h.get("error_description") || new URLSearchParams(location.search).get("error_description") || "Discord didn't send who you are.");
 else fetch("/api/discord/link", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({token})})
   .then(r => r.json()).then(j => j.error ? say("Not connected", j.error)
-  : say("Connected as " + j.name + " \u2713", "A test message is on its way to #shop-sales, tagging you."))
+  : say("Connected as " + j.name + " \u2713", "A hello is on its way to our server's Companion channel, tagging you."))
   .catch(() => say("Not connected", "Companion didn't answer."));
 </script>"""
 
@@ -490,32 +533,18 @@ def make_handler(data, state, cfg):
                 if refused:
                     return self.send(400, {"error": "Confirm the risk notice first."})
                 return self.send(200, {k: cfg.get(k) for k in SETTINGS})
-            if path == "/api/discord/link":     # the token from Discord's redirect: read your ID, drop it
-                box = state.get("outbox")
-                if not (box and box.setup):
-                    return self.send(400, {"error": "Discord isn't set up in this build."})
-                token = str(body.get("token") or "")
-                if not token or len(token) > 200:
-                    return self.send(400, {"error": "No token from Discord."})
-                try:
-                    me = discord_link.who_is(token)
-                except Exception as e:
-                    return self.send(502, {"error": f"Couldn't ask Discord who you are: {e}"})
-                del token
-                cfg.update(discord_id=me["id"], discord_name=me["name"], discord_enabled=True, discord_post_sales=True)
-                if state["save_cfg"]:
-                    state["save_cfg"](cfg)
-                discord_send(state, cfg, "connected Companion: sales from your shop will show up here.")
-                return self.send(200, {"name": me["name"]})
+            if path == "/api/discord/link":     # the token from Discord's redirect: the server reads your ID
+                code, out = link_discord(state, cfg, str(body.get("token") or ""))
+                return self.send(code, out)
             if path == "/api/discord/unlink":
-                for k in ("discord_id", "discord_name"):
+                for k in ("discord_card", "discord_id", "discord_name"):
                     cfg.pop(k, None)
                 cfg["discord_enabled"] = False
                 if state["save_cfg"]:
                     state["save_cfg"](cfg)
                 return self.send(200, {"ok": True})
             if path == "/api/discord/test":
-                if not discord_send(state, cfg, "this is a test from Companion."):
+                if not discord_send(state, cfg, "test"):
                     return self.send(409, {"error": "Connect Discord and turn it on first."})
                 return self.send(200, {"ok": True})
             if path == "/api/grind":            # Pause / Resume, Reset, No reset across maps
@@ -891,7 +920,8 @@ def start(win, started):
     state["save_profile"] = lambda: save_profile(state)
     state["guide_tick"] = lambda: guide_plan(data, state)     # the screen reader calls it after each look
     state["outbox"] = make_outbox(data, state, cfg)
-    state["discord_send"] = lambda text: discord_send(state, cfg, text)
+    state["discord_send"] = lambda what, **extra: discord_send(state, cfg, what, **extra)
+    state["discord_share"] = lambda kind, d, key: discord_link.share(state.get("outbox"), cfg, kind, d, key)
     state["reports"] = make_reports(data, state, cfg)
 
     server, port = start_server(make_handler(data, state, cfg))

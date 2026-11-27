@@ -5,8 +5,8 @@ When screen reading misses something it should see (a mini map title that names 
 EXP not read, the HUD or the mini map lost while you play, a read that hit an error), Companion
 keeps what's needed to fix it: the game's picture at full size, what the reader saw in it and in
 the reads before, the game area's size and UI scale, the screen, Companion's version and settings,
-and the log's last lines. It goes to the group's report server (reports.json, built in like
-discord.json), which files it in a private GitHub repository. Nothing goes anywhere while the
+and the log's last lines. It goes to the group's report server (reports.json, built into release
+builds), which files it in a private GitHub repository. Nothing goes anywhere while the
 setting is off, and never anything from Discord.
 
   - Not a flood: each problem (its kind and what was misread, e.g. the title text) is sent at most
