@@ -71,12 +71,28 @@ reports and nothing else; the GitHub token lives only on Vercel.
    ```json
    {"url": "https://<project>.vercel.app/api/report", "key": "<UPLOAD_KEY>"}
    ```
-   then `build.bat --with-discord --with-reports`.
+   then `build.bat --with-reports`. The same file turns on Discord (see [discord.md](discord.md)).
 5. **Each player:** Settings → Problem reports → on.
 
 Free: Vercel's Hobby plan and a private GitHub repository. A report is 1–3 MB, so 25 a day from a
 few players is well inside both; GitHub suggests keeping a repository under a few GB, so delete old
 days (`reports/2026-11-01/`) once they're fixed.
+
+**The key is public in practice.** It's inside every release, so the server guards itself:
+- **Day caps (UTC), changeable in Vercel:**
+  - `DAY_STORED` 100 reports keep pictures, and after that they only count;
+  - `DAY_NEW_KEYS` 50 new problems;
+  - `DAY_PER_INSTALL` 25 from one install;
+  - `DAY_TOTAL` 1000.
+
+  Over the last three, a report is refused for now and Companion tries again later. The counters
+  sit in `index.json` under `"#day"`.
+- **Real pictures only:** a `.png` must be a PNG and a `.jpg` a JPEG.
+- **Callers:** one caller (IP) gets 30 calls in 10 minutes.
+- **`REPORTS_MODE`:** `count` keeps no pictures, and `off` pauses everything (Companion keeps its
+  reports).
+- **Changing the key:** `UPLOAD_KEY` may hold several keys, comma-separated. Ship a release with
+  the new key, and drop the old one later.
 
 ## Testing
 

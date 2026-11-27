@@ -1,36 +1,30 @@
 @echo off
 rem Build Companion's installer (Windows, Python 3.10+, Inno Setup 6). Output: dist\CompanionSetup.exe
-rem   build.bat [--no-pause] [--with-discord] [--with-reports]
+rem   build.bat [--no-pause] [--with-reports]
 rem Inno Setup, once: winget install JRSoftware.InnoSetup
 cd /d "%~dp0"
 python -m pip install -q -r requirements.txt pyinstaller || goto :failed
 
-rem discord.json (the #shop-sales webhook and the app's client ID) goes in only when asked for with
-rem --with-discord: a public build never has it, even when the file sits in this folder
-rem reports.json (the problem report server's address and key) the same way, with --with-reports
-set DISCORD=
+rem reports.json (the report server's address and upload key) goes in only when asked for with
+rem --with-reports. Releases are built with it: it turns on problem reports and Discord, both off
+rem until the player switches them on. The key is public in practice (it's in the exe); the server's
+rem caps are the guard, and the Discord webhook and GitHub token stay on the server.
 set REPORTS=
 set PAUSE=1
 for %%a in (%*) do (
-  if /i "%%a"=="--with-discord" set DISCORD=--add-data "discord.json;."
   if /i "%%a"=="--with-reports" set REPORTS=--add-data "reports.json;."
   if /i "%%a"=="--no-pause" set PAUSE=
 )
-if defined DISCORD if not exist discord.json (
-  echo --with-discord was given, but there's no discord.json here.
-  goto :failed
-)
-if defined DISCORD (echo Building WITH discord.json: a private build, never a release.) else (echo Building without discord.json.)
 if defined REPORTS if not exist reports.json (
   echo --with-reports was given, but there's no reports.json here.
   goto :failed
 )
-if defined REPORTS (echo Building WITH reports.json: a private build, never a release.) else (echo Building without reports.json.)
+if defined REPORTS (echo Building WITH reports.json: problem reports and Discord work.) else (echo Building without reports.json: no problem reports, no Discord.)
 
 rem One folder (Companion.exe + _internal\): starts faster than a one-file exe and unpacks nothing
 rem into %TEMP%. The installer puts it in place.
 pyinstaller --noconfirm --onedir --noconsole --name Companion --icon web\logo.ico --paths app ^
-  --add-data "web;web" --add-data "builds.json;." --add-data "assets;assets" %DISCORD% %REPORTS% ^
+  --add-data "web;web" --add-data "builds.json;." --add-data "assets;assets" %REPORTS% ^
   --collect-all winocr --collect-submodules winrt --collect-all windows_capture ^
   companion.py || goto :failed
 
