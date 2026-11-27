@@ -6,7 +6,9 @@ const { wantFiles } = handler;
 
 const ENV = { UPLOAD_KEY: "k3y", GITHUB_TOKEN: "t", REPORTS_REPO: "o/r" };
 let n = 0;
-function body(over = {}, files = { "frame.png": Buffer.from("png!").toString("base64") }) {
+const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]).toString("base64");
+const JPG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]).toString("base64");
+function body(over = {}, files = { "frame.png": PNG }) {
   const id = `20261126-1015${String(n++ % 60).padStart(2, "0")}-map_missed-a1b2c3`;
   return { report: { id, kind: "map_missed", key: "map_missed:henesys-hunting-ground-i", why: "title read as 'Hennes'",
                      version: "1.4.6", made: "2026-11-26 10:15:00", frame_size: [1920, 1080], profile: { name: "Me" }, ...over },
@@ -50,9 +52,12 @@ function github(moved = 0, index = null) {
   return { fetch, calls, repo, index: () => JSON.parse(repo.index) };
 }
 
-const send = (g, b, headers = { "x-companion-key": "k3y" }) => {
+// opt: env (added to ENV), now, ip, and the IP throttle's store (one per github() stand-in)
+const send = (g, b, headers = { "x-companion-key": "k3y" }, opt = {}) => {
   const r = res();
-  return handler({ method: "POST", headers, body: b }, r, { env: ENV, fetch: g.fetch }).then(() => r);
+  g.store = g.store || new Map();
+  return handler({ method: "POST", headers, body: b }, r,
+                 { env: { ...ENV, ...(opt.env || {}) }, fetch: g.fetch, now: opt.now, ip: opt.ip, ipStore: g.store }).then(() => r);
 };
 const ask = (g, query) => {
   const r = res();
@@ -139,4 +144,98 @@ test("wantFiles: versions compare as numbers", () => {
   assert.equal(wantFiles(e, "1.4.9", ""), false);
   assert.equal(wantFiles(e, "1.4.10", ""), true);
   assert.equal(wantFiles(e, "1.5", ""), true);
+});
+
+// ---- hardening: day caps, real pictures, mode, several keys, the IP throttle
+
+const DAY = Date.UTC(2026, 10, 27, 12, 0);
+const key = i => `map_missed:map-${i}`;
+
+test("pictures stop after DAY_STORED a day, reports still count", async () => {
+  const g = github();
+  const out = [];
+  for (let i = 0; i < 3; i++) out.push(await send(g, body({ key: key(i) }), undefined, { env: { DAY_STORED: "2" }, now: DAY }));
+  assert.deepEqual(out.map(r => r.code), [201, 201, 201]);
+  assert.deepEqual(out.map(r => r.body.stored), [true, true, false]);
+  assert.equal(g.index()["#day"].stored, 2);
+  assert.equal(g.index()[key(2)].count, 1);
+});
+
+test("a new key over DAY_NEW_KEYS is refused, a known key still counts", async () => {
+  const g = github();
+  const opt = { env: { DAY_NEW_KEYS: "2" }, now: DAY };
+  await send(g, body({ key: key(0) }), undefined, opt);
+  await send(g, body({ key: key(1) }), undefined, opt);
+  const r = await send(g, body({ key: key(2) }), undefined, opt);
+  assert.equal(r.code, 429);
+  assert.equal(g.index()[key(2)], undefined);
+  assert.equal(g.calls.filter(c => c.path.endsWith("/git/blobs")).length, 2);     // nothing uploaded for it
+  const again = await send(g, body({ key: key(0) }), undefined, opt);
+  assert.equal(again.code, 201);
+  assert.equal(g.index()[key(0)].count, 2);
+});
+
+test("DAY_PER_INSTALL: the 26th report from one install in a day is refused", async () => {
+  const g = github();
+  const opt = { now: DAY };
+  for (let i = 0; i < 25; i++) assert.equal((await send(g, body({ install: "abc123" }), undefined, opt)).code, 201);
+  assert.equal((await send(g, body({ install: "abc123" }), undefined, opt)).code, 429);
+  assert.equal((await send(g, body({ install: "other1" }), undefined, opt)).code, 201);
+});
+
+test("a new UTC day resets the counters", async () => {
+  const g = github();
+  const opt = { env: { DAY_NEW_KEYS: "1", DAY_STORED: "1" }, now: DAY };
+  await send(g, body({ key: key(0) }), undefined, opt);
+  assert.equal((await send(g, body({ key: key(1) }), undefined, opt)).code, 429);
+  const next = { ...opt, now: DAY + 24 * 3600 * 1000 };
+  const r = await send(g, body({ key: key(1) }), undefined, next);
+  assert.equal(r.code, 201);
+  assert.equal(r.body.stored, true);
+  assert.deepEqual(g.index()["#day"], { date: "2026-11-28", stored: 1, new_keys: 1, installs: {}, total: 1 });
+});
+
+test("a .png that isn't a PNG, or a .jpg that isn't a JPEG, is refused before GitHub is asked", async () => {
+  for (const files of [{ "frame.png": Buffer.from("png!").toString("base64") }, { "frame.jpg": PNG }]) {
+    const g = github();
+    const r = await send(g, body({}, files));
+    assert.equal(r.code, 400);
+    assert.equal(g.calls.length, 0);
+  }
+  const g = github();
+  assert.equal((await send(g, body({}, { "frame.jpg": JPG, "crop_map.png": PNG }))).code, 201);
+});
+
+test("REPORTS_MODE count stores no pictures; off answers 503 without asking GitHub", async () => {
+  let g = github();
+  let r = await send(g, body(), undefined, { env: { REPORTS_MODE: "count" } });
+  assert.equal(r.code, 201);
+  assert.equal(r.body.stored, false);
+  assert.equal(g.calls.filter(c => c.path.endsWith("/git/blobs")).length, 0);
+  g = github();
+  r = await send(g, body(), undefined, { env: { REPORTS_MODE: "off" } });
+  assert.equal(r.code, 503);
+  assert.equal(g.calls.length, 0);
+  const a = res();
+  await handler({ method: "GET", headers: { "x-companion-key": "k3y" }, query: { key: key(0) } }, a,
+                { env: { ...ENV, REPORTS_MODE: "count" }, fetch: github().fetch, ipStore: new Map() });
+  assert.equal(a.body.want_files, false);
+});
+
+test("either of two upload keys is accepted", async () => {
+  for (const k of ["old1", "new2"]) {
+    const g = github();
+    const r = await send(g, body(), { "x-companion-key": k }, { env: { UPLOAD_KEY: "old1,new2" } });
+    assert.equal(r.code, 201);
+  }
+  assert.equal((await send(github(), body(), { "x-companion-key": "old1,new2" }, { env: { UPLOAD_KEY: "old1,new2" } })).code, 401);
+});
+
+test("31 requests from one IP in 10 minutes: the 31st is 429", async () => {
+  const g = github();
+  for (let i = 0; i < 30; i++) assert.equal((await send(g, body(), undefined, { ip: "9.9.9.9", now: DAY + i })).code, 201);
+  const r = await send(g, body(), undefined, { ip: "9.9.9.9", now: DAY + 31 });
+  assert.equal(r.code, 429);
+  assert.ok(r.body.retry_after > 0);
+  assert.equal((await send(g, body(), undefined, { ip: "8.8.8.8", now: DAY + 31 })).code, 201);
 });
