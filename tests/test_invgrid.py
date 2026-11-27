@@ -119,3 +119,20 @@ def test_an_icon_downloads_into_a_folder_not_made_yet(tmp_path, monkeypatch):
     bag = invgrid.Bag({}, lambda i: f"https://icons/{i}.png", tmp_path / "cache" / "icons")
     path = bag._get(2000001)
     assert path is not None and path.exists()
+
+
+def test_a_pale_open_tab_at_ui_064_is_the_open_one():
+    # UI Size ideal (0.64): the open tab's pink with its white label is ~20 over its green, the others 0
+    f = Image.new("RGB", (1920, 1200), (198, 198, 198))
+    x, y = TITLE[1] + invgrid.TABS["Etc"] * 0.64, TITLE[2] + invgrid.TAB_Y * 0.64
+    f.paste((243, 223, 227), (round(x - 12), round(y - 5), round(x + 12), round(y + 5)))
+    assert invgrid.open_tab(f, TITLE, 0.64) == "Etc"
+
+
+def test_two_reddish_tabs_say_no_tab():
+    # something red over the tab row (a damage number, another window): no telling which is open
+    f = Image.new("RGB", (1920, 1200), (200, 200, 200))
+    for tab in ("Use", "Etc"):
+        x, y = TITLE[1] + invgrid.TABS[tab], TITLE[2] + invgrid.TAB_Y
+        f.paste((220, 60, 70), (x - 20, y - 8, x + 20, y + 8))
+    assert invgrid.open_tab(f, TITLE, 1.0) is None

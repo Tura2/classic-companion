@@ -27,8 +27,8 @@ python companion.py          rem dashboard at http://localhost:8765
 python -m pytest -q          rem the tests
 ```
 
-`build.bat` builds the installer, `dist\CompanionSetup.exe` (needs [Inno Setup 6.7 or newer](https://jrsoftware.org/isinfo.php): `winget install JRSoftware.InnoSetup`). You don't need `discord.json` to build or test; without
-it Discord just says "Not set up in this build".
+`build.bat` builds the installer, `dist\CompanionSetup.exe` (needs [Inno Setup 6.7 or newer](https://jrsoftware.org/isinfo.php): `winget install JRSoftware.InnoSetup`). You don't need `reports.json` to build or test; without
+it, problem reports are hidden and Discord says "Not set up in this build".
 
 To try the installer's look without a full build, compile a test build with any folder as the payload.
 It has its own AppId, folder and shortcut names, so it never touches a real install:
@@ -80,7 +80,7 @@ git-ignored on purpose: they show other players' names and chat. If a case is ne
 crop it to the one window and blank out names first.
 
 ## Never commit
-`discord.json`, `data/`, `cache/`, `debug/`, `logs/`, `reports/`, or anything with a
+`reports.json`, `discord.json`, `data/`, `cache/`, `debug/`, `logs/`, `reports/`, or anything with a
 token or webhook URL. If you leak one by mistake, tell the maintainer right away (see SECURITY.md).
 
 ## Code of conduct

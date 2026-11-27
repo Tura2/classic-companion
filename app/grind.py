@@ -84,6 +84,7 @@ def need_tol(pct):
 
 class Grind:
     def __init__(self, db_path):
+        self.on_final = None         # called with a session's card when it ends (Discord's grind post)
         self.db = sqlite3.connect(str(db_path), check_same_thread=False)
         self.db.execute("""CREATE TABLE IF NOT EXISTS sessions (id INTEGER PRIMARY KEY, start REAL, end REAL,
             map_id INTEGER, map TEXT, level_start INTEGER, level_end INTEGER, exp_gained INTEGER, active_s REAL,
@@ -113,6 +114,9 @@ class Grind:
         self.after_pause = False     # resumed from a pause that no counted gain has followed yet: never idle
         self.last = None             # the last accepted (exp, pct, level)
         self.raw = None              # the last read, for the two-reads rule
+        self.read_t = None           # when the HUD's EXP last read
+        self.unread_seen = False     # a read since then where it didn't (unread)
+        self.blind = False           # the next gain came in over more than BREAK of unread EXP
         self.map_id = self.map = None
         self.need = None             # the level's EXP, once NEED_READS reads agree on it
         self.need_level = None
@@ -237,6 +241,13 @@ class Grind:
                             " level_start=?, pct_start=?, level_end=?, pct_end=?, exp_gained=?, active_s=?,"
                             " exp_hr=?, open=?, data=? WHERE id=?", row + (self.card_id,))
         self.db.commit()
+        if final and self.on_final:
+            card = dict(zip(("start", "end", "map_id", "map", "pq", "character", "job", "level_start", "pct_start",
+                             "level_end", "pct_end", "exp_gained", "active_s", "exp_hr"), row[:14]))
+            try:
+                self.on_final({**card, "id": self.card_id, "data": data})
+            except Exception:
+                pass                 # sharing a session never breaks the tracker
         return self.card_id
 
     def close(self, now):
@@ -275,10 +286,21 @@ class Grind:
         if floor < exp <= self.last[0] + MAX_GAIN_SHARE * need:
             self.moves.append((now, exp, exp - floor <= LUMP_SHARE * need))
 
+    def unread(self, now):
+        """A read where the HUD's EXP didn't read (covered, the game mid-switch, a size the reader
+        can't do): unknown, not a break. A gain that comes in over more than BREAK of it is counted
+        as gained, never paced: how long it took isn't known (live 2026-11-26: minutes unread at a
+        new resolution, then one gain, 200,884/hr shown against ~124K by the clock)."""
+        self.unread_seen = True
+
     def update(self, exp, pct, level, map_id, map_name, now):
         """One read of the HUD's EXP. Returns the EXP it counted (0 for none)."""
         if exp is None or pct is None:
+            self.unread(now)
             return 0
+        if self.unread_seen and self.read_t is not None and now - self.read_t > BREAK:
+            self.blind = True
+        self.unread_seen, self.read_t = False, now
         if map_id is not None and map_id != self.map_id:
             pq, old_pq = pq_of(map_name), self.pq
             self.map_id, self.map = map_id, map_name
@@ -340,6 +362,8 @@ class Grind:
             self.levelups.append({"ts": now, "level": level})
         self.last = read
         if gain <= 0 or self.paused:
+            if gain == 0:
+                self.blind = False        # read again unchanged: nothing came in while it was unread
             return 0
         # a break is measured from the last gain of any kind: at a low level every kill is over
         # LUMP_SHARE of the level, and measured from the last killing gain each kill would be a
@@ -353,7 +377,6 @@ class Grind:
         self.after_pause = False
         need = self.need or need_of(exp, pct) or 0
         lump = resumed and gain > LUMP_SHARE * need     # a quest turned in, not a kill
-        self.last_lump = lump
         # mobbing, the EXP rises on every read, so no two agree until a pause and the gain comes as one
         # chunk of many kills (989 at once, live 2026-11-27). The rises read on the way split it back
         # into steps of one read each, a few kills apiece, that the party split can tell
@@ -362,14 +385,21 @@ class Grind:
             self.last_steps = [b - a for a, b in zip(pts, pts[1:])]
         else:
             self.last_steps = [gain]
-        if not lump:                       # a lump isn't grinding: it doesn't start the clock either
+        blind, self.blind = self.blind, False
+        self.last_lump = lump or blind
+        if blind and not lump:
+            # came in while the EXP couldn't be read: gained, but at no known pace. The clock goes on
+            # from here, the minutes unread aren't grinding time
+            self.last_gain = now
+            self.moves = []
+        elif not lump:                     # a lump isn't grinding: it doesn't start the clock either
             dt = self._open_gap(now, below=exp)   # the waits since the last gain are grinding time, unless breaks
             self.s_active += dt
             self.seg["active"] += dt
             self.s_paced += gain
             self.last_gain = now
             self.moves = []
-        self.events.append((now, gain, self.s_active, lump))
+        self.events.append((now, gain, self.s_active, lump or blind))
         self.events = [e for e in self.events
                        if e[2] >= self.s_active - WINDOW - 60 or e[0] >= now - CLOCK_WINDOW - 60]
         if self.s_start is None:

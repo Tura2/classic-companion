@@ -60,7 +60,8 @@ turning it on.
 
 How it reads, its rules and how to tune it: [docs/screen-reading.md](docs/screen-reading.md).
 
-**Discord (optional):** a ping in your group's channel when your shop sells something.
+**Discord (optional):** posts to your group's channel, each with its own switch: your shop's sales,
+grind sessions over 10 minutes, and valuable pickups (over 80,000 mesos each).
 Setup: [docs/discord.md](docs/discord.md).
 
 ## Your data
@@ -69,7 +70,8 @@ Everything stays on your PC, in Companion's folder (`%LOCALAPPDATA%\Programs\Com
 - `cache\`: downloaded game data and pictures (safe to delete).
 - `logs\`: one log a day, kept 7 days.
 
-Nothing is uploaded, except your shop's sales to your Discord channel if you connect it.
+Nothing is uploaded, except what you switch on: problem reports, and the Discord posts above if you
+connect it.
 
 ## Data sources
 - **Game data:** the OSMS datamine (MIT).

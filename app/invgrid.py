@@ -38,23 +38,27 @@ SHIFT = 3           # how far an icon may sit past the slot's edge
 WORST = 60          # a best fit worse than this: no item known here
 UNSURE = 1.25       # another item fitting within this factor of the best one: say both
 RETRY = 600         # a tab whose icons didn't all download is tried again after this many seconds
-RED = 30            # the open tab is red: its red over its green by more than this
+RED = 12            # the open tab is red: its red over its green by more than this...
+RED_GAP = 10        # ...and this much more than any other tab. At UI 0.64 the open tab's pink, its
+                    # white label mixed in, is only ~20 over its green (the others 0; live 2026-11-26)
 
 
 def open_tab(frame, title, s):
     """The inventory's open tab ("Etc", "Use", ...) from the title line (text, x, y, w, h); None
     when no tab looks open."""
     x, y = title[1], title[2]
-    best, name = RED, None
+    reds = {}
     for tab, dx in TABS.items():
         cx, cy = x + dx * s, y + TAB_Y * s
         box = (round(cx - 16 * s), round(cy - 5 * s), round(cx + 16 * s), round(cy + 5 * s))
         px = np.asarray(frame.crop(box).convert("RGB"), dtype=float).reshape(-1, 3)
         if len(px):
-            red = px[:, 0].mean() - px[:, 1].mean()
-            if red > best:
-                best, name = red, tab
-    return name
+            reds[tab] = px[:, 0].mean() - px[:, 1].mean()
+    if not reds:
+        return None
+    name = max(reds, key=reds.get)
+    second = max((v for k, v in reds.items() if k != name), default=0.0)
+    return name if reds[name] > RED and reds[name] - second >= RED_GAP else None
 
 
 def grid_box(title, s):

@@ -23,6 +23,7 @@ def seen_case(game_reader):
             # a fresh look, then the same screen read three times in a row, as the app does every
             # 1.5 s: what's kept between reads (windows' places, the mini map's search) settles
             game_reader.kept, game_reader.titles.last, game_reader.helper_depth, game_reader.reads = {}, {}, None, 0
+            game_reader.active_ids = set(case.get("active", ()))     # the quests the app knows you have going
             for _ in range(3):
                 seen = game_reader.read(frame)
             if case.get("tip_region"):
