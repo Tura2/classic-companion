@@ -88,6 +88,18 @@ def problem(kind, text, exc=None):
 
 
 # ------------------------------------------------------------------ inside
+def tail(n=80):
+    """The last n lines of today's log, for a report sent on its own (autoreport)."""
+    if _s.dir is None:
+        return []
+    with _s.lock:
+        try:
+            with open(_path(), encoding="utf-8", errors="replace") as f:
+                return f.read().splitlines()[-n:]
+        except OSError:
+            return []
+
+
 def _path():
     return _s.dir / f"companion-{_s.today():%Y-%m-%d}.log"
 

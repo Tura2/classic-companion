@@ -1127,6 +1127,15 @@ function discordCard(d){
       <div class="hb" style="margin-top:8px"><button class="btn dbtn" id="dc-test" ${d.enabled ? "" : "disabled"}>${DISCORD_SVG(16)} Send a test message</button>
         <button class="btn" id="dc-unlink">Unlink</button></div></div></section>`;
 }
+function reportsCard(r, on){
+  const title = `<span>${itemIcon(GI.quests, 22)} Problem reports</span>`;
+  if (!r || !r.setup) return "";      // a build without the report server: nothing to switch on
+  return `<section class="card win"><div class="title">${title}${pill(on, on ? "On" : "Off")}</div><div class="body">
+      ${swRow("rp-on", "Send problem reports on their own", "When a read misses something (a map, the EXP, the HUD), so it gets fixed", on)}
+      <p class="sub" style="margin:6px 0 0">A report holds the game’s picture as Companion saw it (other players’ names and chat too), what it read, the game’s size and scale, your character’s name, level and map, Companion’s settings and its log’s last lines. It goes to the group’s private report store, never anywhere public. At most once an hour for the same problem, 25 a day.</p>
+      ${r.sent || r.pending ? `<p class="sub" style="margin:6px 0 0">${r.sent ? `${r.sent} sent so far.` : ""} ${r.pending ? `${r.pending} waiting to be sent.` : ""}</p>` : ""}
+      ${r.error ? `<p class="sub" style="margin:6px 0 0;color:var(--bad)">${esc(r.error)}</p>` : ""}</div></section>`;
+}
 
 /* ---- Now: Grind | This session over This map; in a town, the town's map beside the last session ---- */
 let hereCache = {id: null, at: 0, data: null};
@@ -2351,7 +2360,7 @@ async function renderSettings(){
           <div><label class="sub" for="s-int">Auto-scan every (s)</label><input id="s-int" type="number" min="2" max="10" step="0.5" value="${c.auto_interval}"></div>
           <div style="align-self:end"><label class="toggle"><input type="checkbox" id="s-bundle" ${c.price_is_per_bundle ? "checked" : ""}> Prices are per stack</label></div></div>
       </div></details>` : "";
-  $("#view").innerHTML = `<div class="setpage"><div class="col">${reading}${help}</div><div class="col">${discordCard(c.discord)}${adv}</div></div>`;
+  $("#view").innerHTML = `<div class="setpage"><div class="col">${reading}${help}</div><div class="col">${discordCard(c.discord)}${reportsCard(c.reports, c.auto_reports)}${adv}</div></div>`;
   const save = async body => {
     const r = await api("/api/settings", body);
     if (r.error) alert(r.error);
@@ -2369,6 +2378,7 @@ async function renderSettings(){
   onc("s-bundle", e => save({price_is_per_bundle:e.target.checked}));
   onc("s-sound", e => save({sound:e.target.checked}));
   onc("dc-on", e => save({discord_enabled:e.target.checked}));
+  onc("rp-on", e => save({auto_reports:e.target.checked}));
   const dcT = $("#dc-test"); if (dcT) dcT.addEventListener("click", async () => {
     const r = await api("/api/discord/test", {}); dcT.textContent = r.error ? r.error : "Sent ✓";
   });

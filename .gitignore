@@ -6,6 +6,10 @@ grind.sqlite
 discord_outbox.json
 # The group's Discord webhook and app ID: built into the exe, never committed
 discord.json
+# The problem report server's address and upload key: built in the same way, never committed
+reports.json
+report_outbox/
+reports_state.json
 cache/
 debug/
 *.tmp
