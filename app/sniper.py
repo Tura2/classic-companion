@@ -238,6 +238,8 @@ def handle_grind(app, seen, prof):
                 k = g.per_kill()
                 for _ in range(max(1, round(gain / k)) if k else 1):
                     g.add_kill(None, now)
+    elif not seen.get("error"):
+        g.unread(now)                 # the EXP unknown this read, not standing still
     if (seen.get("inventory") or {}).get("mesos") is not None:
         g.mesos(seen["inventory"]["mesos"], now)
 

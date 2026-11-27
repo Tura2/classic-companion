@@ -16,6 +16,11 @@ import reader
     ("157 (", (157, None)),
     ("157 (140+10)", (157, None)),       # doesn't add up: one of them is misread
     ("152 c", (152, None)),              # the bracket cut at the screen's edge, its "(" read as a letter
+    # the total read short at UI 0.64 (live 2026-11-26: "193 (176+17)" read "1 (1 76+1 7)"): the sum
+    ("1 (1 76+1 7)", (193, 176)),
+    ("13 (176+17)", (193, 176)),
+    ("2 (176+17)", (2, None)),           # not digits of 193: a misread, not a short read
+    ("931 (176+17)", (931, None)),       # as long as the sum: never replaced
 ])
 def test_stat_number(text, expected):
     assert reader.stat_number(text) == expected
@@ -31,6 +36,8 @@ def test_helper_count(text, expected):
 @pytest.mark.parametrize("nums,need,expected", [
     ("5", 25, None),        # "0 / 25" with "0 / 2" behind a rope: not a count of 5
     ("0/", 1, 0), ("3 25", 25, 3), ("30130", 30, 30), ("1", 1, None), ("12 / 30", 30, 12),
+    # the goal lost, the count kept (live 2026-11-26, UI 0.64): "98 / 30" read "98"
+    ("98", 30, 98), ("30", 30, None), ("3", 30, None), ("25", 250, None), ("999", 30, None),
 ])
 def test_count_needs_its_goal_in_view(nums, need, expected):
     assert reader._have(nums, need) == expected
@@ -164,3 +171,24 @@ def test_a_title_is_learned_only_when_the_scale_held(tmp_path):
     r.last_s = 0.9
     assert not r.may_learn(1.28)
     assert r.may_learn(0.9)
+
+
+@pytest.mark.parametrize("text,expected", [
+    ("HurtTEP.", "Hunter"),              # HUNTER, the small second JOB line at UI 0.64 (live 2026-11-26)
+    ("ARCHER", "Archer"),
+    ("xx", None),                        # nothing near a job
+    ("BOWMRN", None),                    # the class line: closest is Crossbowman, but not by far enough
+])
+def test_clear_job(text, expected):
+    jobs = ['Beginner', 'Warrior', 'Fighter', 'Page', 'Spearman', 'Magician', 'F/P Wizard', 'I/L Wizard', 'Cleric',
+            'Archer', 'Hunter', 'Crossbowman', 'Rogue', 'Assassin', 'Bandit']
+    assert reader.clear_job(text, jobs) == expected
+
+
+def test_a_badly_read_title_of_a_quest_you_have_going():
+    q = {"[Event] The New Journey Begins": {"id": 500016}, "The Old Snail": {"id": 51},
+         "Special Taste of Florina Beach III": {"id": 10702}}
+    text = "Eyentl The flew Jour ey Begins"
+    assert reader.active_quest(text, q, {"500016", "10702"}) == "[Event] The New Journey Begins"
+    assert reader.active_quest(text, q, set()) is None           # not known to be yours: never matched loosely
+    assert reader.active_quest(text, q, {"51"}) is None          # only a far look-alike of yours

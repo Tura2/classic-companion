@@ -367,3 +367,57 @@ def test_best_maps_last_five_levels(tmp_path):
 
 def test_best_maps_empty_log(tmp_path):
     assert tracker(tmp_path).best_maps(33) == []
+
+
+# ---- EXP that couldn't be read for a while (live 2026-11-26: the game switched to 2560 x 1440, the
+# HUD's EXP went unread for minutes while the party kept killing; the gain that came in when it read
+# again counted, its minutes didn't: 200,884/hr shown against ~124K by the clock)
+
+def unread_for(g, t, seconds, every=1.5):
+    end = t + seconds
+    while t < end:
+        g.unread(t)
+        t += every
+    return t
+
+
+def test_a_gain_across_minutes_of_unread_exp_doesnt_inflate_the_rate(tmp_path):
+    g = tracker(tmp_path)
+    t = feed(g, [50000 + 100 * i for i in range(51)])          # 5 minutes at 60,000/hr
+    t = unread_for(g, t, 180)                                   # 3 minutes the EXP can't be read...
+    t = feed(g, [50000 + 100 * 50 + 3000 + 100 * i for i in range(51)], t0=t)   # ...+3,000 meanwhile, then on
+    s = g.summary(t)
+    assert abs(s["exp_hr"] - 60000) / 60000 < 0.03, s["exp_hr"]
+    assert s["gained"] == 100 * 50 + 3000 + 100 * 50            # every gain is still counted as gained
+
+
+def test_a_short_unread_spell_is_just_grinding(tmp_path):
+    g = tracker(tmp_path)
+    t = feed(g, [50000 + 100 * i for i in range(51)])
+    t = unread_for(g, t, 20)                                    # 20 s unread: under a break, still grinding
+    t = feed(g, [50000 + 100 * 50 + 300 + 100 * i for i in range(51)], t0=t)
+    s = g.summary(t)
+    assert abs(s["exp_hr"] - 60000) / 60000 < 0.05, s["exp_hr"]
+
+
+def test_a_real_break_with_the_exp_read_is_still_a_break(tmp_path):
+    g = tracker(tmp_path)
+    t = feed(g, [50000 + 100 * i for i in range(51)])
+    t = feed(g, [55000] * 30, t0=t)                             # 3 minutes standing still, EXP read
+    t = feed(g, [55000 + 100 * i for i in range(1, 51)], t0=t)
+    assert abs(g.summary(t)["exp_hr"] - 60000) / 60000 < 0.03
+
+
+def test_exp_read_only_now_and_then_doesnt_inflate_the_rate(tmp_path):
+    # the live pattern: a good read every minute or so, each a kill's worth up (under LUMP_SHARE),
+    # every wait between them over BREAK; before, each gain counted and none of the minutes did
+    g = tracker(tmp_path)
+    t = feed(g, [50000 + 100 * i for i in range(51)])          # 5 minutes at 60,000/hr
+    e = 55000
+    for _ in range(4):
+        t = unread_for(g, t, 75)
+        e += 1000                                               # what 75 s of 60,000/hr would make: 1,250
+        t = feed(g, [e], t0=t)
+    t = feed(g, [e + 100 * i for i in range(1, 51)], t0=t)
+    s = g.summary(t)
+    assert abs(s["exp_hr"] - 60000) / 60000 < 0.03, s["exp_hr"]

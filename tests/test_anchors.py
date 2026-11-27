@@ -136,3 +136,59 @@ def test_whole_frame_find_same_with_shared_cache(tmp_path):
     b = anchors.Titles(tmp_path / "b", res_dir=APP)
     b.share = False                                  # the old way, title by title
     assert b.find(img, 1.0, None, names, names=names) == a
+
+
+# ---- learning a title at a new UI scale only keeps what looks like the title (live 2026-11-26: at
+# UI 0.64, cut from OCR's box a few px off, the inventory's and skills' titles were kept cut in half
+# and the helper's as a blank patch; then the skills window was taken for the inventory, the
+# inventory was found nowhere and the helper's quests flickered)
+
+def _title_on_gray(t, name, s, at=(300, 200)):
+    tpl = t.shrunk(name, s).astype(np.uint8)
+    img = Image.new("L", (1200, 800), 128)
+    img.paste(Image.fromarray(tpl), at)
+    return img.convert("RGB"), tpl
+
+
+def _line(t, name, s, x, y):
+    dx, dy, lw, lh = t._offsets(name, s)
+    return (t.boxes[name]["text"], x + dx, y + dy, lw, lh)
+
+
+@pytest.mark.parametrize("name", ["inventory", "skills", "helper", "stat"])
+def test_learn_cuts_the_title_where_it_is_when_ocr_is_a_few_px_off(name, tmp_path):
+    t = anchors.Titles(tmp_path, res_dir=APP)
+    img, tpl = _title_on_gray(t, name, 0.64)
+    path = t.learn(img, name, _line(t, name, 0.64, 303, 198), 0.64)     # OCR's box 3 px right, 2 up
+    assert path is not None and path.exists()
+    kept = np.asarray(Image.open(path), dtype=np.float32)
+    assert kept.shape == tpl.shape and np.allclose(kept, tpl)
+    found = anchors.Titles(tmp_path, res_dir=APP).find(img, 0.64, names={name})
+    assert (round(found[name][1] - t._offsets(name, 0.64)[0]), round(found[name][2] - t._offsets(name, 0.64)[1])) == (300, 200)
+
+
+def test_learn_keeps_nothing_where_there_is_no_title(tmp_path):
+    t = anchors.Titles(tmp_path, res_dir=APP)
+    flat = Image.new("RGB", (1200, 800), (190, 190, 190))        # the helper's see-through bar: a blank patch
+    assert t.learn(flat, "helper", _line(t, "helper", 0.64, 300, 200), 0.64) is None
+    assert not t.learned_path("helper", 0.64).exists()
+    noise = Image.fromarray(np.random.default_rng(3).integers(0, 255, (800, 1200), dtype=np.uint8)).convert("RGB")
+    assert t.learn(noise, "inventory", _line(t, "inventory", 0.64, 300, 200), 0.64) is None
+
+
+def test_a_bad_learned_title_kept_before_is_thrown_away(tmp_path):
+    t = anchors.Titles(tmp_path, res_dir=APP)
+    bad = t.learned_path("inventory", 0.64)
+    bad.parent.mkdir(parents=True)
+    shape = t.shrunk("inventory", 0.64).shape
+    Image.new("L", shape[::-1], 200).save(bad)                    # a flat patch, kept by an older version
+    assert np.allclose(t.template("inventory", 0.64), t.shrunk("inventory", 0.64))
+    assert not bad.exists()                                       # so it can be learned again, right this time
+
+
+def test_a_good_learned_title_is_kept(tmp_path):
+    t = anchors.Titles(tmp_path, res_dir=APP)
+    img, tpl = _title_on_gray(t, "stat", 0.64)
+    t.learn(img, "stat", _line(t, "stat", 0.64, 300, 200), 0.64)
+    again = anchors.Titles(tmp_path, res_dir=APP)
+    assert again.learned_path("stat", 0.64).exists() and np.allclose(again.template("stat", 0.64), tpl)

@@ -89,6 +89,26 @@ def _pick(lo, hi, frame_len, native_len, off):
     return np.clip(idx, 0, hi - lo - 1), i0
 
 
+def _whole(frame_len, native_len, off):
+    """k when the game's picture is exactly k (2, 3...) frame pixels a game pixel from a whole pixel,
+    else None: 1280 x 720 doubled to 2560 x 1440 in full screen."""
+    k = frame_len / native_len
+    return round(k) if round(k) >= 2 and abs(k - round(k)) < 1e-6 and abs(off - round(off)) < 1e-6 else None
+
+
+def _blocks(lo, hi, k, off):
+    """A picture stretched exactly k times, along one side: (the k frame pixels of each game pixel
+    wholly in lo..hi-1, counted from lo, each weighing 1/k; the first game pixel). Whatever filter
+    the screen stretched with (smooth, not repeated pixels: live 2026-11-26), a game pixel's k x k
+    block averages back to it, where undoing a smooth stretch's model left the HUD's digits too soft
+    for their sprites."""
+    off = round(off)
+    i0 = max(0, -(-(lo - off) // k))
+    i1 = (hi - off) // k
+    ix = off + np.arange(i0, i1)[:, None] * k + np.arange(k)[None, :] - lo
+    return ix, np.full(ix.shape, 1.0 / k, np.float32), i0
+
+
 def _native(a, size, box, area=None, nearest=False):
     """Frame pixels a (rows, columns[, channels]) under box, back to the game's own: (array, (x, y)).
     area: where the game's picture is in the frame and its own size, (x0, w, y0, h, nw, nh); the
@@ -104,8 +124,13 @@ def _native(a, size, box, area=None, nearest=False):
         ix, fx = _pick(x0, x1, aw, nw, ax)
         iy, fy = _pick(y0, y1, ah, nh, ay)
         return a[iy][:, ix], (fx, fy)
-    ix, wx, fx = _undo(x0, x1, aw, nw, ax)
-    iy, wy, fy = _undo(y0, y1, ah, nh, ay)
+    kx, ky = _whole(aw, nw, ax), _whole(ah, nh, ay)
+    if kx and ky:
+        ix, wx, fx = _blocks(x0, x1, kx, ax)
+        iy, wy, fy = _blocks(y0, y1, ky, ay)
+    else:
+        ix, wx, fx = _undo(x0, x1, aw, nw, ax)
+        iy, wy, fy = _undo(y0, y1, ah, nh, ay)
     if a.ndim == 3:
         wx, wy = wx[:, :, None], wy[:, :, None, None]
         a = (a[:, ix] * wx).sum(2)               # columns back to the game's
@@ -282,6 +307,7 @@ REPEATS = 0.9       # under this share of the band's rows differing from the one
 SNAP = 0.03         # a repeat-measured height within 3 % of a candidate is that candidate
 FIT_MAX = 3.0       # a smooth stretch from height n rebuilds the band with less error than this...
 FIT_GAP = 0.7       # ...and less than this share of the next best height's
+FIT_LOOSE = 0.8     # or, on every strip tried, the same height under this share of the next best's
 FIT_COLS = 240      # the fit is worked out on strips this wide...
 FIT_TRIES = 4       # ...the most detailed few of them
 HUD_MID = (0.31, 0.69)   # the share of the width the status bar always covers (UI Size ideal: 0.29-0.71)
@@ -351,7 +377,7 @@ def _measure(frame):
     mid_lo, mid_hi = int(x0 + HUD_MID[0] * w), int(x0 + HUD_MID[1] * w)
     strips = [(c, c + FIT_COLS) for c in range(mid_lo, mid_hi - FIT_COLS + 1, FIT_COLS)] or [(mid_lo, mid_hi)]
     subs = sorted(((band[:, a - lo:b - lo], (a, b)) for a, b in strips), key=lambda t: -t[0].std())
-    tried = 0
+    tried, loose = 0, []
     for sub, cols in subs:
         if sub.std() < FLAT or tried == FIT_TRIES:
             break
@@ -370,6 +396,8 @@ def _measure(frame):
             others = [e for n, e in errs.items() if n != best]
             if errs[best] < FIT_MAX and (not others or errs[best] < FIT_GAP * min(others)):
                 return Stretch(best, False)
+            if others and errs[best] < FIT_LOOSE * min(others):
+                loose.append(best)
     if not tried:
         return usual
     # no smooth stretch fits: repeated pixels? (a flat band repeats rows in a smooth stretch too, so
@@ -379,6 +407,11 @@ def _measure(frame):
         near = [c for c in CANDIDATES if abs(c - h * share) <= SNAP * c]
         if near:
             return Stretch(near[0], True)
+    if loose and len(set(loose)) == 1 and len(loose) == tried:
+        # every strip's best is the same height by a clear margin, if none under FIT_MAX: the screen
+        # stretched with a filter of its own (1280 x 720 on 2560 x 1440, live 2026-11-26: 720 at
+        # 7-11, 768 at 9-14), where UI Size ideal ties every height (within 0.92-1.0)
+        return Stretch(loose[0], False)
     return Stretch(round(h), False)
 
 

@@ -230,3 +230,27 @@ def test_measure_ui_ideal_where_the_world_beside_the_hud_is_stretched():
     # at UI Size ideal the world is still drawn at 768 and stretched; only the UI isn't. The ground
     # beside the status bar fits 768, so only the bar's middle is measured (live, 2026-11-19)
     assert native.measure(case_frame("ui_ideal_skills")) == native.Stretch(1200, False)
+
+
+# ---- a picture stretched exactly k times by a filter of the screen's own (live 2026-11-26: full
+# screen 1280 x 720 on a 2560 x 1440 monitor, smooth, not repeated pixels)
+
+def test_an_exact_double_averages_back_to_the_game_pixels():
+    import numpy as np
+    from PIL import Image
+    import native
+    rng = np.random.default_rng(7)
+    game = rng.integers(0, 255, (72, 128, 3), dtype=np.uint8)
+    frame = Image.fromarray(game).resize((256, 144), Image.BICUBIC)
+    a = np.asarray(frame, np.float32)
+    back, corner = native._native(a, frame.size, (0, 0, 256, 144), (0.0, 256, 0.0, 144, 128, 72))
+    assert corner == (0, 0) and back.shape == (72, 128, 3)
+    assert np.abs(back - a.reshape(72, 2, 128, 2, 3).mean((1, 3))).max() < 1e-3
+
+
+def test_whole_is_only_an_exact_multiple():
+    import native
+    assert native._whole(2560, 1280, 0.0) == 2 and native._whole(1440, 720, 0.0) == 2
+    assert native._whole(1920, 1229, 0.0) is None          # 1200 / 768: a usual smooth stretch
+    assert native._whole(2560, 1280, 3.5) is None          # the game's picture starts mid-pixel
+    assert native._whole(1280, 1280, 0.0) is None          # not stretched

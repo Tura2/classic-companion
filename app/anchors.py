@@ -29,6 +29,12 @@ PEAKS = 5
 # the other one matches better is that window, not a reason to doubt this one
 RIVALS = {"skills": ("inventory",), "inventory": ("skills",)}
 BIG = 300_000        # an area of more pixels than this is searched rough first
+# A learned title must still look like the title: matched against the shrunk built-in picture at
+# least this well, and not a flat patch. Cut from OCR's box a few px off at UI 0.64, titles were kept
+# cut in half or as a blank patch (scores 0.07-0.33, real titles 0.78-0.94; live 2026-11-26), and
+# once kept they were never learned again: the window was found nowhere, or another one taken for it.
+LEARN_MIN = 0.5
+LEARN_STD = 12.0
 
 
 def _fast_len(n):
@@ -112,16 +118,36 @@ class Titles:
         height can show the UI at two sizes: UI Size, full screen below 768)."""
         return self.learned / f"s{round(s * 1000)}" / f"{name}.png"
 
+    def shrunk(self, name, s):
+        """The built-in title picture at UI scale s."""
+        base = self.base[name]
+        pic = base.resize((max(1, round(base.width * s)), max(1, round(base.height * s))), Image.BOX)
+        return np.asarray(pic, dtype=np.float32)
+
+    def looks_like(self, name, s, pic):
+        """How well a picture (a learned title) matches the built-in title at scale s, a few px either
+        way; 0 for a flat patch."""
+        pic = np.asarray(pic, dtype=np.float32)
+        if pic.size == 0 or pic.std() < LEARN_STD:
+            return 0.0
+        base = self.shrunk(name, s)
+        a, b = (np.pad(base, 4, mode="edge"), pic) if pic.shape[0] <= base.shape[0] + 8 and pic.shape[1] <= base.shape[1] + 8 \
+            else (np.pad(pic, 4, mode="edge"), base)
+        sc = ncc(a, b)
+        return float(sc.max()) if sc.size else 0.0
+
     def template(self, name, s):
         key = (name, round(s * 1000))
         if key not in self._sized:
             path = self.learned_path(name, s)
+            pic = None
             if path.exists():
-                pic = Image.open(path).convert("L")
-            else:
-                base = self.base[name]
-                pic = base.resize((max(1, round(base.width * s)), max(1, round(base.height * s))), Image.BOX)
-            self._sized[key] = np.asarray(pic, dtype=np.float32)
+                learned = np.asarray(Image.open(path).convert("L"), dtype=np.float32)
+                if self.looks_like(name, s, learned) >= LEARN_MIN:
+                    pic = learned
+                else:
+                    path.unlink(missing_ok=True)      # a bad one kept before this check: learned again
+            self._sized[key] = pic if pic is not None else self.shrunk(name, s)
         return self._sized[key]
 
     @staticmethod
@@ -233,13 +259,28 @@ class Titles:
 
     def learn(self, frame, name, line, s):
         """Keep the title as the game draws it at UI scale s, cut around an OCR line that read it
-        cleanly; from now on it's what's looked for at this scale."""
+        cleanly; from now on it's what's looked for at this scale. OCR's box can be a few px off: a cut
+        there that doesn't look like the title is moved to where the built-in title matches best near
+        it; nothing is kept that doesn't look like the title (LEARN_MIN). Returns the path, or None."""
         dx, dy, _, _ = self._offsets(name, s)
         cl, ct, cr, cb = self.boxes[name]["cut"]
+        w, h = round((cr - cl) * s), round((cb - ct) * s)
         left, top = round(line[1] - dx), round(line[2] - dy)
-        box = (left, top, left + round((cr - cl) * s), top + round((cb - ct) * s))
+        g = _gray(frame)
+        pic = g[max(0, top):top + h, max(0, left):left + w]
+        here = ncc(pic, self.shrunk(name, s)) if pic.shape == (h, w) else np.zeros(0)
+        if not here.size or float(here.max()) < MIN_SCORE:      # OCR's own cut, compared in place
+            pad = max(6, round(8 * s))
+            l, t = max(0, left - pad), max(0, top - pad)
+            sc = ncc(g[t:top + h + pad, l:left + w + pad], self.shrunk(name, s))
+            if sc.size:
+                y, x = np.unravel_index(int(np.argmax(sc)), sc.shape)
+                left, top = l + int(x), t + int(y)
+            pic = g[top:top + h, left:left + w]
+        if pic.shape != (h, w) or self.looks_like(name, s, pic) < LEARN_MIN:
+            return None
         path = self.learned_path(name, s)
         path.parent.mkdir(parents=True, exist_ok=True)
-        frame.convert("L").crop(box).save(path)
+        Image.fromarray(pic.astype(np.uint8)).save(path)
         self._sized.pop((name, round(s * 1000)), None)
         return path
