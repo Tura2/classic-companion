@@ -28,6 +28,7 @@ import tkinter as tk
 from PIL import Image, ImageDraw, ImageTk
 
 import advisor
+import discord_link
 import overlay_art as art
 import reader
 from trust import Gate
@@ -74,8 +75,10 @@ DEFAULTS = {
     "consent": False,          # user confirmed they understand the risk
     "game_title": "MapleStory",  # labels show only while a window with this in its title is in front
     "setup_done": False,       # the dashboard's first-run setup was finished or skipped
-    "discord_enabled": False,  # post your shop's sales to the group's Discord (after Connect Discord)
+    "discord_enabled": False,  # post to the group's Discord channel (after Connect Discord)
     "discord_post_sales": True,
+    "discord_post_grind": False,  # grind sessions over 10 minutes, when they end
+    "discord_post_drops": False,  # items picked up worth over 80,000 mesos each
     "auto_reports": False,     # send a report on its own when a read misses something (autoreport.py)
 }
 
@@ -242,6 +245,29 @@ def handle_grind(app, seen, prof):
         g.mesos(seen["inventory"]["mesos"], now)
 
 
+def _share(app):
+    return (getattr(app, "state", None) or {}).get("discord_share")
+
+
+def share_pickup(app, g, name, count, now):
+    """An item picked up worth over discord_link.DROP_SHARE_MIN each (the market median) goes to Discord."""
+    share, data = _share(app), getattr(app, "data", None)
+    market = getattr(data, "market", None)
+    if not share or market is None:
+        return
+    d = discord_link.drop_data(name, count, (market.items.get(name) or {}).get("p"),
+                               (getattr(data, "item_ids", None) or {}).get(name), g.s_map)
+    if d:
+        share("drop", d, f"drop:{int(g.s_start or 0)}:{name}:{int(now)}")
+
+
+def share_grind(app, card):
+    """A grind session that ended (Grind.on_final) goes to Discord when it ran 10 minutes or more."""
+    share, d = _share(app), discord_link.grind_data(card)
+    if share and d:
+        share("grind", d, f"grind:{card['id']}:{int(card.get('start') or 0)}")
+
+
 def handle_corner(app, events):
     """Feed the grind session the corner's new lines (notices.Corner): the mesos and items picked up;
     and the potions drunk from the quick slots (quickslots.QuickSlots, ("used", name, n)).
@@ -257,6 +283,7 @@ def handle_corner(app, events):
             g.add_mesos(ev[1], now)
         elif ev[0] == "item" and ev[1]:
             g.add_loot(ev[1], ev[2], now)
+            share_pickup(app, g, ev[1], ev[2], now)
         elif ev[0] == "used" and ev[1]:
             g.add_used(ev[1], ev[2], now)
 
@@ -313,7 +340,7 @@ def handle_myshop(app, seen, now):
     ms.update(watching=sw.watching, total=sw.status["total"], reason=reason, ts=now,
               title=mine.get("title") if mine else ms.get("title"), sales=sw.sales[-100:],
               panel=bool(mine and mine.get("panel")))
-    linked = cfg.get("discord_enabled") and cfg.get("discord_id")
+    linked = discord_link.linked(cfg)
     for sale in sales:
         what = f"{sale['item']} x{sale.get('count') or 1}" if sale.get("item") else "something"
         applog.say(f"Your shop sold {what} for {sale['price']:,} mesos")
@@ -323,8 +350,8 @@ def handle_myshop(app, seen, now):
                 winsound.MessageBeep()
             except Exception:
                 pass
-        if linked and cfg.get("discord_post_sales") and state.get("outbox"):
-            state["outbox"].add("sale", sale, sale["key"])
+        if linked:
+            discord_link.share(state.get("outbox"), cfg, "sale", sale, sale["key"])
     told = getattr(app, "myshop_told", None)
     if told is None:
         told = app.myshop_told = set()
@@ -335,17 +362,16 @@ def handle_myshop(app, seen, now):
         applog.say(f"Correction: {wrong} didn't sell after all (Total Sales doesn't show it)")
         if send and cfg.get("discord_post_sales") and fix["key"] not in told:
             told.add(fix["key"])
-            send(f"correction: {wrong} didn't sell after all, that post was wrong (your shop's Total Sales "
-                 f"doesn't show it).")
+            send("correction", items=[{"item": s.get("item"), "count": s.get("count") or 1} for s in fix["wrong"]])
     if "soldout" in sw.events and ("soldout", sw.session) not in told:
         told.add(("soldout", sw.session))
-        send and send("your shop sold out: time to restock.")
+        send and send("soldout")
     # gone with the HUD too, while the game window is there: disconnected, or back at the login screen
     app.closed_reads = (getattr(app, "closed_reads", 0) + 1) if ok and was and not mine and not seen.get("hud") \
         and not seen.get("quick") else 0
     if app.closed_reads >= CLOSED_READS and ("closed", sw.session) not in told:
         told.add(("closed", sw.session))
-        send and send("your shop closed: the game left the Free Market (disconnected, or back at the login screen).")
+        send and send("closed")
     return sales
 
 
@@ -837,6 +863,8 @@ class App:
         self.shop_anchor = None     # where the open shop's LEAVE STORE button was, for the quick re-read
         self.shopwatch = ShopWatch()  # sales in your own store
         self.grind = Grind(DATA_DIR / "grind.sqlite") if GRIND_ON else None   # EXP/hr per session and per map
+        if self.grind is not None:
+            self.grind.on_final = lambda card: share_grind(self, card)
         self.corner = notice_lines.Corner()       # the corner's EXP / mesos / item lines, each counted once
         self.corner_busy = False    # a look at the corner's lines is in progress
         self.corner_names = False   # the corner reader knows the game's item names

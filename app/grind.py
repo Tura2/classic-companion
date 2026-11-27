@@ -84,6 +84,7 @@ def need_tol(pct):
 
 class Grind:
     def __init__(self, db_path):
+        self.on_final = None         # called with a session's card when it ends (Discord's grind post)
         self.db = sqlite3.connect(str(db_path), check_same_thread=False)
         self.db.execute("""CREATE TABLE IF NOT EXISTS sessions (id INTEGER PRIMARY KEY, start REAL, end REAL,
             map_id INTEGER, map TEXT, level_start INTEGER, level_end INTEGER, exp_gained INTEGER, active_s REAL,
@@ -236,6 +237,13 @@ class Grind:
                             " level_start=?, pct_start=?, level_end=?, pct_end=?, exp_gained=?, active_s=?,"
                             " exp_hr=?, open=?, data=? WHERE id=?", row + (self.card_id,))
         self.db.commit()
+        if final and self.on_final:
+            card = dict(zip(("start", "end", "map_id", "map", "pq", "character", "job", "level_start", "pct_start",
+                             "level_end", "pct_end", "exp_gained", "active_s", "exp_hr"), row[:14]))
+            try:
+                self.on_final({**card, "id": self.card_id, "data": data})
+            except Exception:
+                pass                 # sharing a session never breaks the tracker
         return self.card_id
 
     def close(self, now):

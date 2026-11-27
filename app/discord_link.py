@@ -32,6 +32,7 @@ DROP_SHARE_MIN = 80_000  # a pickup is shared when one is worth more than this (
 DROPS_A_DAY = 10
 KINDS = ("sale", "notice", "grind", "drop")
 SWITCH = {"sale": "discord_post_sales", "grind": "discord_post_grind", "drop": "discord_post_drops"}
+SHOP_NOTICES = ("soldout", "closed", "correction")    # about your shop: they go with its sales
 
 _SETUP = {}              # server URL -> {"client_id", "on"}, once it answered
 
@@ -44,6 +45,11 @@ def server_url(reports_cfg):
 
 def _headers(reports_cfg):
     return {"X-Companion-Key": reports_cfg["key"]}
+
+
+def cached_setup(reports_cfg):
+    """What fetch_setup got from the server this run, without asking: {"client_id", "on"} or None."""
+    return _SETUP.get(server_url(reports_cfg))
 
 
 def fetch_setup(reports_cfg, get=None):
@@ -267,7 +273,8 @@ def share(box, cfg, kind, data, key, today=None):
     DROPS_A_DAY a day. Returns whether it was queued."""
     if box is None or not box.setup or not linked(cfg) or data is None:
         return False
-    if SWITCH.get(kind) and not cfg.get(SWITCH[kind]):
+    switch = SWITCH["sale"] if kind == "notice" and data.get("what") in SHOP_NOTICES else SWITCH.get(kind)
+    if switch and not cfg.get(switch):
         return False
     if kind == "drop":
         today = today or time.strftime("%Y-%m-%d")

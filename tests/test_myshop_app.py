@@ -6,6 +6,8 @@ from shopwatch import ShopWatch
 
 
 class Box:
+    setup = {"url": "https://reports.example/api/report", "key": "k"}
+
     def __init__(self):
         self.added = []
 
@@ -16,7 +18,7 @@ class Box:
 
 def app(**cfg):
     sent = []
-    state = {"profile": {}, "outbox": Box(), "discord_send": sent.append}
+    state = {"profile": {}, "outbox": Box(), "discord_send": lambda what, **extra: sent.append((what, extra))}
     return SimpleNamespace(state=state, sent=sent, shopwatch=ShopWatch(),
                            cfg={"screen_reading": True, "sound": False, "discord_post_sales": True, **cfg})
 
@@ -34,7 +36,7 @@ def run(a, totals, t0=0):
 
 
 def test_a_sale_is_listed_and_posted_once():
-    a = app(discord_enabled=True, discord_id="123")
+    a = app(discord_enabled=True, discord_card="v1.123.1.s")
     run(a, [0, 0, 450000, 450000, 450000])
     assert [s["item"] for s in a.state["myshop"]["sales"]] == ["Bazlud"]
     assert a.state["outbox"].added == [("sale", a.state["myshop"]["sales"][0]["key"])]
@@ -47,13 +49,13 @@ def test_discord_off_still_lists_the_sale():
 
 
 def test_an_hour_of_steady_reads_sends_nothing():
-    a = app(discord_enabled=True, discord_id="123")
+    a = app(discord_enabled=True, discord_card="v1.123.1.s")
     run(a, [0] * 600)
     assert a.state["outbox"].added == [] and a.sent == []
 
 
 def test_one_misread_total_sends_nothing():
-    a = app(discord_enabled=True, discord_id="123")
+    a = app(discord_enabled=True, discord_card="v1.123.1.s")
     run(a, [0, 0, 4500000, 0, 0])
     assert a.state["outbox"].added == []
 
@@ -68,15 +70,15 @@ def test_status_says_why_the_store_isnt_watched():
 
 
 def test_shop_closed_pings_once():
-    a = app(discord_enabled=True, discord_id="123")
+    a = app(discord_enabled=True, discord_card="v1.123.1.s")
     run(a, [0, 0])
     for i in range(6):        # the store and the HUD gone: the login screen
         sniper.handle_myshop(a, {"windows": {}}, 20 + i)
-    assert len([m for m in a.sent if "closed" in m]) == 1
+    assert len([w for w, _ in a.sent if w == "closed"]) == 1
 
 
 def test_a_wrong_sale_gets_a_correction_on_discord():
-    a = app(discord_enabled=True, discord_id="123")
+    a = app(discord_enabled=True, discord_card="v1.123.1.s")
     items = [{"name": "Mokbi Throwing Stars", "text": "Mokbi Throwing Stars", "count": 1, "price": 1100, "sold": False}]
 
     def look(total, mesos, rows_left=True):
@@ -87,7 +89,7 @@ def test_a_wrong_sale_gets_a_correction_on_discord():
     for i, r in enumerate(reads):
         sniper.handle_myshop(a, r, 6 * i)
     assert [k for k, _ in a.state["outbox"].added] == ["sale"]
-    assert len([m for m in a.sent if m.startswith("correction: Mokbi Throwing Stars")]) == 1
+    assert [(w, x) for w, x in a.sent if w == "correction"] == [("correction", {"items": [{"item": "Mokbi Throwing Stars", "count": 1}]})]
     assert a.state["myshop"]["sales"] == []
 
 

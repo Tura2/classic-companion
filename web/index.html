@@ -1115,13 +1115,18 @@ function discordCard(d){
   const title = `<span class="dct">${DISCORD_SVG(20)} Discord</span>`;
   if (!d || !d.setup) return `<section class="card win dcard"><div class="title">${title}${pill(false, "Not set up")}</div>
     <div class="body"><p class="sub" style="margin:0">Not set up in this build.</p></div></section>`;
-  if (!d.linked) return `<section class="card win dcard"><div class="title">${title}${pill(false, "Not connected")}</div><div class="body">
-      <p class="sub" style="margin:0 0 10px">Get a ping on your phone when your shop sells something: Companion posts to our server’s <span class="chan">#shop-sales</span>, tagging only you.</p>
-      ${d.port_ok ? `<a class="btn dbtn" href="${esc(d.authorize)}">${DISCORD_SVG(16)} Connect Discord</a>`
-        : `<p class="sub">Connect works only on port 8765: close other copies of Companion and start it again.</p>`}</div></section>`;
+  const connect = !d.port_ok ? `<p class="sub">Connect works only on port 8765: close other copies of Companion and start it again.</p>`
+    : d.authorize ? `<a class="btn dbtn" href="${esc(d.authorize)}">${DISCORD_SVG(16)} Connect Discord</a>`
+    : `<p class="sub">Asking the server… (it needs the internet)</p>`;
+  if (!d.linked) return `<section class="card win dcard"><div class="title">${title}${pill(false, d.relink ? "Connect again" : "Not connected")}</div><div class="body">
+      <p class="sub" style="margin:0 0 10px">${d.relink ? "Discord now goes through our server: connect again (once) to keep posting." :
+        "Share your shop’s sales, grind sessions and valuable pickups: Companion posts to our server’s Companion channel, tagging only you."}</p>
+      ${connect}</div></section>`;
   return `<section class="card win dcard"><div class="title">${title}${pill(true, "Connected")}</div><div class="body">
-      <div class="dcwho"><span class="dcav">${DISCORD_SVG(26)}</span><div><b>${esc(d.name || "?")}</b><small>Posts to <span class="chan">#shop-sales</span> on our server, tagging only you</small></div></div>
-      ${swRow("dc-on", "Post my shop’s sales", "The item, how many, the price and your shop’s total", d.enabled)}
+      <div class="dcwho"><span class="dcav">${DISCORD_SVG(26)}</span><div><b>${esc(d.name || "?")}</b><small>Posts to our server’s Companion channel, tagging only you</small></div></div>
+      ${swRow("dc-sales", "Post my shop’s sales", "The item, how many, the price and your shop’s total", d.post_sales)}
+      ${swRow("dc-grind", "Share my grind sessions", "Sessions over 10 minutes, when they end: map, time, EXP/hr, levels, kills, top pickups", d.post_grind)}
+      ${swRow("dc-drops", "Share valuable pickups", "Items worth over 80,000 mesos each (market median)", d.post_drops)}
       ${d.pending ? `<p class="sub" style="margin:6px 0 0">${d.pending} waiting to be sent.</p>` : ""}
       ${d.error ? `<p class="sub" style="margin:6px 0 0;color:var(--bad)">${esc(d.error)}</p>` : ""}
       <div class="hb" style="margin-top:8px"><button class="btn dbtn" id="dc-test" ${d.enabled ? "" : "disabled"}>${DISCORD_SVG(16)} Send a test message</button>
@@ -2377,7 +2382,12 @@ async function renderSettings(){
   onc("s-title", e => save({game_title:e.target.value}));
   onc("s-bundle", e => save({price_is_per_bundle:e.target.checked}));
   onc("s-sound", e => save({sound:e.target.checked}));
-  onc("dc-on", e => save({discord_enabled:e.target.checked}));
+  const dc = c.discord || {};
+  if (dc.setup && !dc.linked && dc.port_ok && !dc.authorize)      // the server's answer comes in the background
+    setTimeout(() => { if (tab === "settings") renderSettings(); }, 2500);
+  onc("dc-sales", e => save({discord_post_sales:e.target.checked}));
+  onc("dc-grind", e => save({discord_post_grind:e.target.checked}));
+  onc("dc-drops", e => save({discord_post_drops:e.target.checked}));
   onc("rp-on", e => save({auto_reports:e.target.checked}));
   const dcT = $("#dc-test"); if (dcT) dcT.addEventListener("click", async () => {
     const r = await api("/api/discord/test", {}); dcT.textContent = r.error ? r.error : "Sent ✓";

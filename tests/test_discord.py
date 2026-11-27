@@ -195,7 +195,7 @@ def test_share_respects_each_switch_and_the_link(tmp_path):
     assert dl.share(box, cfg(discord_enabled=False), "grind", g, "grind:7") is False
     assert dl.share(box, cfg(discord_card=None), "grind", g, "grind:7") is False       # an old link: no card
     assert dl.share(box, cfg(discord_post_drops=False), "drop", {"item": "X"}, "drop:x") is False
-    assert dl.share(box, cfg(discord_post_sales=False), "notice", {"what": "soldout"}, "n:1") is True
+    assert dl.share(box, cfg(discord_post_sales=False), "notice", {"what": "test"}, "n:1") is True
     assert dl.share(box, cfg(), "grind", g, "grind:7") is True
     assert dl.share(box, cfg(), "grind", g, "grind:7") is False        # the same card saved final again
     box.setup = None
@@ -253,3 +253,13 @@ def test_authorize_url_asks_only_who_you_are():
     url = dl.authorize_url("999")
     assert "response_type=token" in url and "scope=identify" in url and "client_id=999" in url
     assert "redirect_uri=http%3A%2F%2Flocalhost%3A8765%2Fdiscord" in url
+
+
+def test_shop_notices_follow_the_sales_switch(tmp_path):
+    box = outbox(tmp_path, Poster())
+    box.setup = SERVER
+    off = cfg(discord_post_sales=False)
+    for what in ("soldout", "closed", "correction"):
+        assert dl.share(box, off, "notice", {"what": what}, f"n:{what}") is False
+    for what in ("connected", "test"):
+        assert dl.share(box, off, "notice", {"what": what}, f"n:{what}") is True

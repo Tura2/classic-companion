@@ -57,3 +57,31 @@ def test_other_unread_titles_dont_start_a_run(tmp_path):
     read(a, prof, 50000, "Kerning City")
     read(a, prof, 50100, missed="Kerning Ciy Pharmcy")
     assert a.grind.pq is None and a.grind.map == "Kerning City"
+
+
+def test_a_valuable_pickup_is_shared_and_a_cheap_one_isnt(tmp_path):
+    a = app(tmp_path)
+    shared = []
+    a.state = {"discord_share": lambda kind, data, key: shared.append((kind, data, key)) or True}
+    a.data = SimpleNamespace(maps=MAPS, item_ids={"Work Gloves": 1082002},
+                             market=SimpleNamespace(items={"Work Gloves": {"p": 120000}, "Snail Shell": {"p": 50}}))
+    sniper.handle_corner(a, [("item", "Work Gloves", 1), ("item", "Snail Shell", 4), ("item", "Mystery Box", 1)])
+    assert [(k, d["item"], d["item_id"], d["median"]) for k, d, _ in shared] == [("drop", "Work Gloves", 1082002, 120000)]
+    assert shared[0][2].startswith("drop:") and "Work Gloves" in shared[0][2]
+    assert a.grind.loot == {"Work Gloves": 1, "Snail Shell": 4, "Mystery Box": 1}
+
+
+def test_pickups_without_discord_are_only_counted(tmp_path):
+    a = app(tmp_path)
+    sniper.handle_corner(a, [("item", "Work Gloves", 1)])
+    assert a.grind.loot == {"Work Gloves": 1}
+
+
+def test_a_finished_grind_card_is_shared_once_by_its_key(tmp_path):
+    shared = []
+    a = SimpleNamespace(state={"discord_share": lambda kind, data, key: shared.append((kind, data, key)) or True})
+    card = {"id": 7, "start": 1000.0, "map": "Ant Tunnel I", "pq": None, "active_s": 660.0, "exp_gained": 5,
+            "exp_hr": 100.0, "level_start": 40, "level_end": 40, "job": None, "data": {}}
+    sniper.share_grind(a, card)
+    sniper.share_grind(a, dict(card, active_s=100.0))     # too short: nothing
+    assert [(k, d["map"], key) for k, d, key in shared] == [("grind", "Ant Tunnel I", "grind:7:1000")]
