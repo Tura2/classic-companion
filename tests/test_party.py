@@ -86,3 +86,54 @@ def test_a_read_nothing_explains_gives_up_fast():
     assert party.tell(WRM4, 997, DUO) is None or len(party.tell(WRM4, 997, DUO)) <= party.TELL_MOST
     party.tell(WRM4, 9973, DUO)
     assert time.process_time() - t < 2.0
+
+
+# ---- kills from the corner's lines: "You received EXP (+n)" is one kill's EXP, yours or a member's
+# Forgotten Entrance II, read live 2026-11-27 over 40 s, a party of six: 16 lines of 26-27 (your
+# kills, about a third of the monster's EXP) and 69 of 8-12 (the five others' kills, about 11%)
+FE2 = [("Lupin", 75, 6), ("Glowshroom", 82, 12), ("Raffle", 85, 14)]
+FE2_LINES = [10, 9, 27, 9, 27, 8, 10, 9, 9, 10, 10, 27, 9, 10, 8, 10, 9, 9, 9, 27, 9, 10, 9, 8, 26, 8, 26, 9, 9, 9,
+             27, 10, 10, 10, 10, 8, 9, 26, 10, 9, 8, 10, 8, 9, 10, 9, 26, 9, 10, 8, 10, 27, 8, 9, 9, 9, 8, 27, 8, 10,
+             10, 27, 10, 9, 27, 26, 10, 8, 9, 9, 10, 10, 10, 9, 11, 12, 8, 9, 27, 8, 10, 9, 9, 9, 26]
+
+
+def take_all(lines, mobs, values):
+    told = []
+    for v in values:
+        told += lines.take(v, mobs)
+    return told
+
+
+def test_six_in_a_party_lines_tell_yours_and_theirs():
+    lines = party.Lines()
+    told = take_all(lines, FE2, FE2_LINES)
+    yours = [n for n, who in told if who == "you"]
+    assert len(yours) == 16 and len(told) - len(yours) >= 67
+    assert sorted(lines.pending) == [11, 12]       # the two odd lines (a member at another level?) wait
+    assert set(n for n, _ in told) <= {"Lupin", "Glowshroom", "Raffle"}
+    you, member = lines.shares(FE2)
+    assert 0.29 <= you <= 0.35 and 0.10 <= member <= 0.13
+
+
+def test_a_duo_s_lines():
+    # West Rocky Mountain IV, two players (2026-11-13): your Wild Boar +28, your partner's +18
+    lines = party.Lines()
+    told = take_all(lines, WRM4, [28, 18, 28, 28, 18, 26, 28, 17, 28, 18, 28, 28])
+    assert [w for _, w in told].count("party") == 4
+    assert all(n in ("Wild Boar", "Dark Axe Stump") for n, _ in told)
+
+
+def test_lines_wait_for_enough_to_learn_from():
+    lines = party.Lines()
+    assert take_all(lines, FE2, FE2_LINES[:5]) == []        # too few to tell whose
+    first = take_all(lines, FE2, FE2_LINES[5:10])            # then the ones held are told too...
+    assert len(first) >= 8 and all(w == "party" for _, w in first)
+    later = take_all(lines, FE2, FE2_LINES[10:])             # ...and yours, once a few of them show
+    assert len(first) + len(later) + len(lines.pending) == len(FE2_LINES)
+    assert sum(1 for _, w in first + later if w == "you") == 16
+
+
+def test_a_new_map_starts_afresh():
+    lines = party.Lines()
+    take_all(lines, FE2, FE2_LINES)
+    assert lines.take(28, WRM4) == []                       # other monsters: learnt again

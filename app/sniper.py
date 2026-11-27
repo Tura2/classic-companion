@@ -93,6 +93,7 @@ IDLE_AFTER = 300.0        # no EXP for this long and the game not in front: you'
 IDLE_EVERY = 5.0          # seconds between looks at the game while you're away
 MAP_EVERY = 0.5           # seconds between quick looks at just the mini map, between those
 CORNER_EVERY = 0.4        # seconds between looks at the corner's lines (mesos and items picked up)
+CORNER_FRESH = 10.0       # in a party, kills come from the corner's EXP lines while one came this lately
 SHOP_EVERY = 0.3          # seconds between quick re-reads of an open shop's item list
 PREVIEW_W = 960           # width of the live picture of the game in the dashboard
 SAMPLE_EVERY = 60         # seconds between saved pictures of a shop window (to tune the shop reader)
@@ -212,6 +213,9 @@ def handle_grind(app, seen, prof):
             # corner's party bonus lines) a gain is shares: only the party split tells it as kills,
             # since whole kills that happen to add up to it aren't yours (2026-11-20: "Fire Boar 12")
             in_party = g.in_party(now)
+            # in a party the corner's EXP lines count the kills, one line each (handle_corner): while
+            # they come, the HUD's gains aren't counted again
+            by_corner = in_party and now - getattr(app, "corner_kills_at", -1e18) <= CORNER_FRESH
             split = getattr(app.data, "split_kills", None)
             on_map = split and mid in getattr(app.data, "maps", {})
             names = split(mid, gain) if on_map and not in_party else None
@@ -232,7 +236,9 @@ def handle_grind(app, seen, prof):
                 model = fit.model(mobs)
                 if model:
                     told = [k for s in steps for k in (party_split.tell(mobs, s, model) or [])] or None
-            if names:
+            if by_corner:
+                pass
+            elif names:
                 for n in names:
                     g.add_kill(n, now)
             elif told:
@@ -249,7 +255,8 @@ def handle_grind(app, seen, prof):
 def handle_corner(app, events):
     """Feed the grind session the corner's new lines (notices.Corner): the mesos and items picked up;
     and the potions drunk from the quick slots (quickslots.QuickSlots, ("used", name, n)).
-    Its EXP lines aren't kills here: those come from the HUD's EXP gains, named the same way."""
+    In a party its EXP lines are the kills, one line each, yours or a member's (party.Lines); solo
+    the kills come from the HUD's EXP gains, named the same way."""
     g = getattr(app, "grind", None)
     if g is None:
         return
@@ -263,6 +270,27 @@ def handle_corner(app, events):
             g.add_loot(ev[1], ev[2], now)
         elif ev[0] == "used" and ev[1]:
             g.add_used(ev[1], ev[2], now)
+        elif ev[0] == "exp" and ev[1]:
+            corner_kill(app, g, ev[1], now)
+
+
+def corner_kill(app, g, v, now):
+    """One "You received EXP (+v)" line in a party: a kill, yours or a member's, once the map's lines
+    show the two shares (live 2026-11-27, six players: the HUD's gains came as chunks of a dozen
+    kills, the corner showed each one)."""
+    data = getattr(app, "data", None)
+    mid = g.map_id
+    if not g.in_party(now) or data is None or mid not in (getattr(data, "maps", None) or {}):
+        return
+    mobs = data.map_mobs(mid)
+    if not mobs:
+        return
+    lines = getattr(app, "corner_lines", None)
+    if lines is None:
+        lines = app.corner_lines = party_split.Lines()
+    app.corner_kills_at = now
+    for name, who in lines.take(v, mobs):
+        g.add_kill(name, now, party=who == "party")
 
 
 HOVER_KEEP = 120    # items Sell or keep remembers (hovered, or read off an inventory tab)
