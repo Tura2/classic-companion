@@ -42,6 +42,7 @@ from gamedata import JOBS, GameData, portal_meta
 
 import applog
 import autoreport
+import compat
 import paths
 from paths import APP_DIR, CACHE_DIR, DATA_DIR, LOGS_DIR, RES_DIR, load_json, save_json
 from version import VERSION
@@ -237,12 +238,28 @@ def make_reports(data, state, cfg):
         prof = state["profile"]
         mid = prof.get("current_map")
         return {"version": VERSION, "screen": report.screen(), "game_size": state.get("game_size"),
+                "compat": compat_status(state),
                 "settings": {k: v for k, v in cfg.items() if k not in autoreport.PERSONAL and k != "region"},
                 "profile": {"name": prof.get("name"), "job": prof.get("job"), "level": prof.get("level"),
                             "map_id": mid, "map": (data.maps.get(mid) or {}).get("name") if mid else None}}
     state["report_watch"] = autoreport.Watch(reports, context)
     reports.start()
     return reports
+
+
+def check_pc(state):
+    """compat.system() once, off the window's thread; logged, and shown in Settings → This PC."""
+    def run():
+        checks = compat.system()
+        state["compat"] = checks
+        for c in checks:
+            applog.log(f"This PC: {c['title']}" + ("" if c["ok"] is not False else f" — {c['detail']} Fix: {c['fix']}"))
+    threading.Thread(target=run, daemon=True, name="compat").start()
+
+
+def compat_status(state):
+    size = compat.size(state.get("game_size") if state.get("game_found") else None, MIN_HEIGHT)
+    return compat.summary(list(state.get("compat") or []) + [size])
 
 
 def discord_status(state, cfg, port):
@@ -411,7 +428,8 @@ def make_handler(data, state, cfg):
                                            "capture": (state.get("live") or {}).get("capture", "off"),
                                            "capture_error": (state.get("live") or {}).get("capture_error", ""),
                                            "discord": discord_status(state, cfg, self.server.server_address[1]),
-                                           "reports": state["reports"].status() if state.get("reports") else {"setup": False}})
+                                           "reports": state["reports"].status() if state.get("reports") else {"setup": False},
+                                           "compat": compat_status(state)})
                 if url.path == "/api/maps":
                     return self.send(200, data.find_maps(q.get("q", "")))
                 if url.path == "/api/mobs":          # Train's monster search
@@ -893,6 +911,7 @@ def start(win, started):
     state["outbox"] = make_outbox(data, state, cfg)
     state["discord_send"] = lambda text: discord_send(state, cfg, text)
     state["reports"] = make_reports(data, state, cfg)
+    check_pc(state)
 
     server, port = start_server(make_handler(data, state, cfg))
     started["server"] = server
